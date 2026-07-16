@@ -141,5 +141,8 @@ and GCP/Drive setup belong to mission **configure-gcloud-drive**.
 
 - Mission **Required Tools Installation** —
   `missions/required-tools-installation/` (command phrase **`install required tools`**);
-  spawned **configure-gcloud-drive** after **`gcloud`** is in scope.
+  spawned **configure-gcloud-drive** after **`gcloud`** is in scope (includes
+  Internal Desktop OAuth `client_id` → rclone via
+  `missions/required-tools-installation/scripts/setup-rclone-drive-client-id.sh`;
+  Windows `.ps1` follow-up).
 - Foundation rule — `rules/00_documentation-management.mdc` (rclone as primary sync tool).

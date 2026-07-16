@@ -23,7 +23,10 @@ alwaysApply: false
 5. When tool **`gcloud`** is in scope for the pass (**ok**, newly installed, or
    **use-path**), spawn **configure-gcloud-drive** to confirm GCP console access,
    authenticate (user terminal), configure a GCP project and service account,
-   enable Drive API, apply rclone Drive access, and verify.
+   enable Drive API, apply rclone Drive access, provision an **Internal**
+   Desktop OAuth `client_id` into rclone config via
+   **`scripts/setup-rclone-drive-client-id.sh`** (Windows script follow-up),
+   and verify — **never** print OAuth secrets into chat.
 6. Close the dispatch with an explicit Squad Leader resolution proposal when the
    install/verify (and gcloud configure when applicable) pass is complete or
    abandoned.
@@ -120,16 +123,18 @@ USER_CHECKPOINT — retry dry-runs, accept partial, or abort after dry-run failu
 
 - **Type:** Agent engagement and handover
 - **execution:** `spawned`
-- **Intent:** After gcloud CLI is installed/verified, confirm the user can open the Google Cloud Console at **https://console.cloud.google.com/** (including handling **Try for free** / org enablement), authenticate in the terminal (`gcloud auth login` via **Ctrl+`**), configure a GCP project (existing or create **`sedea-agent-squad`**), select/create a service account (create id **`<hosting-repo-basename>-sedea-agent`**), download the SA JSON to the user-home credentials path, enable Google Drive API, grant the SA Drive access rclone needs, and verify with a gcloud/Drive command.
-- **Inputs:** Probe/install outcome for tool **`gcloud`**; optional user hints (existing project id, existing SA email); `defaultNewProjectId: sedea-agent-squad`; `defaultNewServiceAccountId: <hosting-repo-basename>-sedea-agent`; `credentialsTargetPath`; `operationsDocsDirectory` from Mission Control.
-- **Expected output:** Child **`mission_control_send_agent_result`** with `projectId`, `serviceAccountEmail`, `credentialsPath`, `driveApiEnabled`, `permissionsApplied`, `verifyCommand`, `verifyPassed`, `continuationStatus: terminal`.
+- **Intent:** After gcloud CLI is installed/verified, confirm the user can open the Google Cloud Console at **https://console.cloud.google.com/** (including handling **Try for free** / org enablement), authenticate in the terminal (`gcloud auth login` via **Ctrl+`**), configure a GCP project (existing or create **`sedea-agent-squad`**), select/create a service account (create id **`<hosting-repo-basename>-sedea-agent`**), download the SA JSON to the user-home credentials path, enable Google Drive API, grant the SA Drive access rclone needs, provision an **Internal** Desktop OAuth client for rclone ([Making your own client_id](https://rclone.org/drive/#making-your-own-client-id)) via **`scripts/setup-rclone-drive-client-id.sh`** writing `client_id` / `client_secret` **directly into rclone config**, and verify with a gcloud/Drive command.
+- **Inputs:** Probe/install outcome for tool **`gcloud`**; optional user hints (existing project id, existing SA email); `defaultNewProjectId: sedea-agent-squad`; `defaultNewServiceAccountId: <hosting-repo-basename>-sedea-agent`; `credentialsTargetPath`; `operationsDocsDirectory` from Mission Control; optional `rcloneRemote` (default **`sedea-gdrive`**).
+- **Expected output:** Child **`mission_control_send_agent_result`** with `projectId`, `serviceAccountEmail`, `credentialsPath`, `driveApiEnabled`, `permissionsApplied`, `rcloneClientConfigured`, `rcloneRemote`, `oauthStorePath`, `verifyCommand`, `verifyPassed`, `continuationStatus: terminal`.
 - **Next-step resolution:** Child success → §8. Child failure/partial → USER_CHECKPOINT below, then §8.
 
 **When to run:** Only when tool **`gcloud`** is in the registry and was **ok**, newly installed, or **use-path** for this pass. If **`gcloud`** is absent from the registry or was **skip**’d → skip this step and go to §8.
 
 **Target skill:** [skills/configure-gcloud-drive/SKILL.md](skills/configure-gcloud-drive/SKILL.md)
 
-**Spawn:** Emit **`mission_control_spawn_agent`** with `skillPath` to that skill, `inputs` (`projectPreference`, `existingProjectId?`, `defaultNewProjectId`, `serviceAccountPreference`, `existingServiceAccountEmail?`, `defaultNewServiceAccountId`, `credentialsTargetPath`, `operationsDocsDirectory`), optional `warmUpRules` / `initiatingPrompt` (install/probe summary + naming defaults). Open **external-wait / next-step** structured choice before ending the turn while waiting for the child result.
+**Script:** [scripts/setup-rclone-drive-client-id.sh](scripts/setup-rclone-drive-client-id.sh) (Unix). Windows **`setup-rclone-drive-client-id.ps1`** is a follow-up PR — skill records `rcloneClientConfigured: false` on Windows rather than inventing a chat paste-secrets path.
+
+**Spawn:** Emit **`mission_control_spawn_agent`** with `skillPath` to that skill, `inputs` (`projectPreference`, `existingProjectId?`, `defaultNewProjectId`, `serviceAccountPreference`, `existingServiceAccountEmail?`, `defaultNewServiceAccountId`, `credentialsTargetPath`, `operationsDocsDirectory`, optional `rcloneRemote`), optional `warmUpRules` / `initiatingPrompt` (install/probe summary + naming defaults). Open **external-wait / next-step** structured choice before ending the turn while waiting for the child result.
 
 **Naming (binding — create paths only):**
 
@@ -140,7 +145,7 @@ USER_CHECKPOINT — retry dry-runs, accept partial, or abort after dry-run failu
 
 USER_CHECKPOINT — retry configure spawn, accept partial, or abort after child failure/partial.
 
-**Forbidden:** child proposing dispatch resolution; interactive `gcloud auth login` in the agent shell (skill step 1b — user runs it in the terminal via **Ctrl+`**); skipping the console.cloud.google.com Console check (skill step 1a) when auth is missing.
+**Forbidden:** child proposing dispatch resolution; interactive `gcloud auth login` in the agent shell (skill step 1b — user runs it in the terminal via **Ctrl+`**); skipping the console.cloud.google.com Console check (skill step 1a) when auth is missing; printing OAuth `client_secret` / oauth-client.json / rclone config dumps into chat or ops docs.
 
 ### 8. Dispatch resolution (Squad Leader)
 
@@ -155,8 +160,8 @@ Call **`mission_control_propose_dispatch_resolution`** per
 
 | Status | When |
 |--------|------|
-| **`resolved`** | All required tools **ok** (or installed), dry-runs passed, and gcloud configure succeeded when in scope |
-| **`partial`** | Useful progress but skips, overrides, failed dry-runs, or configure gaps remain |
+| **`resolved`** | All required tools **ok** (or installed), dry-runs passed, and gcloud configure succeeded when in scope (including rclone `client_id` write on Unix when configure ran) |
+| **`partial`** | Useful progress but skips, overrides, failed dry-runs, configure gaps, or Windows rclone-client script deferred remain |
 | **`abandoned`** | User aborted |
 | **`aborted`** | Blocking error prevented continuation |
 
