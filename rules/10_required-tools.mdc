@@ -1,0 +1,86 @@
+---
+description: >-
+  Extensible registry of tools required by Documentation Management — min
+  versions, docs/install URLs, OS install methods, and dry-run commands.
+globs: "**/*"
+alwaysApply: false
+---
+
+# Required tools
+
+**Normative registry** for tools this center expects on the operator machine.
+Missions that install or verify tooling **must** read this file — do not invent
+a second required-tools list.
+
+When adding a tool later, append a row under **Tool inventory** with every
+required field. Prefer official docs and install pages; keep dry-run commands
+executable without further browsing.
+
+## Schema (per tool)
+
+| Field | Required | Meaning |
+|-------|----------|---------|
+| **`id`** | yes | Stable kebab-case tool id (also usual CLI name when identical) |
+| **`cli`** | yes | Primary command name for `command -v` / PATH probes |
+| **`minVersion`** | yes | Minimum semver (or tool-native version string) the center accepts |
+| **`docsUrl`** | yes | Primary documentation URL |
+| **`installUrl`** | yes | Installation documentation URL (may equal docs when install is a subsection) |
+| **`macosMethods`** | yes | Ordered list of install method ids allowed on macOS |
+| **`windowsMethods`** | yes | Ordered list of install method ids allowed on Windows |
+| **`dryRuns`** | yes | Ordered list of `{ command, expect }` checks after install |
+
+**Method ids** are labels only — the install procedure for each id lives on
+**`installUrl`**. Agents **must not** invent methods absent from the tool’s
+`macosMethods` / `windowsMethods` lists.
+
+## Tool inventory
+
+### `rclone`
+
+| Field | Value |
+|-------|--------|
+| **id** | `rclone` |
+| **cli** | `rclone` |
+| **minVersion** | `1.60.0` |
+| **docsUrl** | https://rclone.org/docs/ |
+| **installUrl** | https://rclone.org/install/ |
+
+**macOS methods (`macosMethods`):**
+
+| Method id | Notes (from install docs — follow `installUrl` for exact commands) |
+|-----------|---------------------------------------------------------------------|
+| `curl` | Official `install.sh` via curl (Linux/macOS/BSD script path) |
+| `brew` | Homebrew: `brew install rclone` |
+| `port` | MacPorts: `sudo port install rclone` |
+
+**Windows methods (`windowsMethods`):**
+
+| Method id | Notes (from install docs — follow `installUrl` for exact commands) |
+|-----------|---------------------------------------------------------------------|
+| `winget` | `winget install Rclone.Rclone` |
+| `precompiled-zip` | Download zip from downloads.rclone.org; extract `rclone.exe` onto PATH |
+
+**dryRuns:**
+
+| # | `command` | `expect` |
+|---|-----------|----------|
+| 1 | `rclone version` | Exit **0**; stdout includes a version ≥ **`minVersion`** |
+| 2 | `rclone listremotes` | Exit **0** (empty remote list is OK) |
+
+## Agent obligations
+
+1. Treat this inventory as the **only** required-tools source for this center.
+2. Probe with the shell using **`cli`** (and any **user-supplied path/command** from
+   the install mission gate) before proposing install.
+3. Compare discovered version to **`minVersion`** — classify **ok**, **outdated**,
+   or **missing**.
+4. Install only after structured-choice consent; use only listed OS method ids;
+   read procedures from **`installUrl`**.
+5. After install (or path override), run **every** **`dryRuns`** row in order and
+   record pass/fail.
+
+## Related
+
+- Mission **Required Tools Installation** —
+  `missions/required-tools-installation/` (command phrase **`install required tools`**).
+- Foundation rule — `rules/00_documentation-management.mdc` (rclone as primary sync tool).

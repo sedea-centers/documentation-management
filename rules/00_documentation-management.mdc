@@ -25,9 +25,12 @@ that inform mission and lane skills (paths, remotes, conflict choices, org polic
 ## Primary tool
 
 **`rclone`** is the primary tool for synchronizing a local documentation folder
-with its remote. The **documentation management setup** mission installs `rclone`
-and performs other initial configuration. Do not invent an alternate sync engine
-unless a later rule or mission explicitly authorizes it.
+with its remote. Install and verify required tools (including `rclone`) via the
+**Required Tools Installation** mission (`missions/required-tools-installation/`,
+command phrase **`install required tools`**). The normative tool inventory —
+minimum versions, docs/install URLs, OS method ids, and dry-runs — lives in
+**`rules/10_required-tools.mdc`**. Do not invent an alternate sync engine unless a
+later rule or mission explicitly authorizes it.
 
 ## Configuration file
 
@@ -85,8 +88,10 @@ renumbering.
 4. Prefer mission skills under this center for setup and sync; specialized centers
    that reuse these assets keep this contract unless they document a deliberate override.
 
-## Related (authored later)
+## Related
 
-- Mission **documentation management setup** — install rclone, initial config.
-- Center **conflict-resolution** skill — shared conflict handling for all lanes.
+- Mission **Required Tools Installation** — `missions/required-tools-installation/`
+  (phrase **`install required tools`**); registry **`rules/10_required-tools.mdc`**.
+- Center **conflict-resolution** skill — shared conflict handling for all lanes
+  (when authored).
 - Sync missions and skills — when added under `missions/`.
