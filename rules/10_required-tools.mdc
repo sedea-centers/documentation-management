@@ -2,7 +2,7 @@
 description: >-
   Extensible registry of tools required by Documentation Management — min
   versions, docs/install URLs, sole OS install method per platform, canonical
-  install paths for invoke/probe, and dry-run commands.
+  install paths for invoke/probe, dry-run commands, and Drive auth invoke shape.
 globs: "**/*"
 alwaysApply: false
 ---
@@ -27,8 +27,10 @@ executable without further browsing.
 | **`docsUrl`** | yes | Primary documentation URL |
 | **`installUrl`** | yes | Installation documentation URL (may equal docs when install is a subsection) |
 | **`macosInstallPath`** | yes | Canonical path of the binary after the sole macOS method succeeds (tilde allowed) |
+| **`linuxInstallPath`** | yes | Canonical path of the binary after the sole Linux method succeeds (tilde allowed) |
 | **`windowsInstallPath`** | yes | Canonical path of the binary after the sole Windows method succeeds (`%VAR%` allowed) |
 | **`macosMethods`** | yes | Ordered list of install method ids allowed on macOS — **exactly one** sole method |
+| **`linuxMethods`** | yes | Ordered list of install method ids allowed on Linux — **exactly one** sole method |
 | **`windowsMethods`** | yes | Ordered list of install method ids allowed on Windows — **exactly one** sole method |
 | **`dryRuns`** | yes | Ordered list of `{ command, expect }` checks after install |
 
@@ -41,10 +43,64 @@ invoke the tool via the resolved install path when that file exists; use bare
 
 **Method ids** label the sole install procedure for that OS. Procedure detail lives
 on **`installUrl`** and in the method notes. Agents **must not** invent methods
-absent from the tool’s `macosMethods` / `windowsMethods` lists. When a list has
-one entry, that id is **mandatory** — **do not** ask the user to pick a method
-or an install directory (paths are fixed by **`macosInstallPath`** /
-**`windowsInstallPath`**).
+absent from the tool’s `macosMethods` / `linuxMethods` / `windowsMethods` lists.
+When a list has one entry, that id is **mandatory** — **do not** ask the user to
+pick a method or an install directory (paths are fixed by **`macosInstallPath`** /
+**`linuxInstallPath`** / **`windowsInstallPath`**).
+
+## Resolve install path (binding)
+
+Detect the current OS, then read the matching registry field:
+
+| OS | Detect | Registry field |
+|----|--------|----------------|
+| macOS | `uname -s` = `Darwin` | **`macosInstallPath`** |
+| Linux | `uname -s` = `Linux` | **`linuxInstallPath`** |
+| Windows | Agent shell on Windows (`$env:OS` / `%OS%`) | **`windowsInstallPath`** |
+
+**Algorithm:**
+
+1. Select the install-path field for the current OS.
+2. Expand environment variables (`~` → `$HOME`; `%LOCALAPPDATA%` → `$env:LOCALAPPDATA` in PowerShell).
+3. When the resolved path exists and is executable, **must** invoke via that path.
+4. When the install path is missing, probe bare **`cli`** on PATH only after a confirmed PATH hit or user **`use-path`** override.
+5. Run **`dryRuns`** with the install-path executable (substitute the path for the leading **`cli`** token).
+
+## Invoke and probe (by OS)
+
+Use these patterns after install or when verifying an existing install. Replace
+placeholders; do not print secret material.
+
+### `rclone`
+
+| OS | Resolved install path | Version probe |
+|----|----------------------|---------------|
+| macOS / Linux (bash) | `$HOME/bin/rclone` | `"$HOME/bin/rclone" version` |
+| Windows (PowerShell) | `$env:LOCALAPPDATA\Programs\rclone\rclone.exe` | `& "$env:LOCALAPPDATA\Programs\rclone\rclone.exe" version` |
+
+**List remotes (install check only — not Drive auth):**
+
+| OS | Command |
+|----|---------|
+| macOS / Linux | `"$HOME/bin/rclone" listremotes` |
+| Windows (PowerShell) | `& "$env:LOCALAPPDATA\Programs\rclone\rclone.exe" listremotes` |
+
+### `gcloud`
+
+| OS | Resolved install path | Version probe |
+|----|----------------------|---------------|
+| macOS / Linux (bash) | `$HOME/google-cloud-sdk/bin/gcloud` | `"$HOME/google-cloud-sdk/bin/gcloud" version` |
+| Windows (PowerShell) | `$env:LOCALAPPDATA\Google\CloudSDK\google-cloud-sdk\bin\gcloud.cmd` | `& "$env:LOCALAPPDATA\Google\CloudSDK\google-cloud-sdk\bin\gcloud.cmd" version` |
+
+**Help probe:**
+
+| OS | Command |
+|----|---------|
+| macOS / Linux | `"$HOME/google-cloud-sdk/bin/gcloud" help` |
+| Windows (PowerShell) | `& "$env:LOCALAPPDATA\Google\CloudSDK\google-cloud-sdk\bin\gcloud.cmd" help` |
+
+Dry-runs are **CLI-only** for **`gcloud`** — user auth and GCP/Drive setup belong
+to mission **configure-gcloud-drive**.
 
 ## Tool inventory
 
@@ -58,6 +114,7 @@ or an install directory (paths are fixed by **`macosInstallPath`** /
 | **docsUrl** | https://rclone.org/docs/ |
 | **installUrl** | https://rclone.org/install/ |
 | **macosInstallPath** | `~/bin/rclone` |
+| **linuxInstallPath** | `~/bin/rclone` |
 | **windowsInstallPath** | `%LOCALAPPDATA%\Programs\rclone\rclone.exe` |
 
 **macOS methods (`macosMethods`):**
@@ -65,6 +122,12 @@ or an install directory (paths are fixed by **`macosInstallPath`** /
 | Method id | Notes (from install docs — follow `installUrl` for exact commands) |
 |-----------|---------------------------------------------------------------------|
 | `curl` | **Sole** macOS method. Download the official **precompiled** macOS binary from downloads.rclone.org (see `installUrl`) via **curl** — do **not** run `install.sh`. Create the parent of **`macosInstallPath`** if missing; install the binary at **`macosInstallPath`**; `chmod +x`. Ensure the parent directory is on PATH when dry-runs use bare **`cli`**. **Forbidden:** `sudo`; system paths (`/usr/local/bin`, etc.); brew; MacPorts; `install.sh`; other install locations. |
+
+**Linux methods (`linuxMethods`):**
+
+| Method id | Notes (from install docs — follow `installUrl` for exact commands) |
+|-----------|---------------------------------------------------------------------|
+| `curl` | **Sole** Linux method. Download the official **precompiled** Linux binary (`linux-amd64` or `linux-arm64` zip from downloads.rclone.org per `installUrl`) via **curl** — do **not** run `install.sh`. Create the parent of **`linuxInstallPath`** if missing; install the binary at **`linuxInstallPath`**; `chmod +x`. Ensure the parent directory is on PATH when dry-runs use bare **`cli`**. **Forbidden:** `sudo`; system paths (`/usr/local/bin`, etc.); distro package managers as a substitute; `install.sh`; other install locations. |
 
 **Windows methods (`windowsMethods`):**
 
@@ -80,9 +143,83 @@ or an install directory (paths are fixed by **`macosInstallPath`** /
 | 2 | `rclone listremotes` | Exit **0** (empty remote list is OK) |
 
 Prefer running **`dryRuns`** with the resolved **`macosInstallPath`** /
-**`windowsInstallPath`** as the executable (substitute the path for the leading
-**`cli`** token). Bare **`cli`** is allowed only when invoking via PATH after a
-confirmed PATH hit.
+**`linuxInstallPath`** / **`windowsInstallPath`** as the executable (substitute
+the path for the leading **`cli`** token). Bare **`cli`** is allowed only when
+invoking via PATH after a confirmed PATH hit.
+
+**Related auth (out of scope for install — binding for Drive invoke):**
+
+Drive remote auth (service account JSON, bisync, folder ids) is **not** fully
+defined here. Full GCP/Drive setup lives in
+**`missions/required-tools-installation/skills/configure-gcloud-drive/SKILL.md`**
+and folder/registry semantics in **`rules/00_documentation-management.mdc`**.
+
+**Forbidden:** treating **`rclone listremotes`** exit **0** as proof that Drive
+bisync or **`lsf`** against a shared folder will succeed. A remote can list
+while auth for API calls is still missing.
+
+#### Drive auth invoke (binding for agents)
+
+Agents **must** use **service account JSON** via CLI flags for Drive probes and
+bisync — **not** default to **`rclone config reconnect`** when rclone prints
+`empty token found`.
+
+| Input | Source |
+|-------|--------|
+| **SA JSON path** | `~/.config/gcloud/<hosting-basename>-sedea-agent.json` (expand `~` / Windows home) |
+| **Drive folder id** | `folders.<slug>.rclone.remotePath` from **`.sedea/documentation-management.yaml`** when it is a Drive / Shared Drive id |
+| **Remote name** | `folders.<slug>.rclone.remote` (typically `sedea-gdrive:`) |
+
+**Required flags on every Drive API probe and bisync:**
+
+- `--drive-service-account-file "<SA path>"`
+- `--drive-root-folder-id "<remotePath>"` when **`remotePath`** is a folder / Shared Drive id
+
+**Syntax:** use **`sedea-gdrive:`** plus **`--drive-root-folder-id`**, not
+**`sedea-gdrive:<id>`** without SA flags.
+
+**Probe order** (before declaring Drive auth broken or suggesting reconnect):
+
+1. Install-path **`version`** (see **Invoke and probe** above).
+2. **`listremotes`** — remote **name** exists only.
+3. Confirm SA JSON exists at the standard path; record **`client_email`** only — **never** print key material.
+4. **`lsf`** (or equivalent read) **with SA flags**:
+
+```bash
+RCLONE="$HOME/bin/rclone"
+SA="$HOME/.config/gcloud/<hosting-basename>-sedea-agent.json"
+DRIVE_ID="<remotePath from .sedea/documentation-management.yaml>"
+
+"$RCLONE" lsf "sedea-gdrive:" \
+  --drive-service-account-file "$SA" \
+  --drive-root-folder-id "$DRIVE_ID"
+```
+
+**Windows (PowerShell)** — same flags; substitute install path and home:
+
+```powershell
+$Rclone = "$env:LOCALAPPDATA\Programs\rclone\rclone.exe"
+$Sa = "$env:USERPROFILE\.config\gcloud\<hosting-basename>-sedea-agent.json"
+$DriveId = "<remotePath from .sedea/documentation-management.yaml>"
+
+& $Rclone lsf "sedea-gdrive:" `
+  --drive-service-account-file $Sa `
+  --drive-root-folder-id $DriveId
+```
+
+**Bisync** uses the same auth flags. First outbound push after no prior bisync
+state may require **`--resync`**. Mission-specific §7 construction (for example
+**author-single-file**) may add further flags — this rule defines the **auth-bearing
+command shape** only.
+
+**On failure:**
+
+| Symptom | Likely cause | Agent action |
+|---------|--------------|--------------|
+| **403** / **notFound** | Folder not shared with SA **`client_email`** | Share fix — not reconnect |
+| Missing SA JSON | Configure not run | **`install required tools`** / **configure-gcloud-drive** |
+| `empty token found` | Remote has OAuth client_id but no token and no SA in config | Retry **with SA CLI flags** — **forbidden:** reconnect-first USER_CHECKPOINT |
+| **Reconnect** | User OAuth out of band | Operator-only; never default in agent checkpoints |
 
 ### `gcloud`
 
@@ -94,6 +231,7 @@ confirmed PATH hit.
 | **docsUrl** | https://cloud.google.com/sdk/gcloud |
 | **installUrl** | https://cloud.google.com/sdk/docs/install-sdk |
 | **macosInstallPath** | `~/google-cloud-sdk/bin/gcloud` |
+| **linuxInstallPath** | `~/google-cloud-sdk/bin/gcloud` |
 | **windowsInstallPath** | `%LOCALAPPDATA%\Google\CloudSDK\google-cloud-sdk\bin\gcloud.cmd` |
 
 **macOS methods (`macosMethods`):**
@@ -101,6 +239,12 @@ confirmed PATH hit.
 | Method id | Notes (from install docs — follow `installUrl` for exact commands) |
 |-----------|---------------------------------------------------------------------|
 | `curl-sdk` | **Sole** macOS method. Detect arch (`uname -m`); **curl** the matching official archive from `dl.google.com` per `installUrl` (`google-cloud-cli-darwin-arm.tar.gz` or `google-cloud-cli-darwin-x86_64.tar.gz`). Extract/install the SDK so the `gcloud` binary is exactly at **`macosInstallPath`** (SDK root = `~/google-cloud-sdk`). Run the SDK `install.sh` with non-interactive flags as needed for PATH/shell rc; probes/dry-runs must prefer **`macosInstallPath`**. **Forbidden:** Homebrew; MacPorts; `sudo`; system paths; other install locations; interactive `gcloud init` during install (auth is **configure-gcloud-drive**). |
+
+**Linux methods (`linuxMethods`):**
+
+| Method id | Notes (from install docs — follow `installUrl` for exact commands) |
+|-----------|---------------------------------------------------------------------|
+| `curl-sdk` | **Sole** Linux method. Detect arch; **curl** the matching official archive from `dl.google.com` per `installUrl` (`google-cloud-cli-linux-x86_64.tar.gz` or `google-cloud-cli-linux-arm.tar.gz`). Extract/install the SDK so the `gcloud` binary is exactly at **`linuxInstallPath`** (SDK root = `~/google-cloud-sdk`). Run the SDK `install.sh` with non-interactive flags as needed; probes/dry-runs must prefer **`linuxInstallPath`**. **Forbidden:** distro package managers as a substitute; `sudo`; system paths; interactive `gcloud init` during install. |
 
 **Windows methods (`windowsMethods`):**
 
@@ -116,26 +260,27 @@ confirmed PATH hit.
 | 2 | `gcloud help` | Exit **0** |
 
 Prefer running **`dryRuns`** with the resolved **`macosInstallPath`** /
-**`windowsInstallPath`** as the executable (substitute the path for the leading
-**`cli`** token). Bare **`cli`** is allowed only when invoking via PATH after a
-confirmed PATH hit. Dry-runs are **CLI-only** — do not require auth; user auth
-and GCP/Drive setup belong to mission **configure-gcloud-drive**.
+**`linuxInstallPath`** / **`windowsInstallPath`** as the executable (substitute
+the path for the leading **`cli`** token). Bare **`cli`** is allowed only when
+invoking via PATH after a confirmed PATH hit.
 
 ## Agent obligations
 
 1. Treat this inventory as the **only** required-tools source for this center.
-2. Probe in order: (a) resolved **`macosInstallPath`** / **`windowsInstallPath`**
-   for the current OS; (b) any **user-supplied path/command** from the install
-   mission gate; (c) `command -v` / PATH on **`cli`**. Do not invent alternate
-   install directories.
+2. Probe in order: (a) resolved **`macosInstallPath`** / **`linuxInstallPath`** /
+   **`windowsInstallPath`** for the current OS; (b) any **user-supplied path/command**
+   from the install mission gate; (c) `command -v` / PATH on **`cli`**. Do not
+   invent alternate install directories.
 3. Compare discovered version to **`minVersion`** — classify **ok**, **outdated**,
    or **missing**.
 4. Install only after structured-choice consent to **install** (not method/path
    choice). Use the **sole** listed OS method id; place the binary exactly at
-   **`macosInstallPath`** / **`windowsInstallPath`**; follow method notes and
-   **`installUrl`**. **Forbidden:** method pickers; install-directory questions.
+   the OS install path; follow method notes and **`installUrl`**. **Forbidden:**
+   method pickers; install-directory questions.
 5. After install (or path override), run **every** **`dryRuns`** row in order
    (prefer install-path executable) and record pass/fail.
+6. For Drive **`lsf`** / **bisync**, apply **Drive auth invoke** — SA flags and
+   probe order — before suggesting **`rclone config reconnect`**.
 
 ## Related
 
@@ -145,4 +290,5 @@ and GCP/Drive setup belong to mission **configure-gcloud-drive**.
   Internal Desktop OAuth `client_id` → rclone via
   `missions/required-tools-installation/scripts/setup-rclone-drive-client-id.sh`;
   Windows `.ps1` follow-up).
-- Foundation rule — `rules/00_documentation-management.mdc` (rclone as primary sync tool).
+- Foundation rule — `rules/00_documentation-management.mdc` (rclone as primary sync tool;
+  folder registry **`remotePath`** semantics).
