@@ -18,9 +18,11 @@ alwaysApply: false
    hosting-repo **`.gitignore`** so documentation payloads stay out of git.
 3. Guide the user to choose a **Google Drive** folder and capture the remote
    link/path they provide (GDrive is the only provider in v1).
-4. Emit an OS-appropriate rclone setup **command** (or short script text) and
-   instruct the user to run it in the **VS Code / Cursor integrated terminal**
-   (copy/paste) — auth and browser consent cannot run inside the agent session.
+4. Emit an OS-appropriate rclone setup **command** (or short script text) that
+   requires the user’s **own Google Drive OAuth `client_id` / `client_secret`**
+   (rclone’s shared Drive `client_id` is retiring during 2026), and instruct
+   them to run it in the **VS Code / Cursor integrated terminal** (copy/paste) —
+   auth and browser consent cannot run inside the agent session.
 5. After the user confirms the setup command succeeded, run an agent **dry-run**
    as the **exit of installation** and report that result; then a **full pull**
    sync only after explicit confirm.
@@ -100,25 +102,44 @@ Explain how the user picks a Google Drive folder (Drive UI → open folder → c
 shareable link or folder id / path the agent documents for rclone). **Forbidden:**
 offering other cloud providers in v1; inventing a Drive folder without user input.
 
-### 5. Installation — setup command + dry-run exit
+### 5. Installation — own Drive client_id + setup command + dry-run exit
 
 - **Type:** Simple skill execution + external wait
-- **Intent:** Configure the rclone remote with credentials the agent cannot enter,
-  then prove the remote with a dry-run before leaving installation.
-- **Inputs:** Provider + remote path from §4; OS; hosting **`localPath`**.
-- **Expected output:** Copy-pasteable setup command (or short script body); user
-  confirmation that setup finished successfully; **dry-run log** (command, exit
-  code, pass/fail summary) as the **installation exit result**.
+- **Intent:** Require each operator to create and use their **own** Google OAuth
+  **`client_id` / `client_secret`** (Desktop app) before finishing rclone Drive
+  remote setup; keep credentials on the user’s machine; exit installation with a
+  dry-run result.
+- **Inputs:** Provider + remote path from §4; OS; hosting **`localPath`**;
+  optional existing rclone remote name when reconnecting a prior remote.
+- **Expected output:** Own-`client_id` guidance + copy-pasteable setup command (or
+  short script body); user confirmation that setup finished successfully;
+  **dry-run log** (command, exit code, pass/fail summary) as the **installation
+  exit result**.
 - **Next-step resolution:** Dry-run **pass** → §6 (promote hosting worktree to
   main). Dry-run **fail** or setup abort → USER_CHECKPOINT below, then §6 / §7
   or §9.
 
+**Why own Google Drive `client_id` (binding — always state briefly before setup):**
+
+rclone’s **shared** Google Drive `client_id` is **being retired and will stop
+working during 2026**. Leaving `client_id` / `client_secret` blank in
+`rclone config` uses that shared id and will interrupt sync later. Operators
+**must** create their own OAuth client and enter it when configuring the remote.
+Canonical guide: [Making your own client_id](https://rclone.org/drive/#making-your-own-client-id)
+(Google Cloud project → enable Google Drive API → OAuth consent → create **Desktop**
+OAuth client → note `client_id` and `client_secret`).
+
+**Forbidden:** telling the user it is OK to leave `client_id` blank for new
+Drive remotes; treating the rclone NOTICE about the shared id as ignorable noise
+when configuring or reconnecting.
+
 **Why the user must run this command (binding — always state briefly before the gate):**
 
 rclone remote setup for Google Drive opens a **browser OAuth / credential flow**
-(or prompts for secrets). The Mission Control agent **cannot** complete that
-interactive auth on the user’s behalf. Running the command in **their** terminal
-keeps credentials on their machine and lets them finish browser consent.
+(or prompts for secrets, including `client_id` / `client_secret`). The Mission
+Control agent **cannot** complete that interactive auth on the user’s behalf.
+Running the command in **their** terminal keeps credentials on their machine and
+lets them finish browser consent.
 
 **How to open the terminal (instruct every time this step runs):**
 
@@ -131,14 +152,36 @@ keeps credentials on their machine and lets them finish browser consent.
 the **panel** and may show Problems or Output instead of Terminal.
 **Do not** recommend Explorer / Finder double-click as the primary path.
 
-Generate the setup command for the current OS. Present it for copy/paste into the
-integrated terminal.
+**New remote setup (binding):**
 
-USER_CHECKPOINT — #external-wait — user ran setup in integrated terminal.
+1. Point the user to create their own `client_id` / `client_secret` (link above)
+   **before** or as the first prompts of `rclone config`.
+2. Generate the OS-appropriate setup command (or short script) for copy/paste into
+   the integrated terminal. The command path **must** include entering non-empty
+   `client_id` and `client_secret` when creating the Google Drive remote — **do
+   not** instruct them to leave those fields blank.
+3. Present the command for copy/paste.
+
+**Existing remote already using the shared id (binding when reconnecting):**
+
+When the user already has a Drive remote (for example after a sync that printed
+the shared-`client_id` NOTICE):
+
+1. Have them inspect with `rclone config show <remote>:` (blank/missing
+   `client_id` / `client_secret` means shared id).
+2. Guide them to set their own `client_id` / `client_secret` on that remote
+   (edit via `rclone config` or documented config fields).
+3. Require `rclone config reconnect <remote>:` and answer **Y** to refresh the
+   token so rclone actually uses the new client — omitting reconnect leaves the
+   old token/shared-id path in effect.
+4. One Google Cloud OAuth client may be reused across remotes; each remote still
+   needs its own reconnect after the client fields are set.
+
+USER_CHECKPOINT — #external-wait — user ran setup (or reconnect) in integrated terminal.
 
 Open structured choice **before** ending the turn: **setup succeeded** · **retry
-command** · **abort** · **More details for option _**. Recap must include the short
-“why you run this” explanation and the **Ctrl+`** / menu instructions.
+command** · **abort** · **More details for option _**. Recap must include: short
+“why own `client_id`”, “why you run this”, and the **Ctrl+`** / menu instructions.
 
 **After the user selects setup succeeded** (same installation step — auto-advance):
 
