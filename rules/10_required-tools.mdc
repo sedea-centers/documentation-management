@@ -1,7 +1,8 @@
 ---
 description: >-
   Extensible registry of tools required by Documentation Management — min
-  versions, docs/install URLs, OS install methods, and dry-run commands.
+  versions, docs/install URLs, sole OS install method per platform, and dry-run
+  commands.
 globs: "**/*"
 alwaysApply: false
 ---
@@ -25,13 +26,15 @@ executable without further browsing.
 | **`minVersion`** | yes | Minimum semver (or tool-native version string) the center accepts |
 | **`docsUrl`** | yes | Primary documentation URL |
 | **`installUrl`** | yes | Installation documentation URL (may equal docs when install is a subsection) |
-| **`macosMethods`** | yes | Ordered list of install method ids allowed on macOS |
-| **`windowsMethods`** | yes | Ordered list of install method ids allowed on Windows |
+| **`macosMethods`** | yes | Ordered list of install method ids allowed on macOS — **exactly one** sole method |
+| **`windowsMethods`** | yes | Ordered list of install method ids allowed on Windows — **exactly one** sole method |
 | **`dryRuns`** | yes | Ordered list of `{ command, expect }` checks after install |
 
-**Method ids** are labels only — the install procedure for each id lives on
-**`installUrl`**. Agents **must not** invent methods absent from the tool’s
-`macosMethods` / `windowsMethods` lists.
+**Method ids** label the sole install procedure for that OS. Procedure detail lives
+on **`installUrl`** and in the method notes (including any **fixed install path**).
+Agents **must not** invent methods absent from the tool’s `macosMethods` /
+`windowsMethods` lists. When a list has one entry, that id is **mandatory** —
+**do not** ask the user to pick a method or an install directory.
 
 ## Tool inventory
 
@@ -49,16 +52,13 @@ executable without further browsing.
 
 | Method id | Notes (from install docs — follow `installUrl` for exact commands) |
 |-----------|---------------------------------------------------------------------|
-| `curl` | Official `install.sh` via curl (Linux/macOS/BSD script path) |
-| `brew` | Homebrew: `brew install rclone` |
-| `port` | MacPorts: `sudo port install rclone` |
+| `curl` | **Sole** macOS method. Official `install.sh` via curl (Linux/macOS/BSD script path). **Forbidden:** offering brew, MacPorts, or any other method. |
 
 **Windows methods (`windowsMethods`):**
 
 | Method id | Notes (from install docs — follow `installUrl` for exact commands) |
 |-----------|---------------------------------------------------------------------|
-| `winget` | `winget install Rclone.Rclone` |
-| `precompiled-zip` | Download zip from downloads.rclone.org; extract `rclone.exe` onto PATH |
+| `fixed-path-exe` | **Sole** Windows method. Download the official Windows zip from downloads.rclone.org (see `installUrl`). Extract **`rclone.exe`** to **`%LOCALAPPDATA%\Programs\rclone\rclone.exe`** (create directories as needed). Ensure that directory is on the user PATH when needed for `command -v` / dry-runs. **Forbidden:** asking the user for a different install folder; offering winget or an open-ended extract location. |
 
 **dryRuns:**
 
@@ -74,8 +74,10 @@ executable without further browsing.
    the install mission gate) before proposing install.
 3. Compare discovered version to **`minVersion`** — classify **ok**, **outdated**,
    or **missing**.
-4. Install only after structured-choice consent; use only listed OS method ids;
-   read procedures from **`installUrl`**.
+4. Install only after structured-choice consent to **install** (not method/path
+   choice). Use the **sole** listed OS method id; follow method notes and
+   **`installUrl`**. **Forbidden:** method pickers; install-directory questions
+   when the sole method defines a fixed path.
 5. After install (or path override), run **every** **`dryRuns`** row in order and
    record pass/fail.
 

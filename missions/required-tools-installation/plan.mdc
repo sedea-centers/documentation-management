@@ -1,7 +1,7 @@
 ---
 description: >-
   Install and verify tools required by the Documentation Management Center —
-  shell probes, install consent, OS-specific methods, and documented dry-runs.
+  shell probes, install consent, sole OS install method, and documented dry-runs.
 alwaysApply: false
 ---
 
@@ -11,11 +11,12 @@ alwaysApply: false
 
 1. Keep the center’s **required-tools registry** (`rules/10_required-tools.mdc`) as
    the single source of truth for tools, minimum versions, docs/install URLs,
-   OS install method ids, and dry-run commands.
+   the **sole** OS install method id (and fixed path when defined), and dry-run
+   commands.
 2. Detect which required tools are **missing** or **below `minVersion`** via shell
    probes (respecting a user-supplied path/command when provided).
-3. Install only tools the user **explicitly consents** to install, using a
-   **user-chosen** install method id for the current OS from the registry.
+3. Install only tools the user **explicitly consents** to install, using the
+   **sole** registry install method id for the current OS (never a method picker).
 4. After install or path override, run each tool’s documented **dry-runs** and
    report pass/fail without further documentation browsing.
 5. Close the dispatch with an explicit Squad Leader resolution proposal when the
@@ -62,7 +63,7 @@ pointing at that rule.
 
 For each tool:
 
-1. Resolve executable: user-supplied path/command if set for that tool; else `command -v <cli>` (or OS-equivalent PATH probe).
+1. Resolve executable: user-supplied path/command if set for that tool; else `command -v <cli>` (or OS-equivalent PATH probe). On Windows, also probe the registry fixed path for method `fixed-path-exe` when documented (`%LOCALAPPDATA%\Programs\rclone\rclone.exe` for `rclone`).
 2. If not found → **missing**.
 3. If found, obtain version (prefer `<cli> version` / `--version` as documented for that tool). Compare to **`minVersion`** → **ok** or **outdated**.
 4. Do not install in this step.
@@ -72,28 +73,28 @@ For each tool:
 - **Type:** Branching logic
 - **Intent:** Obtain explicit consent before any install; allow path/command override to avoid duplicate installs.
 - **Inputs:** Probe table from §3.
-- **Expected output:** Per-tool action: `install` (with chosen method id) · `use-path` (user path/command) · `skip` · `abort`.
+- **Expected output:** Per-tool action: `install` (sole OS method id from registry) · `use-path` (user path/command) · `skip` · `abort`.
 - **Next-step resolution:** At least one `install` or `use-path` → §5. All `skip` with nothing to verify → §7. `abort` → §7 abandoned.
 
 USER_CHECKPOINT — confirm which tools to install, skip, or override with an existing path/command.
 
-Present structured choice covering tools that are **missing** or **outdated**. For
-each selected install, require an OS method id from that tool’s
-`macosMethods` / `windowsMethods` (detect OS via shell). Always include an option
-to **provide existing path or command** (via More details) and **More details for option _**.
+Present structured choice covering tools that are **missing** or **outdated**.
+Options are **install** / **use-path** / **skip** / **abort** only (plus **More details for option _**). Detect OS via shell. For each **`install`**, take the **sole** method id from that tool’s `macosMethods` / `windowsMethods` (the single listed entry) — **do not** ask the user to choose a method. When method notes define a fixed install path, use that path — **do not** ask where to install. Always include an option to **provide existing path or command** (via More details) for **`use-path`**.
 
-**Forbidden:** installing without this gate; inventing method ids not listed in the registry.
+**Forbidden:** installing without this gate; inventing method ids not listed in the registry; method pickers; install-directory questions when the sole method defines a fixed path.
 
 ### 5. Install approved tools
 
 - **Type:** Simple skill execution
-- **Intent:** Install only consented tools using the chosen method.
-- **Inputs:** Approvals from §4; **`installUrl`** and method id per tool.
+- **Intent:** Install only consented tools using the sole registry method for the OS.
+- **Inputs:** Approvals from §4; **`installUrl`**, sole method id, and fixed-path notes per tool.
 - **Expected output:** Per-tool install result (success / failure + stderr summary).
 - **Next-step resolution:** Success or `use-path` applied → §6. Hard failure on a required install → USER_CHECKPOINT below, then §6 or §7.
 
-Read **`installUrl`** for the exact commands for the chosen method id. Prefer the
-official procedure; do not browse randomly when the install page is sufficient.
+Read **`installUrl`** and the method notes for the exact commands for the sole
+method id. Prefer the official procedure; do not browse randomly when the install
+page is sufficient. On Windows `fixed-path-exe`, install only to the registry
+fixed path.
 
 USER_CHECKPOINT — retry, skip failed tool, or abort after an install failure.
 
