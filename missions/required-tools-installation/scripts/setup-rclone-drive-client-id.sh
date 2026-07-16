@@ -2,15 +2,32 @@
 # setup-rclone-drive-client-id.sh — Unix (macOS/Linux)
 #
 # Expects authenticated gcloud + a Drive-capable service-account JSON.
-# Ensures Internal OAuth consent, provisions a Desktop OAuth client for rclone
-# Drive (https://rclone.org/drive/#making-your-own-client-id), and writes
+# Ensures Internal OAuth consent, provisions an OAuth client for rclone Drive
+# (https://rclone.org/drive/#making-your-own-client-id), and writes
 # client_id / client_secret into rclone config.
+#
+# API note (2026): clientauthconfig.googleapis.com /v1/projects/{n}/brands returns
+# HTTP 404. This script uses IAP OAuth Admin REST (iap.googleapis.com) which still
+# creates Internal brands + clients suitable for rclone client_id/client_secret.
+# Google has deprecated IAP OAuth Admin APIs (turn-down timeline on gcloud warnings);
+# when those stop working, replace ensure_internal_brand / create_desktop_client.
 #
 # Forbidden: printing client_secret or oauth-client.json contents to stdout/stderr.
 # Windows: exit 5 — use setup-rclone-drive-client-id.ps1 (follow-up PR).
 #
 # Exit codes: 0 ok | 1 usage | 2 preconditions | 3 GCP/oauth | 4 rclone | 5 windows
 set -euo pipefail
+
+# Agent / non-interactive shells: never hang on gcloud "enable API? (y/N)"
+export CLOUDSDK_CORE_DISABLE_PROMPTS="${CLOUDSDK_CORE_DISABLE_PROMPTS:-1}"
+
+# Prefer registry install paths when bare gcloud/rclone are missing from PATH
+if ! command -v gcloud >/dev/null 2>&1 && [[ -x "${HOME}/google-cloud-sdk/bin/gcloud" ]]; then
+  export PATH="${HOME}/google-cloud-sdk/bin:${PATH}"
+fi
+if ! command -v rclone >/dev/null 2>&1 && [[ -x "${HOME}/bin/rclone" ]]; then
+  export PATH="${HOME}/bin:${PATH}"
+fi
 
 SCRIPT_NAME="$(basename "$0")"
 CLIENT_DISPLAY_NAME_DEFAULT="sedea-rclone-drive"
@@ -115,17 +132,17 @@ mkdir -p "$OAUTH_STORE_DIR"
 chmod 700 "$OAUTH_STORE_DIR" 2>/dev/null || true
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
-  log "dry-run: enable drive.googleapis.com on ${PROJECT_ID}"
-  log "dry-run: ensure Internal OAuth consent (support=${SUPPORT_EMAIL})"
-  log "dry-run: create/reuse Desktop OAuth client displayName=${CLIENT_DISPLAY_NAME}"
+  log "dry-run: enable drive.googleapis.com + iap.googleapis.com on ${PROJECT_ID}"
+  log "dry-run: ensure Internal OAuth brand via iap.googleapis.com (support=${SUPPORT_EMAIL})"
+  log "dry-run: create/reuse OAuth client displayName=${CLIENT_DISPLAY_NAME}"
   log "dry-run: write client fields into rclone remote=${RCLONE_REMOTE} (secrets not printed)"
   log "dry-run: oauth store=${OAUTH_JSON}"
   exit 0
 fi
 
 gcloud config set project "$PROJECT_ID" >/dev/null
-log "enabling drive.googleapis.com ..."
-gcloud services enable drive.googleapis.com --project="$PROJECT_ID"
+log "enabling drive.googleapis.com and iap.googleapis.com ..."
+gcloud services enable drive.googleapis.com iap.googleapis.com --project="$PROJECT_ID"
 
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
 [[ -n "$PROJECT_NUMBER" ]] || die 3 "could not resolve projectNumber for ${PROJECT_ID}"
@@ -144,6 +161,7 @@ raise SystemExit(0 if cid and sec else 1)
 PY
 }
 
+# Prints client_id then client_secret on two lines (caller must not log).
 read_oauth_store() {
   python3 - "$OAUTH_JSON" <<'PY'
 import json, sys
@@ -164,13 +182,13 @@ os.chmod(path, 0o600)
 PY
 }
 
-# --- Internal OAuth consent brand ---
+# --- Internal OAuth consent brand via IAP Admin REST (clientauthconfig is 404) ---
 ensure_internal_brand() {
-  local list_json brand_name create_json
+  local list_json brand_name create_json http_body
   list_json="$(curl -sS \
     -H "Authorization: Bearer ${ACCESS_TOKEN}" \
     -H "x-goog-user-project: ${PROJECT_ID}" \
-    "https://clientauthconfig.googleapis.com/v1/projects/${PROJECT_NUMBER}/brands" || true)"
+    "https://iap.googleapis.com/v1/projects/${PROJECT_ID}/brands" || true)"
 
   brand_name="$(python3 -c '
 import json,sys
@@ -182,6 +200,9 @@ except Exception:
 brands=data.get("brands") or []
 if isinstance(brands, dict):
     brands=[brands]
+# empty {} means no brands
+if not brands and isinstance(data, dict) and data.get("name"):
+    brands=[data]
 for b in brands:
     name=b.get("name") or ""
     if name:
@@ -190,135 +211,172 @@ for b in brands:
 ' <<<"$list_json")"
 
   if [[ -n "$brand_name" ]]; then
-    log "oauth brand exists"
-    # Best-effort Internal flag
+    log "oauth brand exists (iap)"
+    # Best-effort Internal flag (IAP brands are typically orgInternalOnly already)
     curl -sS -X PATCH \
       -H "Authorization: Bearer ${ACCESS_TOKEN}" \
       -H "x-goog-user-project: ${PROJECT_ID}" \
       -H "Content-Type: application/json" \
-      "${brand_name}?updateMask=orgInternalOnly" \
+      "https://iap.googleapis.com/v1/${brand_name}?updateMask=orgInternalOnly" \
       -d '{"orgInternalOnly": true}' >/dev/null 2>&1 || true
     printf '%s\n' "$brand_name"
     return 0
   fi
 
-  log "creating OAuth consent brand (Internal intended) ..."
+  log "creating OAuth consent brand via iap.googleapis.com (Internal) ..."
   create_json="$(curl -sS -X POST \
     -H "Authorization: Bearer ${ACCESS_TOKEN}" \
     -H "x-goog-user-project: ${PROJECT_ID}" \
     -H "Content-Type: application/json" \
-    "https://clientauthconfig.googleapis.com/v1/projects/${PROJECT_NUMBER}/brands" \
+    "https://iap.googleapis.com/v1/projects/${PROJECT_ID}/brands" \
     -d "$(python3 -c 'import json,sys; print(json.dumps({"applicationTitle":"Sedea rclone Drive","supportEmail":sys.argv[1]}))' "$SUPPORT_EMAIL")")"
 
   brand_name="$(python3 -c '
 import json,sys
-data=json.load(sys.stdin)
+raw=sys.stdin.read()
+try:
+    data=json.loads(raw) if raw else {}
+except Exception:
+    data={}
 name=data.get("name") or ""
 if not name:
     err={k:data.get(k) for k in ("error","message","status","code") if k in data}
-    raise SystemExit("brand create failed: "+json.dumps(err or {"keys":list(data.keys())})[:400])
+    # ALREADY_EXISTS may still need a list retry — surface briefly
+    raise SystemExit("brand create failed: "+json.dumps(err or {"raw": raw[:200]})[:400])
 print(name)
-' <<<"$create_json")" || die 3 "failed to create OAuth consent brand"
-
-  curl -sS -X PATCH \
-    -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-    -H "x-goog-user-project: ${PROJECT_ID}" \
-    -H "Content-Type: application/json" \
-    "${brand_name}?updateMask=orgInternalOnly" \
-    -d '{"orgInternalOnly": true}' >/dev/null 2>&1 || log "note: confirm Internal consent in Cloud Console if orgInternalOnly patch was rejected"
+' <<<"$create_json")" || {
+    # Race / already exists: re-list
+    list_json="$(curl -sS \
+      -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+      -H "x-goog-user-project: ${PROJECT_ID}" \
+      "https://iap.googleapis.com/v1/projects/${PROJECT_ID}/brands" || true)"
+    brand_name="$(python3 -c '
+import json,sys
+raw=sys.stdin.read().strip()
+try:
+    data=json.loads(raw) if raw else {}
+except Exception:
+    data={}
+brands=data.get("brands") or []
+if isinstance(brands, dict):
+    brands=[brands]
+if not brands and isinstance(data, dict) and data.get("name"):
+    brands=[data]
+for b in brands:
+    name=b.get("name") or ""
+    if name:
+        print(name)
+        break
+' <<<"$list_json")"
+    [[ -n "$brand_name" ]] || die 3 "failed to create or locate OAuth consent brand via iap.googleapis.com"
+  }
 
   printf '%s\n' "$brand_name"
 }
 
-BRAND_NAME="$(ensure_internal_brand)"
-[[ -n "$BRAND_NAME" ]] || die 3 "OAuth consent brand unavailable"
-
-# --- Desktop OAuth client (not IAP-locked clients) ---
+# --- OAuth client under IAP brand (secret returned once; never log) ---
 create_desktop_client() {
-  local resp cid sec
-  # Console-style installed/Desktop client. client_type=3 is commonly INSTALLED in clientauthconfig.
-  resp="$(curl -sS -X POST \
+  local brand_name resp_file
+  brand_name="$1"
+  [[ -n "$brand_name" ]] || die 3 "create_desktop_client: missing brand"
+
+  log "creating OAuth client via iap.googleapis.com (displayName=${CLIENT_DISPLAY_NAME}) ..."
+  # Capture body to a mode-600 temp file; never echo. Secret stays in python → oauth store.
+  resp_file="$(mktemp)"
+  chmod 600 "$resp_file"
+  if ! curl -sS -X POST \
     -H "Authorization: Bearer ${ACCESS_TOKEN}" \
     -H "x-goog-user-project: ${PROJECT_ID}" \
     -H "Content-Type: application/json" \
-    "https://clientauthconfig.googleapis.com/v1/projects/${PROJECT_NUMBER}/clients" \
-    -d "$(python3 -c '
-import json,sys
-print(json.dumps({
-  "display_name": sys.argv[1],
-  "client_type": 3,
-  "redirect_uris": [sys.argv[2]],
-}))
-' "$CLIENT_DISPLAY_NAME" "$RCLONE_REDIRECT_URI")")"
-
-  cid="$(python3 -c '
-import json,sys
-data=json.load(sys.stdin)
-cid=data.get("clientId") or data.get("client_id") or ""
-if not cid and isinstance(data.get("name"), str) and "/clients/" in data["name"]:
-    cid=data["name"].rsplit("/",1)[-1]
-print(cid)
-' <<<"$resp")"
-  sec="$(python3 -c '
-import json,sys
-data=json.load(sys.stdin)
-print(data.get("secret") or data.get("clientSecret") or data.get("client_secret") or "")
-' <<<"$resp")"
-
-  if [[ -z "$cid" || -z "$sec" ]]; then
-    python3 -c '
-import json,sys
-raw=sys.stdin.read()
-try:
-    data=json.loads(raw)
-except Exception:
-    data={}
-err={k:data.get(k) for k in ("error","error_description","message","status","code","details") if k in data}
-print("clientauthconfig create failed: "+json.dumps(err or {"keys":list(data.keys())})[:500], file=sys.stderr)
-' <<<"$resp" || true
-    die 3 "Desktop OAuth client create failed — need clientauthconfig.clients.create (and brands.*). Do not paste secrets into chat; fix IAM and re-run."
+    "https://iap.googleapis.com/v1/${brand_name}/identityAwareProxyClients" \
+    -d "$(python3 -c 'import json,sys; print(json.dumps({"displayName": sys.argv[1]}))' "$CLIENT_DISPLAY_NAME")" \
+    >"$resp_file"
+  then
+    rm -f "$resp_file"
+    die 3 "IAP OAuth client HTTP request failed"
   fi
 
-  write_oauth_store "$cid" "$sec"
-  log "Desktop OAuth client stored (client_id length=${#cid}; secret not logged)"
+  if ! python3 - "$OAUTH_JSON" "$PROJECT_ID" "$resp_file" <<'PY'
+import json, os, sys
+from pathlib import Path
+
+oauth_path, project_id, resp_path = sys.argv[1], sys.argv[2], Path(sys.argv[3])
+raw = resp_path.read_text(encoding="utf-8", errors="replace")
+try:
+    data = json.loads(raw) if raw else {}
+except Exception:
+    data = {}
+
+# name: projects/{n}/brands/{n}/identityAwareProxyClients/{clientId}
+name = data.get("name") or ""
+cid = data.get("clientId") or data.get("client_id") or ""
+if not cid and "/identityAwareProxyClients/" in name:
+    cid = name.rsplit("/", 1)[-1]
+sec = data.get("secret") or data.get("clientSecret") or data.get("client_secret") or ""
+
+# Wipe response file before any failure path that might leave secrets on disk
+try:
+    resp_path.write_text("")
+    resp_path.unlink()
+except Exception:
+    pass
+
+if not cid or not sec:
+    err = {k: data.get(k) for k in ("error", "message", "status", "code", "details") if k in data}
+    # Never print raw body (may contain secret on partial parse)
+    print(
+        "iap client create failed: " + json.dumps(err or {"keys": list(data.keys())})[:500],
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+with open(oauth_path, "w", encoding="utf-8") as f:
+    json.dump({"client_id": cid, "client_secret": sec, "project_id": project_id}, f)
+os.chmod(oauth_path, 0o600)
+print(f"OAuth client stored (client_id length={len(cid)}; secret not logged)", file=sys.stderr)
+PY
+  then
+    rm -f "$resp_file"
+    die 3 "IAP OAuth client create failed — need iap.identityAwareProxyClients.create (and brands). Do not paste secrets into chat; fix IAM and re-run."
+  fi
+  rm -f "$resp_file"
 }
 
-if [[ "$REUSE_EXISTING" -eq 1 ]]; then
-  oauth_store_valid || die 2 "--reuse-existing-oauth set but oauth store missing/invalid: ${OAUTH_JSON}"
-  log "reusing existing oauth store"
-elif oauth_store_valid; then
-  log "oauth store already present — reusing (delete ${OAUTH_JSON} to force recreate)"
-else
-  log "creating Desktop OAuth client via clientauthconfig ..."
-  create_desktop_client
-fi
+# Write rclone remote non-interactively (rclone config create can hang on macOS).
+write_rclone_remote() {
+  local cid="$1" sec="$2"
+  python3 - "$RCLONE_REMOTE" "$cid" "$sec" <<'PY' || die 4 "rclone config write failed"
+import configparser, os, sys
+from pathlib import Path
 
-oauth_store_valid || die 3 "oauth store invalid after provision: ${OAUTH_JSON}"
+remote, cid, sec = sys.argv[1], sys.argv[2], sys.argv[3]
+conf_path = Path(os.environ.get("RCLONE_CONFIG") or Path.home() / ".config" / "rclone" / "rclone.conf")
+conf_path.parent.mkdir(parents=True, exist_ok=True)
 
-mapfile -t _oauth_lines < <(read_oauth_store)
-CLIENT_ID="${_oauth_lines[0]}"
-CLIENT_SECRET="${_oauth_lines[1]}"
-[[ -n "$CLIENT_ID" && -n "$CLIENT_SECRET" ]] || die 3 "oauth store incomplete"
+parser = configparser.RawConfigParser()
+if conf_path.exists():
+    parser.read(conf_path)
 
-# --- Write rclone config (never echo secret) ---
-if rclone listremotes 2>/dev/null | grep -qx "${RCLONE_REMOTE}:"; then
-  rclone config update "$RCLONE_REMOTE" \
-    client_id "$CLIENT_ID" \
-    client_secret "$CLIENT_SECRET" \
-    >/dev/null || die 4 "rclone config update failed"
-else
-  rclone config create "$RCLONE_REMOTE" drive \
-    client_id "$CLIENT_ID" \
-    client_secret "$CLIENT_SECRET" \
-    scope drive \
-    >/dev/null || die 4 "rclone config create failed"
-fi
+if not parser.has_section(remote):
+    parser.add_section(remote)
 
-# Verify client_id without printing config (may contain secret)
-rclone config dump 2>/dev/null | python3 - "$RCLONE_REMOTE" <<'PY' || die 4 "rclone remote missing non-empty client_id after write"
-import json, sys
+parser.set(remote, "type", "drive")
+parser.set(remote, "scope", "drive")
+parser.set(remote, "client_id", cid)
+parser.set(remote, "client_secret", sec)
+
+with conf_path.open("w", encoding="utf-8") as f:
+    parser.write(f)
+os.chmod(conf_path, 0o600)
+PY
+}
+
+verify_rclone_client_id() {
+  # Do not pipe into `python3 -` with a heredoc — stdin cannot be both script and dump.
+  python3 - "$RCLONE_REMOTE" <<'PY' || die 4 "rclone remote missing non-empty client_id after write"
+import json, subprocess, sys
 remote = sys.argv[1]
-raw = sys.stdin.read()
+raw = subprocess.check_output(["rclone", "config", "dump"], text=True)
 try:
     data = json.loads(raw)
 except Exception:
@@ -327,6 +385,31 @@ section = data.get(remote) or data.get(remote + ":") or {}
 cid = section.get("client_id") or ""
 raise SystemExit(0 if cid else 1)
 PY
+}
+
+if [[ "$REUSE_EXISTING" -eq 1 ]]; then
+  oauth_store_valid || die 2 "--reuse-existing-oauth set but oauth store missing/invalid: ${OAUTH_JSON}"
+  log "reusing existing oauth store"
+elif oauth_store_valid; then
+  log "oauth store already present — reusing (delete ${OAUTH_JSON} to force recreate)"
+else
+  BRAND_NAME="$(ensure_internal_brand)"
+  [[ -n "$BRAND_NAME" ]] || die 3 "OAuth consent brand unavailable"
+  create_desktop_client "$BRAND_NAME"
+fi
+
+oauth_store_valid || die 3 "oauth store invalid after provision: ${OAUTH_JSON}"
+
+# bash 3.2-safe (macOS /bin/bash): no mapfile
+_OAUTH_LINES="$(read_oauth_store)"
+CLIENT_ID="$(printf '%s\n' "$_OAUTH_LINES" | sed -n '1p')"
+CLIENT_SECRET="$(printf '%s\n' "$_OAUTH_LINES" | sed -n '2p')"
+_OAUTH_LINES=""
+[[ -n "$CLIENT_ID" && -n "$CLIENT_SECRET" ]] || die 3 "oauth store incomplete"
+
+log "writing rclone remote ${RCLONE_REMOTE} (non-interactive; secrets not printed) ..."
+write_rclone_remote "$CLIENT_ID" "$CLIENT_SECRET"
+verify_rclone_client_id
 
 # Clear secret from shell memory best-effort
 CLIENT_SECRET=""

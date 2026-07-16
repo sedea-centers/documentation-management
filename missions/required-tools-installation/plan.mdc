@@ -123,8 +123,8 @@ USER_CHECKPOINT — retry dry-runs, accept partial, or abort after dry-run failu
 
 - **Type:** Agent engagement and handover
 - **execution:** `spawned`
-- **Intent:** After gcloud CLI is installed/verified, confirm the user can open the Google Cloud Console at **https://console.cloud.google.com/** (including handling **Try for free** / org enablement), authenticate in the terminal (`gcloud auth login` via **Ctrl+`**), configure a GCP project (existing or create **`sedea-agent-squad`**), select/create a service account (create id **`<hosting-repo-basename>-sedea-agent`**), download the SA JSON to the user-home credentials path, enable Google Drive API, grant the SA Drive access rclone needs, provision an **Internal** Desktop OAuth client for rclone ([Making your own client_id](https://rclone.org/drive/#making-your-own-client-id)) via **`scripts/setup-rclone-drive-client-id.sh`** writing `client_id` / `client_secret` **directly into rclone config**, and verify with a gcloud/Drive command.
-- **Inputs:** Probe/install outcome for tool **`gcloud`**; optional user hints (existing project id, existing SA email); `defaultNewProjectId: sedea-agent-squad`; `defaultNewServiceAccountId: <hosting-repo-basename>-sedea-agent`; `credentialsTargetPath`; `operationsDocsDirectory` from Mission Control; optional `rcloneRemote` (default **`sedea-gdrive`**).
+- **Intent:** After gcloud CLI is installed/verified, confirm the user can open the Google Cloud Console at **https://console.cloud.google.com/** (including handling **Try for free** / org enablement), authenticate in the terminal (`gcloud auth login` via **Ctrl+`**), configure a GCP project (existing or create **`sedea-agent-squad`**), select/create a service account (create id **≤30 chars**, e.g. **`centers-dev-sedea-agent`** — auto-shorten; never use a full `<hosting-repo-basename>-sedea-agent` seed when that exceeds 30), download the SA JSON to the user-home credentials path (org-policy key-creation self-heal + backoff), enable Google Drive API, grant the SA Drive access rclone needs, provision an **Internal** Desktop OAuth client for rclone ([Making your own client_id](https://rclone.org/drive/#making-your-own-client-id)) via **`scripts/setup-rclone-drive-client-id.sh`** writing `client_id` / `client_secret` **directly into rclone config** (non-interactive; no clientauthconfig), and verify with a gcloud/Drive command.
+- **Inputs:** Probe/install outcome for tool **`gcloud`**; optional user hints (existing project id, existing SA email); `defaultNewProjectId: sedea-agent-squad`; `defaultNewServiceAccountId:` length-legal short id (e.g. `centers-dev-sedea-agent`); `credentialsTargetPath`; `operationsDocsDirectory` from Mission Control; optional `rcloneRemote` (default **`sedea-gdrive`**).
 - **Expected output:** Child **`mission_control_send_agent_result`** with `projectId`, `serviceAccountEmail`, `credentialsPath`, `driveApiEnabled`, `permissionsApplied`, `rcloneClientConfigured`, `rcloneRemote`, `oauthStorePath`, `verifyCommand`, `verifyPassed`, `continuationStatus: terminal`.
 - **Next-step resolution:** Child success → §8. Child failure/partial → USER_CHECKPOINT below, then §8.
 
@@ -141,7 +141,7 @@ USER_CHECKPOINT — retry dry-runs, accept partial, or abort after dry-run failu
 | Asset | Create default |
 |-------|----------------|
 | GCP project | **`sedea-agent-squad`** |
-| Service account id | **`<hosting-repo-basename>-sedea-agent`** |
+| Service account id | **≤30-char** id (e.g. **`centers-dev-sedea-agent`**) — auto-shorten; not full basename when &gt;30 |
 
 USER_CHECKPOINT — retry configure spawn, accept partial, or abort after child failure/partial.
 
