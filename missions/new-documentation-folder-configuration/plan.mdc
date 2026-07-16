@@ -18,12 +18,9 @@ alwaysApply: false
    hosting-repo **`.gitignore`** so documentation payloads stay out of git.
 3. Guide the user to choose a **Google Drive** folder and capture the remote
    link/path they provide (GDrive is the only provider in v1).
-4. Ensure rclone Drive uses an **automated own OAuth `client_id`** (provisioned by
-   **Required Tools Installation** / **configure-gcloud-drive** +
-   `setup-rclone-drive-client-id.sh` — Internal consent; secrets already in rclone
-   config, never pasted from chat). Emit an OS-appropriate setup **command** for
-   the user to run in the **integrated terminal** to finish remote path + browser
-   OAuth reconnect — auth cannot run inside the agent session.
+4. Emit an OS-appropriate rclone setup **command** for the user to run in the
+   **integrated terminal** to finish remote path binding and browser auth for
+   that remote — interactive auth cannot run inside the agent session.
 5. After the user confirms the setup command succeeded, run an agent **dry-run**
    as the **exit of installation** and report that result; then a **full pull**
    sync only after explicit confirm.
@@ -50,35 +47,31 @@ USER_CHECKPOINT — confirm configure intent when the opening command phrase doe
   **not** live sync status. Skip when chrome already matches. See
   [`.sedea/centers/sedea/rules/9_display-metadata-authority.mdc`](.sedea/centers/sedea/rules/9_display-metadata-authority.mdc).
 
-### 2. Preconditions — rclone available + own client_id configured
+### 2. Preconditions — rclone + gcloud Drive client configured
 
 - **Type:** Simple skill execution
-- **Intent:** Ensure the primary sync tool is usable and already has a non-empty
-  own Drive **`client_id`** before folder setup.
-- **Inputs:** Center registry [`.sedea/centers/documentation-management/rules/10_required-tools.mdc`](../../rules/10_required-tools.mdc); shell probe for `rclone`; optional known remote name (default **`sedea-gdrive`**).
-- **Expected output:** `rclone` classified **ok**; remote (or oauth store) has non-empty **`client_id`** — or stop with a clear gap.
-- **Next-step resolution:** **ok** + client configured → §3. Missing / outdated rclone, or missing `client_id` → USER_CHECKPOINT below (do not invent an alternate sync engine; do not collect secrets in chat).
+- **Intent:** Ensure `rclone` is usable and Drive OAuth client fields are already
+  configured (via prior **Required Tools Installation** / **configure-gcloud-drive**)
+  before folder setup.
+- **Inputs:** Center registry [`.sedea/centers/documentation-management/rules/10_required-tools.mdc`](../../rules/10_required-tools.mdc); shell probe for `rclone`; optional remote name (default **`sedea-gdrive`**).
+- **Expected output:** `rclone` **ok**; Drive remote has non-empty **`client_id`** — or stop with a clear gap.
+- **Next-step resolution:** Preconditions met → §3. Otherwise → USER_CHECKPOINT below.
 
 Probe `rclone` (PATH or user-supplied command). Compare to **`minVersion`** in the
-required-tools registry. Then verify own client (prefer `rclone config dump`
-parsed in-process — **do not** print dumps that may include `client_secret`):
-
-1. Remote **`sedea-gdrive`** (or user-named remote) has non-empty `client_id`, **or**
-2. Local store `~/.config/sedea/documentation-management/oauth-client.json` exists
-   from **configure-gcloud-drive** / `setup-rclone-drive-client-id.sh`.
-
-When the oauth store exists but the target remote lacks `client_id`, invoke the
-Unix script with **`--reuse-existing-oauth`** to write into rclone config (Windows:
-document follow-up `.ps1` gap). **Forbidden:** asking the user to paste
-`client_id` / `client_secret` into chat.
+required-tools registry. Then confirm Drive client configuration in-process
+(prefer `rclone config dump` — **do not** print dumps; they may include secrets):
+remote **`sedea-gdrive`** (or the user-named remote) has a non-empty `client_id`.
 
 USER_CHECKPOINT — start Required Tools Installation (new dispatch) · provide rclone path · abort.
 
-When rclone is missing/outdated **or** own `client_id` is not configured: tell the
-user to start a **new** Mission Control dispatch for **`install required tools`**
-on center **`documentation-management`** (so **configure-gcloud-drive** can
-provision Internal Desktop OAuth into rclone) — this dispatch cannot open it.
-Offer **provide existing path/command** via More details, or **abort**.
+When `rclone` is missing/outdated **or** Drive `client_id` is not configured: tell
+the user to start a **new** Mission Control dispatch for **`install required tools`**
+on center **`documentation-management`** — this dispatch cannot open it. That
+mission’s **configure-gcloud-drive** step provisions the Drive client. Offer
+**provide existing path/command** via More details, or **abort**.
+
+**Forbidden:** explaining OAuth client creation in this mission; collecting
+`client_id` / `client_secret` via chat.
 
 ### 3. Collect local folder and update gitignore
 
@@ -115,50 +108,27 @@ Explain how the user picks a Google Drive folder (Drive UI → open folder → c
 shareable link or folder id / path the agent documents for rclone). **Forbidden:**
 offering other cloud providers in v1; inventing a Drive folder without user input.
 
-### 5. Installation — consume automated client_id + setup command + dry-run exit
+### 5. Installation — setup command + dry-run exit
 
 - **Type:** Simple skill execution + external wait
-- **Intent:** Use the **already provisioned** own Google OAuth **`client_id` /
-  `client_secret`** in rclone config (from Required Tools /
-  **configure-gcloud-drive** + `setup-rclone-drive-client-id.sh`); finish rclone
-  Drive remote setup for this folder’s **`remotePath`**; keep credentials on the
-  user’s machine; exit installation with a dry-run result.
+- **Intent:** Finish rclone Drive remote setup for this folder’s **`remotePath`**
+  using the already-configured Drive client from §2; exit installation with a
+  dry-run result.
 - **Inputs:** Provider + remote path from §4; OS; hosting **`localPath`**;
-  rclone remote with non-empty `client_id` (from §2); optional existing rclone
-  remote name when reconnecting a prior remote.
-- **Expected output:** Setup command (or short script body) that assumes
-  `client_id` / `client_secret` are already in rclone config; user confirmation
-  that setup finished successfully; **dry-run log** (command, exit code,
-  pass/fail summary) as the **installation exit result**.
+  rclone remote confirmed in §2; optional existing rclone remote name when
+  reconnecting a prior remote.
+- **Expected output:** Copy-pasteable setup command (or short script body); user
+  confirmation that setup finished successfully; **dry-run log** (command, exit
+  code, pass/fail summary) as the **installation exit result**.
 - **Next-step resolution:** Dry-run **pass** → §6 (promote hosting worktree to
   main). Dry-run **fail** or setup abort → USER_CHECKPOINT below, then §6 / §7
   or §9.
 
-**Why own Google Drive `client_id` (binding — always state briefly before setup):**
-
-rclone’s **shared** Google Drive `client_id` is **being retired and will stop
-working during 2026**. Leaving `client_id` / `client_secret` blank uses that
-shared id and will interrupt sync later. Operators **must** use an automated
-Internal Desktop OAuth client written into rclone config by **Required Tools
-Installation** — not the shared id, and **not** secrets pasted from chat.
-Canonical guide: [Making your own client_id](https://rclone.org/drive/#making-your-own-client-id).
-
-**Primary path (binding):** §2 already confirmed non-empty `client_id` on the
-remote (or wrote it via `--reuse-existing-oauth`). This step **consumes** that
-client — it does **not** walk the user through Cloud Console client creation.
-
-**Forbidden:** telling the user it is OK to leave `client_id` blank for new
-Drive remotes; treating the rclone NOTICE about the shared id as ignorable noise;
-collecting `client_id` / `client_secret` via chat or `displayMarkdown`; printing
-rclone config dumps that include secrets.
-
 **Why the user must run this command (binding — always state briefly before the gate):**
 
-rclone remote setup for Google Drive still opens a **browser OAuth / reconnect
-flow** so the remote can obtain a user token under the automated client. The
-Mission Control agent **cannot** complete that interactive auth on the user’s
-behalf. Running the command in **their** terminal keeps credentials on their
-machine and lets them finish browser consent.
+rclone Drive remote setup opens a **browser auth / reconnect flow**. The Mission
+Control agent **cannot** complete that interactive auth on the user’s behalf.
+Running the command in **their** terminal keeps credentials on their machine.
 
 **How to open the terminal (instruct every time this step runs):**
 
@@ -171,38 +141,24 @@ machine and lets them finish browser consent.
 the **panel** and may show Problems or Output instead of Terminal.
 **Do not** recommend Explorer / Finder double-click as the primary path.
 
-**New remote setup (binding):**
+**Setup (binding):**
 
-1. Confirm the remote already has non-empty `client_id` (from §2) — **do not**
-   instruct the user to create a Console OAuth client or paste secrets.
-2. Generate the OS-appropriate setup command (or short script) for copy/paste into
-   the integrated terminal. The command path configures **`remotePath`** / folder
-   link and runs **`rclone config reconnect <remote>:`** (answer **Y** when prompted)
-   so the token uses the automated client.
-3. Present the command for copy/paste (**no** secret values in the command text).
+1. Generate the OS-appropriate setup command (or short script) for copy/paste into
+   the integrated terminal. Configure **`remotePath`** / folder link and run
+   **`rclone config reconnect <remote>:`** when a token refresh is needed
+   (answer **Y** when prompted).
+2. Present the command for copy/paste (**no** secret values in the command text).
 
-**Existing remote already using the shared id (binding when reconnecting):**
-
-When the user already has a Drive remote (for example after a sync that printed
-the shared-`client_id` NOTICE):
-
-1. Inspect with in-process `rclone config dump` (do not print) — blank/missing
-   `client_id` means shared id.
-2. Re-run Required Tools configure / `setup-rclone-drive-client-id.sh` (or
-   `--reuse-existing-oauth`) so fields are written into rclone config — **not**
-   manual Console + chat paste.
-3. Require `rclone config reconnect <remote>:` and answer **Y** to refresh the
-   token so rclone actually uses the new client — omitting reconnect leaves the
-   old token/shared-id path in effect.
-4. One Google Cloud OAuth client may be reused across remotes; each remote still
-   needs its own reconnect after the client fields are set.
+**Forbidden:** collecting or displaying `client_id` / `client_secret`; printing
+rclone config dumps; teaching OAuth client creation in this step (that belongs
+to **Required Tools Installation** — §2 already gated it).
 
 USER_CHECKPOINT — #external-wait — user ran setup (or reconnect) in integrated terminal.
 
 Open structured choice **before** ending the turn: **setup succeeded** · **retry
-command** · **abort** · **More details for option _**. Recap must include: short
-“why own `client_id` (automated)”, “why you run reconnect”, and the **Ctrl+`** /
-menu instructions.
+command** · **abort** · **More details for option _**. Recap must include why the
+user runs the command and the **Ctrl+`** / menu instructions — **not** OAuth
+client-creation education.
 
 **After the user selects setup succeeded** (same installation step — auto-advance):
 

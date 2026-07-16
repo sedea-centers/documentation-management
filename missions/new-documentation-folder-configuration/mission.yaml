@@ -1,12 +1,11 @@
 name: New Documentation Folder Configuration
 description: >-
   Configure a new gitignored documentation folder and rclone remote sync
-  (GDrive first) — consumes automated Drive OAuth client_id from Required Tools,
-  local path, registry, terminal reconnect/setup that exits with dry-run, then
+  (GDrive first) — requires prior Required Tools / gcloud Drive client setup,
+  then local path, registry, terminal remote setup that exits with dry-run, then
   full pull.
 commands:
   - phrase: configure new documentation folder
     description: >-
-      Walk through local folder + gitignore, GDrive remote link, consume automated
-      rclone client_id, integrated terminal reconnect/setup (exits with dry-run),
-      then full pull sync.
+      Walk through local folder + gitignore, GDrive remote link, integrated
+      terminal remote setup (exits with dry-run), then full pull sync.
