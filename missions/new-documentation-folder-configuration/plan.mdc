@@ -1,0 +1,194 @@
+---
+description: >-
+  Configure a new gitignored documentation folder and rclone remote sync
+  (GDrive first) — local path, registry, user-run terminal setup that exits
+  with dry-run, then full pull.
+alwaysApply: false
+---
+
+# Mission plan
+
+## Objectives
+
+1. Register a new top-level documentation folder in
+   **`.sedea/documentation-management.yaml`** with **`localPath`** and rclone
+   **`remote`** / **`remotePath`** per
+   [`.sedea/centers/documentation-management/rules/00_documentation-management.mdc`](../../rules/00_documentation-management.mdc).
+2. Create the local folder under the hosting workspace and add it to the
+   hosting-repo **`.gitignore`** so documentation payloads stay out of git.
+3. Guide the user to choose a **Google Drive** folder and capture the remote
+   link/path they provide (GDrive is the only provider in v1).
+4. Emit an OS-appropriate rclone setup **command** (or short script text) and
+   instruct the user to run it in the **VS Code / Cursor integrated terminal**
+   (copy/paste) — auth and browser consent cannot run inside the agent session.
+5. After the user confirms the setup command succeeded, run an agent **dry-run**
+   as the **exit of installation** and report that result; then a **full pull**
+   sync only after explicit confirm.
+6. Close the dispatch with an explicit Squad Leader resolution proposal when
+   configuration and sync gates are complete or abandoned.
+
+## Protocol
+
+### 1. Infer intent from the opening command phrase
+
+- **Type:** Branching logic
+- **Intent:** Match this mission’s command phrases and prepare routing.
+- **Inputs:** Opening message; **`mission.yaml`** `commands`.
+- **Expected output:** Intent label (`configure`).
+- **Next-step resolution:** Phrase matches → §2 (auto-advance). No match → USER_CHECKPOINT below.
+
+USER_CHECKPOINT — confirm configure intent when the opening command phrase does not match unambiguously.
+
+- Apply **phrase matching** from [`.sedea/centers/sedea/rules/4_mission.mdc`](.sedea/centers/sedea/rules/4_mission.mdc) (§ Mission command phrases — longer phrases first).
+- Map phrases from **`mission.yaml`**:
+  - **`configure new documentation folder`** → intent **`configure`**
+- After intent is mapped, when dispatch scope is readable, call MCP
+  **`mission_control_update_dispatch_display`** with a topic/domain title (≤64 chars) —
+  **not** live sync status. Skip when chrome already matches. See
+  [`.sedea/centers/sedea/rules/9_display-metadata-authority.mdc`](.sedea/centers/sedea/rules/9_display-metadata-authority.mdc).
+
+### 2. Preconditions — rclone available
+
+- **Type:** Simple skill execution
+- **Intent:** Ensure the primary sync tool is usable before folder setup.
+- **Inputs:** Center registry [`.sedea/centers/documentation-management/rules/10_required-tools.mdc`](../../rules/10_required-tools.mdc); shell probe for `rclone`.
+- **Expected output:** `rclone` classified **ok**, or stop with a clear gap.
+- **Next-step resolution:** **ok** → §3. Missing / outdated → USER_CHECKPOINT below (do not invent an alternate sync engine).
+
+Probe `rclone` (PATH or user-supplied command). Compare to **`minVersion`** in the
+required-tools registry.
+
+USER_CHECKPOINT — start Required Tools Installation (new dispatch) · provide rclone path · abort.
+
+When rclone is missing or outdated: tell the user to start a **new** Mission Control
+dispatch for **`install required tools`** on center **`documentation-management`** —
+this dispatch cannot open it. Offer **provide existing path/command** via More details,
+or **abort**.
+
+### 3. Collect local folder and update gitignore
+
+- **Type:** Branching logic
+- **Intent:** Create the local documentation root and keep it gitignored.
+- **Inputs:** User-supplied folder name or path under the hosting workspace.
+- **Expected output:** Absolute **`localPath`**; hosting **`.gitignore`** entry for that path.
+- **Next-step resolution:** Path created and ignore entry ready → §4.
+
+USER_CHECKPOINT — collect local folder name/path when not clear from the opening message.
+
+1. Derive a kebab-case **`slug`** for the registry key from the folder name when the
+   user does not supply one.
+2. Resolve **`localPath`** under the hosting workspace (never invent a path outside
+   the workspace without explicit user direction).
+3. Create the directory if missing.
+4. Ensure the path (or an agreed pattern) is listed in the hosting-repo
+   **`.gitignore`**. Tracked **`.gitignore`** edits follow **Hosting-repo ship cadence**
+   ([`.sedea/centers/sedea/skills/worktree-setup/SKILL.md`](.sedea/centers/sedea/skills/worktree-setup/SKILL.md)
+   before first hosting-repo tracked write when this pass has no hosting
+   **`WORKTREE_ROOT`**). Documentation **payloads** must never be committed.
+
+### 4. Choose remote storage (GDrive v1)
+
+- **Type:** Branching logic
+- **Intent:** Capture the Drive folder the user will sync against.
+- **Inputs:** User choice of provider (v1: GDrive only) and remote folder link/path.
+- **Expected output:** Provider id `gdrive`; rclone remote name candidate; **`remotePath`**.
+- **Next-step resolution:** Link/path captured → §5.
+
+USER_CHECKPOINT — confirm GDrive and collect remote folder link/path.
+
+Explain how the user picks a Google Drive folder (Drive UI → open folder → copy
+shareable link or folder id / path the agent documents for rclone). **Forbidden:**
+offering other cloud providers in v1; inventing a Drive folder without user input.
+
+### 5. Installation — setup command + dry-run exit
+
+- **Type:** Simple skill execution + external wait
+- **Intent:** Configure the rclone remote with credentials the agent cannot enter,
+  then prove the remote with a dry-run before leaving installation.
+- **Inputs:** Provider + remote path from §4; OS; hosting **`localPath`**.
+- **Expected output:** Copy-pasteable setup command (or short script body); user
+  confirmation that setup finished successfully; **dry-run log** (command, exit
+  code, pass/fail summary) as the **installation exit result**.
+- **Next-step resolution:** Dry-run **pass** → §6 (full pull). Dry-run **fail** or
+  setup abort → USER_CHECKPOINT below, then §6 or §8.
+
+**Why the user must run this command (binding — always state briefly before the gate):**
+
+rclone remote setup for Google Drive opens a **browser OAuth / credential flow**
+(or prompts for secrets). The Mission Control agent **cannot** complete that
+interactive auth on the user’s behalf. Running the command in **their** terminal
+keeps credentials on their machine and lets them finish browser consent.
+
+**How to open the terminal (instruct every time this step runs):**
+
+| Platform | Primary | Fallback |
+|----------|---------|----------|
+| Windows / Linux | **Ctrl+`** (backtick) — Toggle Integrated Terminal | **View → Terminal**, or Command Palette → **View: Toggle Terminal** |
+| macOS | **Ctrl+`** (same default) | **View → Terminal**, or Command Palette → **View: Toggle Terminal** |
+
+**Do not** recommend **Ctrl+J** / **Cmd+J** as the terminal shortcut — that toggles
+the **panel** and may show Problems or Output instead of Terminal.
+**Do not** recommend Explorer / Finder double-click as the primary path.
+
+Generate the setup command for the current OS. Present it for copy/paste into the
+integrated terminal.
+
+USER_CHECKPOINT — #external-wait — user ran setup in integrated terminal.
+
+Open structured choice **before** ending the turn: **setup succeeded** · **retry
+command** · **abort** · **More details for option _**. Recap must include the short
+“why you run this” explanation and the **Ctrl+`** / menu instructions.
+
+**After the user selects setup succeeded** (same installation step — auto-advance):
+
+1. Run a non-destructive dry-run (for example `rclone lsd` / `rclone check` /
+   documented dry sync flags for this center — prefer center skill helpers when
+   present; otherwise use rclone docs consistent with
+   [`.sedea/centers/documentation-management/rules/00_documentation-management.mdc`](../../rules/00_documentation-management.mdc)).
+2. Report the dry-run result. **Installation exits with that dry-run result** —
+   there is no separate dry-run protocol section.
+
+USER_CHECKPOINT — retry dry-run · fix remote · abort after dry-run failure.
+
+### 6. Full pull sync
+
+- **Type:** Simple skill execution
+- **Intent:** Pull remote files into **`localPath`** after explicit consent.
+- **Inputs:** Successful installation dry-run from §5; user confirm.
+- **Expected output:** Sync result summary (files transferred / errors).
+- **Next-step resolution:** Success → §7. Failure → USER_CHECKPOINT below.
+
+USER_CHECKPOINT — confirm full pull sync (writes into localPath).
+
+**Forbidden:** full sync without this gate. On conflicts, use the center
+**conflict-resolution** skill when present — do not invent ad-hoc conflict policy.
+
+USER_CHECKPOINT — retry sync · accept partial · abort after sync failure.
+
+### 7. Persist folder registry
+
+- **Type:** Simple skill execution
+- **Intent:** Record the folder in **`.sedea/documentation-management.yaml`**.
+- **Inputs:** **`slug`**, **`localPath`**, rclone **`remote`**, **`remotePath`**.
+- **Expected output:** Registry file updated on the **main hosting clone** (operations /
+  config persistence — not a git worktree checkout for durable `.sedea/` config when
+  that tree is gitignored; when the registry is tracked, use hosting **`WORKTREE_ROOT`**).
+- **Next-step resolution:** Registry valid → §8.
+
+Write or merge per the schema in
+[`.sedea/centers/documentation-management/rules/00_documentation-management.mdc`](../../rules/00_documentation-management.mdc).
+**Forbidden:** inventing a second registry path; committing documentation payloads.
+
+### 8. Dispatch resolution (Squad Leader)
+
+- **Type:** Finish/stop logic
+- **Intent:** Close this Mission Control dispatch explicitly.
+- **Inputs:** Folder path, remote config, installation dry-run and sync outcomes.
+- **Expected output:** MCP **`mission_control_propose_dispatch_resolution`** with status + summary.
+- **Next-step resolution:** Terminal for this dispatch after user Accept/Continue on the resolution card.
+
+USER_CHECKPOINT — approve dispatch resolution when configure objectives are satisfied or the user signals closure.
+
+Call **`mission_control_propose_dispatch_resolution`** with
+`resolved` / `partial` / `aborted` / `abandoned` and a short summary.
+**Forbidden** in MCP args: host-resolved identity keys (`correlationId`, `dispatchId`, `slotId`, …).
