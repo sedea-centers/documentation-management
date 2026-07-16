@@ -1,11 +1,12 @@
 name: New Documentation Folder Configuration
 description: >-
   Configure a new gitignored documentation folder and sync it with an
-  already-configured rclone GDrive remote — local path, registry, SA share
-  check on the target folder, dry-run exit, then full pull.
+  already-configured rclone GDrive remote — GDrive URL/ID first, local name
+  derived from the Drive folder, registry, SA share check, dry-run exit, then
+  full pull.
 commands:
   - phrase: configure new documentation folder
     description: >-
-      Walk through local folder + gitignore, capture a GDrive folder path,
-      ensure the service account is shared on that folder, dry-run against the
-      existing rclone remote, then full pull sync.
+      Capture a GDrive folder URL or ID, ensure the service account is shared,
+      propose a local directory name from the Drive folder name, update
+      gitignore, dry-run against the existing rclone remote, then full pull sync.

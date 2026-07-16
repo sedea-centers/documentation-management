@@ -1,8 +1,8 @@
 ---
 description: >-
   Configure a new gitignored documentation folder and sync with an
-  already-configured rclone GDrive remote — local path, registry, SA share
-  check on the target folder, dry-run exit, then full pull.
+  already-configured rclone GDrive remote — GDrive URL/ID first, local name
+  from Drive folder, registry, SA share check, dry-run exit, then full pull.
 alwaysApply: false
 ---
 
@@ -14,13 +14,15 @@ alwaysApply: false
    **`.sedea/documentation-management.yaml`** with **`localPath`** and rclone
    **`remote`** / **`remotePath`** per
    [`.sedea/centers/documentation-management/rules/00_documentation-management.mdc`](../../rules/00_documentation-management.mdc).
-2. Create the local folder under the hosting workspace and add it to the
-   hosting-repo **`.gitignore`** so documentation payloads stay out of git.
-3. Capture the **Google Drive** folder the user will sync (v1: GDrive only) as
-   rclone **`remotePath`**.
-4. Confirm the **service account email** (from Required Tools SA JSON) is shared
+2. Capture the **Google Drive** folder the user will sync (v1: GDrive only) as
+   rclone **`remotePath`** (URL or folder ID first).
+3. Confirm the **service account email** (from Required Tools SA JSON) is shared
    on that Drive folder; if not, instruct the user how to add it and wait for
    confirm.
+4. Propose a local directory name derived from the **Drive folder display name**
+   (first choice), then create the local folder under the hosting workspace and
+   add it to the hosting-repo **`.gitignore`** so documentation payloads stay out
+   of git.
 5. Run an agent **dry-run** against the **existing** rclone Drive remote as the
    installation exit; then a **full pull** sync only after explicit confirm.
 6. Close the dispatch with an explicit Squad Leader resolution proposal when
@@ -62,7 +64,7 @@ Probe `rclone` (PATH or user-supplied command). Compare to **`minVersion`** in t
 required-tools registry. Confirm `rclone listremotes` includes the expected
 remote. Confirm the SA JSON path exists (`type: service_account` with
 `client_email` — validate in-process; **do not** print key material). Record
-the SA email for §4.
+the SA email for §3.
 
 USER_CHECKPOINT — start Required Tools Installation (new dispatch) · provide rclone path · provide remote name · provide SA JSON path · abort.
 
@@ -82,65 +84,78 @@ only binds a folder path on that remote and syncs.
 `rclone config` / `reconnect`; `client_id` / `client_secret` entry; collecting
 SA private key material via chat.
 
-### 3. Collect local folder and update gitignore
+### 3. Capture Drive folder (URL or ID)
 
 - **Type:** Branching logic
-- **Intent:** Create the local documentation root and keep it gitignored.
-- **Inputs:** User-supplied folder name or path under the hosting workspace.
-- **Expected output:** Absolute **`localPath`**; hosting **`.gitignore`** entry for that path.
-- **Next-step resolution:** Path created and ignore entry ready → §4.
-
-USER_CHECKPOINT — collect local folder name/path when not clear from the opening message.
-
-1. Derive a kebab-case **`slug`** for the registry key from the folder name when the
-   user does not supply one.
-2. Resolve **`localPath`** under the hosting workspace (never invent a path outside
-   the workspace without explicit user direction).
-3. Create the directory if missing.
-4. Ensure the path (or an agreed pattern) is listed in the hosting-repo
-   **`.gitignore`**. Tracked **`.gitignore`** edits follow **Hosting-repo ship cadence**
-   ([`.sedea/centers/sedea/skills/worktree-setup/SKILL.md`](.sedea/centers/sedea/skills/worktree-setup/SKILL.md)
-   before first hosting-repo tracked write when this pass has no hosting
-   **`WORKTREE_ROOT`**). Documentation **payloads** must never be committed.
-
-### 4. Choose Drive folder + SA share check
-
-- **Type:** Branching logic
-- **Intent:** Capture the Drive folder and ensure the service account can access it.
-- **Inputs:** User-supplied Drive folder link/id/path; SA email from §2; existing
-  rclone remote name from §2.
+- **Intent:** Collect the Google Drive folder first so local naming can follow the
+  remote folder name.
+- **Inputs:** User-supplied Drive folder **URL** or **folder ID**; existing rclone
+  remote from §2; SA email from §2.
 - **Expected output:** Provider id `gdrive`; rclone **`remote`**; **`remotePath`**;
-  SA share confirmed (or user instructed and confirmed).
-- **Next-step resolution:** Link/path captured and SA share ok → §5.
+  human **Drive folder name** (for local naming); SA share confirmed (or user
+  instructed and confirmed).
+- **Next-step resolution:** URL/ID + folder name resolved and SA share ok → §4.
+  Missing/unclear → USER_CHECKPOINT below.
 
-USER_CHECKPOINT — confirm GDrive and collect remote folder link/path.
+USER_CHECKPOINT — collect GDrive folder URL or folder ID when not clear from the opening message.
 
-1. Explain how the user picks a Google Drive folder (Drive UI → open folder →
-   copy shareable link or folder id / path the agent documents for rclone).
-2. Capture **`remotePath`** (and keep provider **`gdrive`**). **Forbidden:**
-   offering other cloud providers in v1; inventing a Drive folder without user
-   input.
-3. **SA share check:** Using the SA email from §2, verify the target folder
+1. Ask for a Google Drive folder **shareable URL** or **folder ID** (Drive UI →
+   open folder → copy link or id).
+2. Resolve **`remotePath`** for rclone from that URL/ID. Keep provider **`gdrive`**.
+   **Forbidden:** other cloud providers in v1; inventing a Drive folder without
+   user input.
+3. Resolve the **Drive folder display name** (prefer non-destructive rclone /
+   `lsf` / `about` against `remote:remotePath`, else ask the user to confirm the
+   name).
+4. **SA share check:** Using the SA email from §2, verify the target folder
    (or Shared Drive) is shared with that email. Prefer a non-destructive rclone
    probe against `remote:remotePath` when that is a reliable signal; otherwise
    ask the user to confirm the share in Drive.
-4. **If not shared:** Instruct the user to add the SA email on the folder (or
+5. **If not shared:** Instruct the user to add the SA email on the folder (or
    Shared Drive) in Drive UI — grant a role sufficient for sync (Viewer or
    Content Manager for My Drive folders; Shared Drives often need **Manager**
    for some rclone flags). Open **#external-wait** structured choice until the
    user confirms the share is done, then re-check.
-5. **Forbidden:** configuring rclone remotes or OAuth in this step; museum prose
+6. **Forbidden:** configuring rclone remotes or OAuth in this step; museum prose
    about prior GDrive auth models.
 
 USER_CHECKPOINT — #external-wait — confirm Drive folder shared with SA email (only when share not yet done).
+
+### 4. Collect local folder and update gitignore
+
+- **Type:** Branching logic
+- **Intent:** Create the local documentation root using a name derived from the
+  Drive folder, then keep it gitignored.
+- **Inputs:** Drive folder **display name** from §3; optional user override for
+  local name/path.
+- **Expected output:** Absolute **`localPath`**; hosting **`.gitignore`** entry for
+  that path; registry **`slug`**.
+- **Next-step resolution:** Path created and ignore entry ready → §5.
+
+USER_CHECKPOINT — confirm or override the proposed local directory name.
+
+1. Derive a kebab-case candidate **local directory name** (and registry **`slug`**)
+   from the Drive folder display name (Unicode-normalize → lowercase → non-alnum
+   → hyphen → trim).
+2. Open structured choice with the **derived name as the first option**, plus:
+   enter a different name · use an absolute path under the workspace · **More
+   details for option _**.
+3. Resolve **`localPath`** under the hosting workspace from the chosen name
+   (never invent a path outside the workspace without explicit user direction).
+4. Create the directory if missing.
+5. Ensure the path (or an agreed pattern) is listed in the hosting-repo
+   **`.gitignore`**. Tracked **`.gitignore`** edits follow **Hosting-repo ship cadence**
+   ([`.sedea/centers/sedea/skills/worktree-setup/SKILL.md`](.sedea/centers/sedea/skills/worktree-setup/SKILL.md)
+   before first hosting-repo tracked write when this pass has no hosting
+   **`WORKTREE_ROOT`**). Documentation **payloads** must never be committed.
 
 ### 5. Installation exit — bind path + dry-run
 
 - **Type:** Simple skill execution
 - **Intent:** Bind captured **`remotePath`** to the **existing** rclone remote and
   exit installation with a dry-run result.
-- **Inputs:** Provider + remote path from §4; rclone remote name from §2; hosting
-  **`localPath`**.
+- **Inputs:** Provider + remote path from §3; rclone remote name from §2; hosting
+  **`localPath`** from §4.
 - **Expected output:** Registry-ready **`remote`** + **`remotePath`**; **dry-run
   log** (command, exit code, pass/fail summary) as the **installation exit
   result**.
@@ -150,7 +165,7 @@ USER_CHECKPOINT — #external-wait — confirm Drive folder shared with SA email
 
 **Setup (binding — agent runs):**
 
-1. Record **`remote`** (from §2) and **`remotePath`** (from §4) for later registry
+1. Record **`remote`** (from §2) and **`remotePath`** (from §3) for later registry
    write. **Do not** run `rclone config create` / `rclone config update` for
    auth or remote creation.
 2. **Forbidden:** printing SA JSON contents; interactive `rclone config`;
@@ -173,7 +188,7 @@ USER_CHECKPOINT — retry dry-run · fix path/share · abort after dry-run failu
 
 - **Type:** Simple skill execution + external wait
 - **Intent:** Land hosting-repo tracked edits on **`main`** before full pull.
-- **Inputs:** Hosting **`WORKTREE_ROOT`** from §3 (or earlier) when tracked files
+- **Inputs:** Hosting **`WORKTREE_ROOT`** from §4 (or earlier) when tracked files
   changed; developer pipeline consent.
 - **Expected output:** PR merged; worktree cleaned up; **`HOSTING_ROOT`** on
   updated **`main`**.
