@@ -1,8 +1,8 @@
 ---
 description: >-
   Configure a new gitignored documentation folder and rclone remote sync
-  (GDrive first) — local path, registry, user-run terminal setup that exits
-  with dry-run, then full pull.
+  (GDrive first) — local path, registry, agent rclone remote using SA JSON,
+  dry-run exit, then full pull.
 alwaysApply: false
 ---
 
@@ -18,12 +18,11 @@ alwaysApply: false
    hosting-repo **`.gitignore`** so documentation payloads stay out of git.
 3. Guide the user to choose a **Google Drive** folder and capture the remote
    link/path they provide (GDrive is the only provider in v1).
-4. Emit an OS-appropriate rclone setup **command** for the user to run in the
-   **integrated terminal** to finish remote path binding and browser auth for
-   that remote — interactive auth cannot run inside the agent session.
-5. After the user confirms the setup command succeeded, run an agent **dry-run**
-   as the **exit of installation** and report that result; then a **full pull**
-   sync only after explicit confirm.
+4. Configure the rclone Drive remote **non-interactively** using the **service
+   account JSON** provisioned by **Required Tools Installation** /
+   **configure-gcloud-drive** (not browser OAuth / user terminal auth).
+5. Run an agent **dry-run** as the **exit of installation** and report that
+   result; then a **full pull** sync only after explicit confirm.
 6. Close the dispatch with an explicit Squad Leader resolution proposal when
    configuration and sync gates are complete or abandoned.
 
@@ -47,31 +46,31 @@ USER_CHECKPOINT — confirm configure intent when the opening command phrase doe
   **not** live sync status. Skip when chrome already matches. See
   [`.sedea/centers/sedea/rules/9_display-metadata-authority.mdc`](.sedea/centers/sedea/rules/9_display-metadata-authority.mdc).
 
-### 2. Preconditions — rclone + gcloud Drive client configured
+### 2. Preconditions — rclone + gcloud service account JSON
 
 - **Type:** Simple skill execution
-- **Intent:** Ensure `rclone` is usable and Drive OAuth client fields are already
-  configured (via prior **Required Tools Installation** / **configure-gcloud-drive**)
+- **Intent:** Ensure `rclone` is usable and a Drive-capable **service account JSON**
+  from **Required Tools Installation** / **configure-gcloud-drive** is available
   before folder setup.
-- **Inputs:** Center registry [`.sedea/centers/documentation-management/rules/10_required-tools.mdc`](../../rules/10_required-tools.mdc); shell probe for `rclone`; optional remote name (default **`sedea-gdrive`**).
-- **Expected output:** `rclone` **ok**; Drive remote has non-empty **`client_id`** — or stop with a clear gap.
+- **Inputs:** Center registry [`.sedea/centers/documentation-management/rules/10_required-tools.mdc`](../../rules/10_required-tools.mdc); shell probe for `rclone`; expected SA JSON path (from prior configure outputs or the standard credentials path used by **configure-gcloud-drive**).
+- **Expected output:** `rclone` **ok**; SA JSON file exists and is readable — or stop with a clear gap.
 - **Next-step resolution:** Preconditions met → §3. Otherwise → USER_CHECKPOINT below.
 
 Probe `rclone` (PATH or user-supplied command). Compare to **`minVersion`** in the
-required-tools registry. Then confirm Drive client configuration in-process
-(prefer `rclone config dump` — **do not** print dumps; they may include secrets):
-remote **`sedea-gdrive`** (or the user-named remote) has a non-empty `client_id`.
+required-tools registry. Confirm the SA JSON path exists (type `service_account`
+with `client_email` — validate in-process; **do not** print key material).
 
-USER_CHECKPOINT — start Required Tools Installation (new dispatch) · provide rclone path · abort.
+USER_CHECKPOINT — start Required Tools Installation (new dispatch) · provide rclone path · provide SA JSON path · abort.
 
-When `rclone` is missing/outdated **or** Drive `client_id` is not configured: tell
-the user to start a **new** Mission Control dispatch for **`install required tools`**
-on center **`documentation-management`** — this dispatch cannot open it. That
-mission’s **configure-gcloud-drive** step provisions the Drive client. Offer
-**provide existing path/command** via More details, or **abort**.
+When `rclone` is missing/outdated **or** the SA JSON is missing: tell the user to
+start a **new** Mission Control dispatch for **`install required tools`** on center
+**`documentation-management`** — this dispatch cannot open it. That mission’s
+**configure-gcloud-drive** step downloads the SA JSON and applies Drive access.
+Offer **provide existing rclone path** or **provide existing SA JSON path** via
+More details, or **abort**.
 
-**Forbidden:** explaining OAuth client creation in this mission; collecting
-`client_id` / `client_secret` via chat.
+**Forbidden:** browser OAuth / `client_id` setup in this mission; collecting SA
+private key material via chat.
 
 ### 3. Collect local folder and update gitignore
 
@@ -105,62 +104,51 @@ USER_CHECKPOINT — collect local folder name/path when not clear from the openi
 USER_CHECKPOINT — confirm GDrive and collect remote folder link/path.
 
 Explain how the user picks a Google Drive folder (Drive UI → open folder → copy
-shareable link or folder id / path the agent documents for rclone). **Forbidden:**
-offering other cloud providers in v1; inventing a Drive folder without user input.
+shareable link or folder id / path the agent documents for rclone). Remind them
+the folder (or Shared Drive) must be **shared with the service account email**
+from §2 when not already shared. **Forbidden:** offering other cloud providers
+in v1; inventing a Drive folder without user input.
 
-### 5. Installation — setup command + dry-run exit
+### 5. Installation — rclone remote via SA JSON + dry-run exit
 
-- **Type:** Simple skill execution + external wait
-- **Intent:** Finish rclone Drive remote setup for this folder’s **`remotePath`**
-  using the already-configured Drive client from §2; exit installation with a
-  dry-run result.
-- **Inputs:** Provider + remote path from §4; OS; hosting **`localPath`**;
-  rclone remote confirmed in §2; optional existing rclone remote name when
-  reconnecting a prior remote.
-- **Expected output:** Copy-pasteable setup command (or short script body); user
-  confirmation that setup finished successfully; **dry-run log** (command, exit
-  code, pass/fail summary) as the **installation exit result**.
+- **Type:** Simple skill execution
+- **Intent:** Create or update the rclone Drive remote **non-interactively** using
+  **`service_account_file`** (the SA JSON from §2), bind **`remotePath`**, and exit
+  installation with a dry-run result.
+- **Inputs:** Provider + remote path from §4; SA JSON path from §2; hosting
+  **`localPath`**; rclone remote name (default **`sedea-gdrive`** or per-folder name).
+- **Expected output:** rclone remote configured with `service_account_file`;
+  **dry-run log** (command, exit code, pass/fail summary) as the **installation
+  exit result**.
 - **Next-step resolution:** Dry-run **pass** → §6 (promote hosting worktree to
   main). Dry-run **fail** or setup abort → USER_CHECKPOINT below, then §6 / §7
   or §9.
 
-**Why the user must run this command (binding — always state briefly before the gate):**
+**Auth model (binding):** rclone authenticates to Drive with the **service account
+JSON** from **configure-gcloud-drive**. Do **not** require browser OAuth, user
+terminal `rclone config` / `reconnect`, or `client_id` / `client_secret` entry in
+this mission.
 
-rclone Drive remote setup opens a **browser auth / reconnect flow**. The Mission
-Control agent **cannot** complete that interactive auth on the user’s behalf.
-Running the command in **their** terminal keeps credentials on their machine.
+**Setup (binding — agent runs):**
 
-**How to open the terminal (instruct every time this step runs):**
+1. Ensure the target Drive folder/Shared Drive is shared with the SA email (from
+   §4). If sharing is still outstanding, open an **external-wait** structured
+   choice for the user to confirm share completed — then continue.
+2. Create or update the rclone remote non-interactively, for example:
 
-| Platform | Primary | Fallback |
-|----------|---------|----------|
-| Windows / Linux | **Ctrl+`** (backtick) — Toggle Integrated Terminal | **View → Terminal**, or Command Palette → **View: Toggle Terminal** |
-| macOS | **Ctrl+`** (same default) | **View → Terminal**, or Command Palette → **View: Toggle Terminal** |
+```bash
+rclone config create "<remote>" drive \
+  service_account_file "<credentialsPath>" \
+  scope drive
+# or: rclone config update "<remote>" service_account_file "<credentialsPath>" ...
+```
 
-**Do not** recommend **Ctrl+J** / **Cmd+J** as the terminal shortcut — that toggles
-the **panel** and may show Problems or Output instead of Terminal.
-**Do not** recommend Explorer / Finder double-click as the primary path.
+   Set root / folder id / **`remotePath`** per rclone Drive docs for the captured
+   link. Prefer update when the remote already exists.
+3. **Forbidden:** printing SA JSON contents; interactive `rclone config` that
+   prompts for OAuth; instructing the user to run browser auth for this remote.
 
-**Setup (binding):**
-
-1. Generate the OS-appropriate setup command (or short script) for copy/paste into
-   the integrated terminal. Configure **`remotePath`** / folder link and run
-   **`rclone config reconnect <remote>:`** when a token refresh is needed
-   (answer **Y** when prompted).
-2. Present the command for copy/paste (**no** secret values in the command text).
-
-**Forbidden:** collecting or displaying `client_id` / `client_secret`; printing
-rclone config dumps; teaching OAuth client creation in this step (that belongs
-to **Required Tools Installation** — §2 already gated it).
-
-USER_CHECKPOINT — #external-wait — user ran setup (or reconnect) in integrated terminal.
-
-Open structured choice **before** ending the turn: **setup succeeded** · **retry
-command** · **abort** · **More details for option _**. Recap must include why the
-user runs the command and the **Ctrl+`** / menu instructions — **not** OAuth
-client-creation education.
-
-**After the user selects setup succeeded** (same installation step — auto-advance):
+**Dry-run (auto-advance after setup):**
 
 1. Run a non-destructive dry-run (for example `rclone lsd` / `rclone check` /
    documented dry sync flags for this center — prefer center skill helpers when
@@ -168,6 +156,8 @@ client-creation education.
    [`.sedea/centers/documentation-management/rules/00_documentation-management.mdc`](../../rules/00_documentation-management.mdc)).
 2. Report the dry-run result. **Installation exits with that dry-run result** —
    there is no separate dry-run protocol section.
+
+USER_CHECKPOINT — #external-wait — confirm Drive folder shared with SA email (only when share not yet done).
 
 USER_CHECKPOINT — retry dry-run · fix remote · abort after dry-run failure.
 
