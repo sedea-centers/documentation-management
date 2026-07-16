@@ -1,8 +1,8 @@
 ---
 description: >-
   Extensible registry of tools required by Documentation Management — min
-  versions, docs/install URLs, sole OS install method per platform, and dry-run
-  commands.
+  versions, docs/install URLs, sole OS install method per platform, canonical
+  install paths for invoke/probe, and dry-run commands.
 globs: "**/*"
 alwaysApply: false
 ---
@@ -22,19 +22,29 @@ executable without further browsing.
 | Field | Required | Meaning |
 |-------|----------|---------|
 | **`id`** | yes | Stable kebab-case tool id (also usual CLI name when identical) |
-| **`cli`** | yes | Primary command name for `command -v` / PATH probes |
+| **`cli`** | yes | Primary command name for PATH probes when the install path is absent |
 | **`minVersion`** | yes | Minimum semver (or tool-native version string) the center accepts |
 | **`docsUrl`** | yes | Primary documentation URL |
 | **`installUrl`** | yes | Installation documentation URL (may equal docs when install is a subsection) |
+| **`macosInstallPath`** | yes | Canonical path of the binary after the sole macOS method succeeds (tilde allowed) |
+| **`windowsInstallPath`** | yes | Canonical path of the binary after the sole Windows method succeeds (`%VAR%` allowed) |
 | **`macosMethods`** | yes | Ordered list of install method ids allowed on macOS — **exactly one** sole method |
 | **`windowsMethods`** | yes | Ordered list of install method ids allowed on Windows — **exactly one** sole method |
 | **`dryRuns`** | yes | Ordered list of `{ command, expect }` checks after install |
 
+**Install paths** are the **authoritative** location for probe and invoke after a
+registry install (and the first probe target when checking for an existing
+install). Expand `~` and Windows `%VAR%` in the agent shell. Agents **must**
+invoke the tool via the resolved install path when that file exists; use bare
+**`cli`** on PATH only when the install path is missing and a PATH hit is found
+(for example a pre-registry install the user kept via **`use-path`**).
+
 **Method ids** label the sole install procedure for that OS. Procedure detail lives
-on **`installUrl`** and in the method notes (including any **fixed install path**).
-Agents **must not** invent methods absent from the tool’s `macosMethods` /
-`windowsMethods` lists. When a list has one entry, that id is **mandatory** —
-**do not** ask the user to pick a method or an install directory.
+on **`installUrl`** and in the method notes. Agents **must not** invent methods
+absent from the tool’s `macosMethods` / `windowsMethods` lists. When a list has
+one entry, that id is **mandatory** — **do not** ask the user to pick a method
+or an install directory (paths are fixed by **`macosInstallPath`** /
+**`windowsInstallPath`**).
 
 ## Tool inventory
 
@@ -47,18 +57,20 @@ Agents **must not** invent methods absent from the tool’s `macosMethods` /
 | **minVersion** | `1.60.0` |
 | **docsUrl** | https://rclone.org/docs/ |
 | **installUrl** | https://rclone.org/install/ |
+| **macosInstallPath** | `~/bin/rclone` |
+| **windowsInstallPath** | `%LOCALAPPDATA%\Programs\rclone\rclone.exe` |
 
 **macOS methods (`macosMethods`):**
 
 | Method id | Notes (from install docs — follow `installUrl` for exact commands) |
 |-----------|---------------------------------------------------------------------|
-| `curl` | **Sole** macOS method. Download the official **precompiled** macOS binary from downloads.rclone.org (see `installUrl`) via **curl** — do **not** run `install.sh`. Create **`~/bin`** if missing; install the binary as **`~/bin/rclone`**; `chmod +x`. Ensure **`~/bin`** is on PATH for probes/dry-runs. **Forbidden:** `sudo`; system paths (`/usr/local/bin`, etc.); brew; MacPorts; `install.sh`. |
+| `curl` | **Sole** macOS method. Download the official **precompiled** macOS binary from downloads.rclone.org (see `installUrl`) via **curl** — do **not** run `install.sh`. Create the parent of **`macosInstallPath`** if missing; install the binary at **`macosInstallPath`**; `chmod +x`. Ensure the parent directory is on PATH when dry-runs use bare **`cli`**. **Forbidden:** `sudo`; system paths (`/usr/local/bin`, etc.); brew; MacPorts; `install.sh`; other install locations. |
 
 **Windows methods (`windowsMethods`):**
 
 | Method id | Notes (from install docs — follow `installUrl` for exact commands) |
 |-----------|---------------------------------------------------------------------|
-| `fixed-path-exe` | **Sole** Windows method. Download the official Windows zip from downloads.rclone.org (see `installUrl`). Extract **`rclone.exe`** to **`%LOCALAPPDATA%\Programs\rclone\rclone.exe`** (create directories as needed). Ensure that directory is on the user PATH when needed for `command -v` / dry-runs. **Forbidden:** asking the user for a different install folder; offering winget or an open-ended extract location. |
+| `fixed-path-exe` | **Sole** Windows method. Download the official Windows zip from downloads.rclone.org (see `installUrl`). Extract **`rclone.exe`** to **`windowsInstallPath`** (create directories as needed). Ensure that directory is on the user PATH when dry-runs use bare **`cli`**. **Forbidden:** asking the user for a different install folder; offering winget or an open-ended extract location. |
 
 **dryRuns:**
 
@@ -67,19 +79,26 @@ Agents **must not** invent methods absent from the tool’s `macosMethods` /
 | 1 | `rclone version` | Exit **0**; stdout includes a version ≥ **`minVersion`** |
 | 2 | `rclone listremotes` | Exit **0** (empty remote list is OK) |
 
+Prefer running **`dryRuns`** with the resolved **`macosInstallPath`** /
+**`windowsInstallPath`** as the executable (substitute the path for the leading
+**`cli`** token). Bare **`cli`** is allowed only when invoking via PATH after a
+confirmed PATH hit.
+
 ## Agent obligations
 
 1. Treat this inventory as the **only** required-tools source for this center.
-2. Probe with the shell using **`cli`** (and any **user-supplied path/command** from
-   the install mission gate) before proposing install.
+2. Probe in order: (a) resolved **`macosInstallPath`** / **`windowsInstallPath`**
+   for the current OS; (b) any **user-supplied path/command** from the install
+   mission gate; (c) `command -v` / PATH on **`cli`**. Do not invent alternate
+   install directories.
 3. Compare discovered version to **`minVersion`** — classify **ok**, **outdated**,
    or **missing**.
 4. Install only after structured-choice consent to **install** (not method/path
-   choice). Use the **sole** listed OS method id; follow method notes and
-   **`installUrl`**. **Forbidden:** method pickers; install-directory questions
-   when the sole method defines a fixed path.
-5. After install (or path override), run **every** **`dryRuns`** row in order and
-   record pass/fail.
+   choice). Use the **sole** listed OS method id; place the binary exactly at
+   **`macosInstallPath`** / **`windowsInstallPath`**; follow method notes and
+   **`installUrl`**. **Forbidden:** method pickers; install-directory questions.
+5. After install (or path override), run **every** **`dryRuns`** row in order
+   (prefer install-path executable) and record pass/fail.
 
 ## Related
 
