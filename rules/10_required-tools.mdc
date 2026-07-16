@@ -84,6 +84,43 @@ Prefer running **`dryRuns`** with the resolved **`macosInstallPath`** /
 **`cli`** token). Bare **`cli`** is allowed only when invoking via PATH after a
 confirmed PATH hit.
 
+### `gcloud`
+
+| Field | Value |
+|-------|--------|
+| **id** | `gcloud` |
+| **cli** | `gcloud` |
+| **minVersion** | `450.0.0` |
+| **docsUrl** | https://cloud.google.com/sdk/gcloud |
+| **installUrl** | https://cloud.google.com/sdk/docs/install-sdk |
+| **macosInstallPath** | `~/google-cloud-sdk/bin/gcloud` |
+| **windowsInstallPath** | `%LOCALAPPDATA%\Google\CloudSDK\google-cloud-sdk\bin\gcloud.cmd` |
+
+**macOS methods (`macosMethods`):**
+
+| Method id | Notes (from install docs — follow `installUrl` for exact commands) |
+|-----------|---------------------------------------------------------------------|
+| `curl-sdk` | **Sole** macOS method. Detect arch (`uname -m`); **curl** the matching official archive from `dl.google.com` per `installUrl` (`google-cloud-cli-darwin-arm.tar.gz` or `google-cloud-cli-darwin-x86_64.tar.gz`). Extract/install the SDK so the `gcloud` binary is exactly at **`macosInstallPath`** (SDK root = `~/google-cloud-sdk`). Run the SDK `install.sh` with non-interactive flags as needed for PATH/shell rc; probes/dry-runs must prefer **`macosInstallPath`**. **Forbidden:** Homebrew; MacPorts; `sudo`; system paths; other install locations; interactive `gcloud init` during install (auth is **configure-gcloud-drive**). |
+
+**Windows methods (`windowsMethods`):**
+
+| Method id | Notes (from install docs — follow `installUrl` for exact commands) |
+|-----------|---------------------------------------------------------------------|
+| `fixed-path-sdk` | **Sole** Windows method. Download the official Windows zip/installer assets per `installUrl`. Place the SDK so **`gcloud.cmd`** is exactly at **`windowsInstallPath`**. Ensure that `bin` directory is on PATH when dry-runs use bare **`cli`**. **Forbidden:** winget/chocolatey substitutes; open-ended install-directory questions. |
+
+**dryRuns:**
+
+| # | `command` | `expect` |
+|---|-----------|----------|
+| 1 | `gcloud version` | Exit **0**; stdout includes a Google Cloud SDK / gcloud version ≥ **`minVersion`** |
+| 2 | `gcloud help` | Exit **0** |
+
+Prefer running **`dryRuns`** with the resolved **`macosInstallPath`** /
+**`windowsInstallPath`** as the executable (substitute the path for the leading
+**`cli`** token). Bare **`cli`** is allowed only when invoking via PATH after a
+confirmed PATH hit. Dry-runs are **CLI-only** — do not require auth; user auth
+and GCP/Drive setup belong to mission **configure-gcloud-drive**.
+
 ## Agent obligations
 
 1. Treat this inventory as the **only** required-tools source for this center.
@@ -103,5 +140,6 @@ confirmed PATH hit.
 ## Related
 
 - Mission **Required Tools Installation** —
-  `missions/required-tools-installation/` (command phrase **`install required tools`**).
+  `missions/required-tools-installation/` (command phrase **`install required tools`**);
+  spawned **configure-gcloud-drive** after **`gcloud`** is in scope.
 - Foundation rule — `rules/00_documentation-management.mdc` (rclone as primary sync tool).

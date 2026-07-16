@@ -1,7 +1,8 @@
 ---
 description: >-
   Install and verify tools required by the Documentation Management Center —
-  shell probes, install consent, sole OS install method, and documented dry-runs.
+  shell probes, install consent, sole OS install method, documented dry-runs,
+  and spawned gcloud / Google Drive configuration when gcloud is in scope.
 alwaysApply: false
 ---
 
@@ -19,8 +20,13 @@ alwaysApply: false
    **sole** registry install method id for the current OS (never a method picker).
 4. After install or path override, run each tool’s documented **dry-runs** and
    report pass/fail without further documentation browsing.
-5. Close the dispatch with an explicit Squad Leader resolution proposal when the
-   install/verify pass is complete or abandoned.
+5. When tool **`gcloud`** is in scope for the pass (**ok**, newly installed, or
+   **use-path**), spawn **configure-gcloud-drive** to confirm GCP console access,
+   authenticate (user terminal), configure a GCP project and service account,
+   enable Drive API, apply rclone Drive access, and verify.
+6. Close the dispatch with an explicit Squad Leader resolution proposal when the
+   install/verify (and gcloud configure when applicable) pass is complete or
+   abandoned.
 
 ## Protocol
 
@@ -74,7 +80,7 @@ For each tool:
 - **Intent:** Obtain explicit consent before any install; allow path/command override to avoid duplicate installs.
 - **Inputs:** Probe table from §3.
 - **Expected output:** Per-tool action: `install` (sole OS method id from registry) · `use-path` (user path/command) · `skip` · `abort`.
-- **Next-step resolution:** At least one `install` or `use-path` → §5. All `skip` with nothing to verify → §7. `abort` → §7 abandoned.
+- **Next-step resolution:** At least one `install` or `use-path` → §5. All `skip` with nothing to verify → §8. `abort` → §8 abandoned.
 
 USER_CHECKPOINT — confirm which tools to install, skip, or override with an existing path/command.
 
@@ -89,7 +95,7 @@ Options are **install** / **use-path** / **skip** / **abort** only (plus **More 
 - **Intent:** Install only consented tools using the sole registry method for the OS.
 - **Inputs:** Approvals from §4; **`installUrl`**, sole method id, and fixed-path notes per tool.
 - **Expected output:** Per-tool install result (success / failure + stderr summary).
-- **Next-step resolution:** Success or `use-path` applied → §6. Hard failure on a required install → USER_CHECKPOINT below, then §6 or §7.
+- **Next-step resolution:** Success or `use-path` applied → §6. Hard failure on a required install → USER_CHECKPOINT below, then §6 or §8.
 
 Read **`installUrl`** and the method notes for the exact commands for the sole
 method id. Prefer the official procedure; do not browse randomly when the install
@@ -104,17 +110,43 @@ USER_CHECKPOINT — retry, skip failed tool, or abort after an install failure.
 - **Intent:** Prove each in-scope tool runs using registry dry-runs only.
 - **Inputs:** Tools classified **ok**, newly installed, or **use-path**; each tool’s **`dryRuns`**.
 - **Expected output:** Per-tool dry-run log (command, exit code, pass/fail vs `expect`).
-- **Next-step resolution:** All required dry-runs pass → §7 `resolved`/`partial` as appropriate. Failures → USER_CHECKPOINT below, then §7.
+- **Next-step resolution:** All required dry-runs pass → §7 when tool **`gcloud`** is in scope for this pass; otherwise → §8. Failures → USER_CHECKPOINT below, then §7 or §8 as appropriate.
 
 Run **`dryRuns`** in listed order. Do not substitute undocumented checks.
 
 USER_CHECKPOINT — retry dry-runs, accept partial, or abort after dry-run failure.
 
-### 7. Dispatch resolution (Squad Leader)
+### 7. Configure Google Cloud / Drive for gcloud (spawned)
+
+- **Type:** Agent engagement and handover
+- **execution:** `spawned`
+- **Intent:** After gcloud CLI is installed/verified, confirm the user can open the Google Cloud dashboard at **cloud.google.com** (including handling **Try for free** / org enablement), authenticate in the terminal (`gcloud auth login` via **Ctrl+`**), configure a GCP project (existing or create **`sedea-agent-squad`**), select/create a service account (create id **`<hosting-repo-basename>-sedea-agent`**), download the SA JSON to the user-home credentials path, enable Google Drive API, grant the SA Drive access rclone needs, and verify with a gcloud/Drive command.
+- **Inputs:** Probe/install outcome for tool **`gcloud`**; optional user hints (existing project id, existing SA email); `defaultNewProjectId: sedea-agent-squad`; `defaultNewServiceAccountId: <hosting-repo-basename>-sedea-agent`; `credentialsTargetPath`; `operationsDocsDirectory` from Mission Control.
+- **Expected output:** Child **`mission_control_send_agent_result`** with `projectId`, `serviceAccountEmail`, `credentialsPath`, `driveApiEnabled`, `permissionsApplied`, `verifyCommand`, `verifyPassed`, `continuationStatus: terminal`.
+- **Next-step resolution:** Child success → §8. Child failure/partial → USER_CHECKPOINT below, then §8.
+
+**When to run:** Only when tool **`gcloud`** is in the registry and was **ok**, newly installed, or **use-path** for this pass. If **`gcloud`** is absent from the registry or was **skip**’d → skip this step and go to §8.
+
+**Target skill:** [skills/configure-gcloud-drive/SKILL.md](skills/configure-gcloud-drive/SKILL.md)
+
+**Spawn:** Emit **`mission_control_spawn_agent`** with `skillPath` to that skill, `inputs` (`projectPreference`, `existingProjectId?`, `defaultNewProjectId`, `serviceAccountPreference`, `existingServiceAccountEmail?`, `defaultNewServiceAccountId`, `credentialsTargetPath`, `operationsDocsDirectory`), optional `warmUpRules` / `initiatingPrompt` (install/probe summary + naming defaults). Open **external-wait / next-step** structured choice before ending the turn while waiting for the child result.
+
+**Naming (binding — create paths only):**
+
+| Asset | Create default |
+|-------|----------------|
+| GCP project | **`sedea-agent-squad`** |
+| Service account id | **`<hosting-repo-basename>-sedea-agent`** |
+
+USER_CHECKPOINT — retry configure spawn, accept partial, or abort after child failure/partial.
+
+**Forbidden:** child proposing dispatch resolution; interactive `gcloud auth login` in the agent shell (skill step 1b — user runs it in the terminal via **Ctrl+`**); skipping the cloud.google.com dashboard check (skill step 1a) when auth is missing.
+
+### 8. Dispatch resolution (Squad Leader)
 
 - **Type:** Finish/stop logic
 - **Intent:** Close this Mission Control dispatch explicitly.
-- **Inputs:** Probe, install, and dry-run outcomes.
+- **Inputs:** Probe, install, dry-run, and gcloud-configure outcomes.
 - **Expected output:** MCP **`mission_control_propose_dispatch_resolution`** with status + summary.
 - **Next-step resolution:** Terminal for this dispatch after user Accept/Continue on the resolution card.
 
@@ -123,8 +155,8 @@ Call **`mission_control_propose_dispatch_resolution`** per
 
 | Status | When |
 |--------|------|
-| **`resolved`** | All required tools **ok** (or installed) and all dry-runs passed |
-| **`partial`** | Useful progress but skips, overrides, or failed dry-runs remain |
+| **`resolved`** | All required tools **ok** (or installed), dry-runs passed, and gcloud configure succeeded when in scope |
+| **`partial`** | Useful progress but skips, overrides, failed dry-runs, or configure gaps remain |
 | **`abandoned`** | User aborted |
 | **`aborted`** | Blocking error prevented continuation |
 
