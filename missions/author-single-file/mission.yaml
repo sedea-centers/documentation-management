@@ -1,0 +1,14 @@
+name: Author Single File
+description: >-
+  Use Planning to deliver a new document or change an existing document —
+  scaffold or sync in, plan with sources, author changes, and bisync out with
+  conflict resolution when local and remote diverge.
+commands:
+  - phrase: create new file
+    description: >-
+      Scaffold a new document (name, location, shape), plan the content, author
+      it, and sync to the configured rclone remote.
+  - phrase: change existing file
+    description: >-
+      Bisync an existing document from remote, plan edits with sources, apply
+      changes, and bisync back — resolving conflicts when both sides changed.
