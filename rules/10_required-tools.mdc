@@ -52,7 +52,7 @@ Agents **must not** invent methods absent from the tool’s `macosMethods` /
 
 | Method id | Notes (from install docs — follow `installUrl` for exact commands) |
 |-----------|---------------------------------------------------------------------|
-| `curl` | **Sole** macOS method. Official `install.sh` via curl (Linux/macOS/BSD script path). **Forbidden:** offering brew, MacPorts, or any other method. |
+| `curl` | **Sole** macOS method. Download the official **precompiled** macOS binary from downloads.rclone.org (see `installUrl`) via **curl** — do **not** run `install.sh`. Create **`~/bin`** if missing; install the binary as **`~/bin/rclone`**; `chmod +x`. Ensure **`~/bin`** is on PATH for probes/dry-runs. **Forbidden:** `sudo`; system paths (`/usr/local/bin`, etc.); brew; MacPorts; `install.sh`. |
 
 **Windows methods (`windowsMethods`):**
 
