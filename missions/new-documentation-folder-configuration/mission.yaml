@@ -1,10 +1,11 @@
 name: New Documentation Folder Configuration
 description: >-
-  Configure a new gitignored documentation folder and rclone remote sync
-  (GDrive first) — requires prior Required Tools SA JSON, agent configures
-  rclone with service_account_file, dry-run exit, then full pull.
+  Configure a new gitignored documentation folder and sync it with an
+  already-configured rclone GDrive remote — local path, registry, SA share
+  check on the target folder, dry-run exit, then full pull.
 commands:
   - phrase: configure new documentation folder
     description: >-
-      Walk through local folder + gitignore, GDrive remote link, agent rclone
-      remote via SA JSON (exits with dry-run), then full pull sync.
+      Walk through local folder + gitignore, capture a GDrive folder path,
+      ensure the service account is shared on that folder, dry-run against the
+      existing rclone remote, then full pull sync.

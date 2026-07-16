@@ -349,10 +349,9 @@ stdout keys (non-secret). Do **not** copy secret values into skill outputs.
 
 USER_CHECKPOINT on failure — retry / accept partial / abort.
 
-**Note:** Browser OAuth for the rclone remote (`rclone config reconnect`) is
-owned by **new-documentation-folder-configuration** (or an explicit user
-terminal step) — this skill must not run interactive rclone auth in the agent
-shell.
+**Forbidden:** interactive rclone browser OAuth / `rclone config reconnect` in
+the agent shell — Drive remote auth is owned by this skill’s Desktop
+`client_id` write (step 7) plus SA access (step 6).
 
 ### 9. Complete (spawned)
 
