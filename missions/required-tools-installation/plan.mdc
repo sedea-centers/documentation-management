@@ -120,7 +120,7 @@ USER_CHECKPOINT — retry dry-runs, accept partial, or abort after dry-run failu
 
 - **Type:** Agent engagement and handover
 - **execution:** `spawned`
-- **Intent:** After gcloud CLI is installed/verified, confirm the user can open the Google Cloud dashboard at **cloud.google.com** (including handling **Try for free** / org enablement), authenticate in the terminal (`gcloud auth login` via **Ctrl+`**), configure a GCP project (existing or create **`sedea-agent-squad`**), select/create a service account (create id **`<hosting-repo-basename>-sedea-agent`**), download the SA JSON to the user-home credentials path, enable Google Drive API, grant the SA Drive access rclone needs, and verify with a gcloud/Drive command.
+- **Intent:** After gcloud CLI is installed/verified, confirm the user can open the Google Cloud Console at **https://console.cloud.google.com/** (including handling **Try for free** / org enablement), authenticate in the terminal (`gcloud auth login` via **Ctrl+`**), configure a GCP project (existing or create **`sedea-agent-squad`**), select/create a service account (create id **`<hosting-repo-basename>-sedea-agent`**), download the SA JSON to the user-home credentials path, enable Google Drive API, grant the SA Drive access rclone needs, and verify with a gcloud/Drive command.
 - **Inputs:** Probe/install outcome for tool **`gcloud`**; optional user hints (existing project id, existing SA email); `defaultNewProjectId: sedea-agent-squad`; `defaultNewServiceAccountId: <hosting-repo-basename>-sedea-agent`; `credentialsTargetPath`; `operationsDocsDirectory` from Mission Control.
 - **Expected output:** Child **`mission_control_send_agent_result`** with `projectId`, `serviceAccountEmail`, `credentialsPath`, `driveApiEnabled`, `permissionsApplied`, `verifyCommand`, `verifyPassed`, `continuationStatus: terminal`.
 - **Next-step resolution:** Child success → §8. Child failure/partial → USER_CHECKPOINT below, then §8.
@@ -140,7 +140,7 @@ USER_CHECKPOINT — retry dry-runs, accept partial, or abort after dry-run failu
 
 USER_CHECKPOINT — retry configure spawn, accept partial, or abort after child failure/partial.
 
-**Forbidden:** child proposing dispatch resolution; interactive `gcloud auth login` in the agent shell (skill step 1b — user runs it in the terminal via **Ctrl+`**); skipping the cloud.google.com dashboard check (skill step 1a) when auth is missing.
+**Forbidden:** child proposing dispatch resolution; interactive `gcloud auth login` in the agent shell (skill step 1b — user runs it in the terminal via **Ctrl+`**); skipping the console.cloud.google.com Console check (skill step 1a) when auth is missing.
 
 ### 8. Dispatch resolution (Squad Leader)
 

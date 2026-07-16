@@ -75,7 +75,7 @@ Drive API, apply rclone-compatible Drive access, and verify.
 
 Present short, friendly instructions (paraphrase freely; keep the checklist):
 
-1. Open **[https://cloud.google.com](https://cloud.google.com)** in a browser
+1. Open **[https://console.cloud.google.com/](https://console.cloud.google.com/)** in a browser
    (sign in with the Google account they will use for this setup).
 2. Confirm they can reach the **Google Cloud console / dashboard** (not an
    error page or a blocked-org screen).
