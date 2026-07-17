@@ -25,9 +25,15 @@ alwaysApply: false
    (first choice), then create the local folder under the hosting workspace and
    add it to the hosting-repo **`.gitignore`** so documentation payloads stay out
    of git.
-5. Run an agent **dry-run** against the **existing** rclone Drive remote as the
+5. **Force-include** the same **`localPath`** for Cursor SDK indexing via
+   hosting-repo **`.cursorignore`** negation lines (`!<localPath>/` and
+   `!<localPath>/**`) — authored in the **same** hosting worktree as the
+   **`.gitignore`** entry and the registry, and landed on **`main`** in the same
+   promote pass (§4–§6). Gitignored documentation folders **must** be indexed for
+   Documentation Management missions to succeed; this is required, not optional.
+6. Run an agent **dry-run** against the **existing** rclone Drive remote as the
    installation exit; then a **full pull** sync only after explicit confirm.
-6. Close the dispatch with an explicit Squad Leader resolution proposal when
+7. Close the dispatch with an explicit Squad Leader resolution proposal when
    configuration and sync gates are complete or abandoned.
 
 ## Protocol
@@ -127,12 +133,14 @@ USER_CHECKPOINT — #external-wait — confirm Drive folder shared with SA email
 
 - **Type:** Branching logic
 - **Intent:** Create the local documentation root using a name derived from the
-  Drive folder, then author **`.gitignore`** and **`.sedea/documentation-management.yaml`**
-  in the **same** hosting **`WORKTREE_ROOT`**.
+  Drive folder, then author **`.gitignore`**, **`.cursorignore`** (indexing
+  force-include), and **`.sedea/documentation-management.yaml`** in the **same**
+  hosting **`WORKTREE_ROOT`**.
 - **Inputs:** Drive folder **display name** from §3; optional user override for
   local name/path; rclone **`remote`** from §2 (registry may finalize **`remotePath`**
   after §5 bind).
 - **Expected output:** Absolute **`localPath`**; hosting **`.gitignore`** entry;
+  hosting **`.cursorignore`** force-include lines for that **`localPath`**;
   registry **`slug`** (and provisional or full registry row) under the **same**
   **`WORKTREE_ROOT`**.
 - **Next-step resolution:** Path created and Apply accepted (or edits already in
@@ -150,7 +158,7 @@ USER_CHECKPOINT — confirm or override the proposed local directory name.
    (never invent a path outside the workspace without explicit user direction).
 4. Create the directory if missing.
 
-USER_CHECKPOINT — Apply hosting edits (`.gitignore` + registry) · revise path · abort · More details for option _.
+USER_CHECKPOINT — Apply hosting edits (`.gitignore` + `.cursorignore` + registry) · revise path · abort · More details for option _.
 
 5. On **Apply** — **auto-advance** (mission-owned git for this lane — **do not**
    open rule **6** create-worktree or pipeline-depth AskQuestion):
@@ -159,11 +167,31 @@ USER_CHECKPOINT — Apply hosting edits (`.gitignore` + registry) · revise path
      from **`HOSTING_ROOT`**, then MCP **`sedea_add_worktree_folder`** when hint
      **`nextAction: attach-required`**.
    - Under that **same** **`WORKTREE_ROOT`**, edit hosting-repo **`.gitignore`**
-     (path or agreed pattern) **and** **`.sedea/documentation-management.yaml`**
-     (provisional row with **`slug`**, **`localPath`**, known **`remote`**; fill
-     **`remotePath`** in §5 if not yet bound).
-   - **Forbidden:** a second worktree or separate promote for the registry file;
-     committing documentation **payloads**.
+     (path or agreed pattern), hosting-repo **`.cursorignore`**, **and**
+     **`.sedea/documentation-management.yaml`** (provisional row with **`slug`**,
+     **`localPath`**, known **`remote`**; fill **`remotePath`** in §5 if not yet
+     bound).
+   - **`.cursorignore` force-include (binding):** ensure the hosting-repo
+     **`.cursorignore`** contains negation lines that re-include the folder for
+     Cursor SDK indexing even though **`.gitignore`** excludes it — using the
+     **repo-relative** **`localPath`**:
+
+     ```gitignore
+     # Documentation Management — force-include indexed doc folder: <slug>
+     !<relativeLocalPath>/
+     !<relativeLocalPath>/**
+     ```
+
+     Create **`.cursorignore`** at the hosting-repo root with a short header
+     comment if it does not exist. The write is **idempotent** — do not duplicate
+     lines already present for this **`localPath`**. This is **required** whenever
+     a documentation folder is gitignored, not an optional convenience; see
+     [`.sedea/centers/documentation-management/rules/00_documentation-management.mdc`](../../rules/00_documentation-management.mdc)
+     § *Indexing force-include (binding)*.
+   - **Forbidden:** a second worktree or separate promote for the registry or
+     **`.cursorignore`** file; committing documentation **payloads**; adding the
+     **`.gitignore`** entry without the matching **`.cursorignore`** force-include;
+     leaving force-include only in chat, skills, or Sedea host UI settings.
 6. Documentation **payloads** under **`localPath`** must never be committed.
 
 ### 5. Installation exit — bind path + dry-run
@@ -211,8 +239,8 @@ USER_CHECKPOINT — retry dry-run · fix path/share · abort after dry-run failu
 ### 6. Promote hosting worktree to main
 
 - **Type:** Simple skill execution + merge gate
-- **Intent:** Land hosting-repo tracked edits (**`.gitignore`** and
-   **`.sedea/documentation-management.yaml`**) on **`main`** before full pull —
+- **Intent:** Land hosting-repo tracked edits (**`.gitignore`**, **`.cursorignore`**,
+   and **`.sedea/documentation-management.yaml`**) on **`main`** before full pull —
    same **`WORKTREE_ROOT`**, auto ship through PR create, then agent merge after
    explicit merge approval.
 - **Inputs:** Hosting **`WORKTREE_ROOT`** from §4 Apply (updated in §5 when needed);
@@ -229,9 +257,9 @@ Otherwise promote **this pass’s** **`WORKTREE_ROOT`** only:
 
 1. **Auto-advance** (Apply consent is enough — **do not** open rule **6**
    pipeline-depth AskQuestion for `commit-only` / `commit-push` /
-   `commit-push-pr`): stage named paths for **`.gitignore`** and
-   **`.sedea/documentation-management.yaml`** only → `git commit` → `git push` →
-   `gh pr create`.
+   `commit-push-pr`): stage named paths for **`.gitignore`**, **`.cursorignore`**,
+   and **`.sedea/documentation-management.yaml`** only → `git commit` → `git push`
+   → `gh pr create`.
 2. Inline **`pr-review`** until **`continuationStatus: terminal`**.
 
 USER_CHECKPOINT — Merge this PR (`approve-merge-pr`) · check PR status · defer full pull · abort · More details for option _.
@@ -247,8 +275,8 @@ USER_CHECKPOINT — Merge this PR (`approve-merge-pr`) · check PR status · def
 **Forbidden:** full pull (§7) while this pass still has an unmerged hosting
 worktree PR for the configure edit set; agent merge **without** same-turn
 **`approve-merge-pr`** (or equivalent) pick; separate worktrees or PRs for
-gitignore vs registry; removing worktrees you do not own; re-asking create-worktree
-or pipeline-depth after Apply.
+gitignore vs **`.cursorignore`** vs registry; removing worktrees you do not own;
+re-asking create-worktree or pipeline-depth after Apply.
 
 USER_CHECKPOINT — retry ship · skip to full pull (document risk) · abort after ship failure.
 
@@ -285,9 +313,16 @@ missing or incomplete (unexpected), repair under a **new** hosting worktree only
 with a fresh Apply gate — do not silently edit **`HOSTING_ROOT`** checked-out
 **`main`**. Schema:
 [`.sedea/centers/documentation-management/rules/00_documentation-management.mdc`](../../rules/00_documentation-management.mdc).
+
+Also confirm hosting-repo **`.cursorignore`** on **`HOSTING_ROOT`** contains both
+force-include negation lines (`!<relativeLocalPath>/` and `!<relativeLocalPath>/**`)
+for this folder’s repo-relative **`localPath`**. If either line is missing
+(unexpected), repair under the **same new** hosting worktree + Apply gate used for
+a registry repair — never a second, separate ship.
+
 **Forbidden:** inventing a second registry path; committing documentation payloads;
-treating §8 as the primary authoring step for a tracked registry (primary write is
-§4–§5 in **`WORKTREE_ROOT`**).
+treating §8 as the primary authoring step for a tracked registry or **`.cursorignore`**
+(primary write is §4–§5 in **`WORKTREE_ROOT`**).
 
 ### 9. Dispatch resolution (Squad Leader)
 

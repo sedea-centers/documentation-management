@@ -45,6 +45,9 @@ Folder registry lives at the **hosting-repo root**:
 - Each folder has its **own rclone remote configuration** (remote name + remote path).
 - Documentation folder contents are **gitignored** in the hosting repo — persistence
   is the remote/cloud store, not hosting-repo git.
+- Because they are gitignored, each registered **`localPath`** **must** be
+  force-included for Cursor SDK indexing via hosting-repo **`.cursorignore`**
+  negations — see **§ Indexing force-include (binding)**.
 
 ### Schema (normative)
 
@@ -71,6 +74,40 @@ in-scope; committing documentation payloads into hosting-repo git; adding
 `conflictPolicy` (or equivalent) to this registry — conflict handling belongs to
 the shared conflict-resolution skill.
 
+## Indexing force-include (binding)
+
+Documentation payloads are **`.gitignore`d**, and Cursor SDK indexing honors
+**`.gitignore`** — so by default agents **cannot** read or index these files, which
+would make Documentation Management missions fail. To keep the folders indexed while
+their contents stay out of git, the hosting repo carries a **`.cursorignore`** at its
+root that **re-includes** each registered folder via negation lines.
+
+**Contract (normative):**
+
+- **`.cursorignore`** lives at the **hosting-repo root** (same level as **`.gitignore`**)
+  and is **tracked** in git.
+- For every registered folder’s repo-relative **`localPath`**, **`.cursorignore`**
+  **must** contain both negation lines so the folder tree is indexed despite the
+  **`.gitignore`** exclusion:
+
+```gitignore
+# Documentation Management — force-include indexed doc folder: <slug>
+!<relativeLocalPath>/
+!<relativeLocalPath>/**
+```
+
+- The force-include is authored in the **same** hosting **`WORKTREE_ROOT`**, in the
+  **same** promote pass, and merged to **`main`** together with the **`.gitignore`**
+  entry and the registry row — never as a separate worktree, PR, or follow-up.
+- Writes are **idempotent**: do not duplicate lines already present for a
+  **`localPath`**. Create **`.cursorignore`** with a short header comment if missing.
+
+**Forbidden:** adding a **`.gitignore`** entry for a registered folder without the
+matching **`.cursorignore`** force-include; treating indexing inclusion as optional,
+best-effort, host-UI-only, or “sniff if present”; placing the force-include only in
+chat, skills, or Sedea settings instead of the tracked **`.cursorignore`**; using
+**`.cursorindexingignore`** or ad-hoc mechanisms in place of the negation lines.
+
 ## Rule numbering (this center)
 
 Center rules under **`rules/`** use **two-digit** numeric prefixes stepped by **10**
@@ -85,7 +122,11 @@ renumbering.
    choice (or the mission skill’s gates) before mutating files or running sync.
 3. When a conflict-resolution skill exists under this center, **use it** for sync
    conflicts — do not improvise a one-off conflict policy in chat.
-4. Prefer mission skills under this center for setup and sync; specialized centers
+4. When registering or **`.gitignore`**-ing a documentation **`localPath`**, also
+   maintain the matching hosting-repo **`.cursorignore`** force-include negations for
+   that path (**§ Indexing force-include (binding)**) — in the same tracked edit set.
+   Never treat indexing inclusion as optional or defer it to a separate ship.
+5. Prefer mission skills under this center for setup and sync; specialized centers
    that reuse these assets keep this contract unless they document a deliberate override.
 
 ## Related
