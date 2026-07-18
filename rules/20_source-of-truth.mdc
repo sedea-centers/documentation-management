@@ -1,0 +1,89 @@
+---
+description: >-
+  Documentation Management — per-folder source-of-truth contract: location,
+  read authority, write gates, and missing-folder fallback.
+globs: "**/*"
+alwaysApply: false
+---
+
+# Source of truth
+
+## Purpose
+
+Each registered documentation folder may contain a **`source-of-truth/`**
+subdirectory. That folder holds **authoritative** content for the documentation
+folder where it resides. Agents use it as the default picture of the folder's
+current state when authoring, editing, or answering questions about that folder.
+
+This contract is **per documentation folder**. A hosting workspace can have
+multiple registered folders (for example grant writing vs QMS drafts); each may
+have its **own** `source-of-truth/` tree. Folder registration remains in
+**`.sedea/documentation-management.yaml`** and **`rules/00_documentation-management.mdc`**.
+
+## Location
+
+Under each registered folder's **`localPath`**:
+
+```text
+<localPath>/source-of-truth/
+```
+
+| Property | Rule |
+|----------|------|
+| **Name** | Directory name is exactly **`source-of-truth`** (kebab-case; no alternate spellings) |
+| **Contents** | Zero or more files; multi-file trees are allowed |
+| **Scope** | Authoritative only for the documentation folder that contains it — not for sibling registered folders |
+| **Persistence** | Lives inside the documentation payload tree (gitignored + remote-backed like other folder contents) |
+
+**Forbidden:** inventing a second SoT path; treating a hosting-repo path outside
+**`localPath`** as that folder's source of truth; sharing one SoT across multiple
+registered folder slugs.
+
+## Read authority (binding)
+
+When authoring or editing documents in a registered folder that **has** a
+**`source-of-truth/`** directory:
+
+1. Agents **must** consult **only** files under that folder's **`source-of-truth/`**
+   for authoritative context.
+2. Agents **must not** search, summarize, or treat other paths in the same
+   documentation folder (or elsewhere) as authoritative **unless** the user
+   **explicitly** instructs them to use additional sources.
+
+When a registered folder **does not** have a **`source-of-truth/`** directory,
+agents distill the best available picture from the folder contents and state that
+the distilled view is **best-effort**, not a maintained SoT.
+
+## Write authority (binding)
+
+The source of truth is **not** casually updated.
+
+| Trigger | Allowed? |
+|---------|----------|
+| User **explicitly approves** a SoT change (structured choice or clear same-turn wording) | **Yes** — edit only the approved paths |
+| **Document creation** when the new document is a potential SoT update and the user (or mission gate) authorizes the SoT write | **Yes** — only the approved SoT update |
+| User **explicitly asks** to refresh or revise SoT | **Yes** — after confirming scope |
+| Deprecating, archiving, or deleting **other** files in the documentation folder | **No** — does **not** change SoT |
+| Agent unilateral “keep SoT in sync” without approval | **Forbidden** |
+
+**Independence:** Correctness and freshness of **`source-of-truth/`** are maintained
+**separately** from the rest of the documentation folder. Deprecating other files
+does not imply SoT edits; SoT edits do not require deprecating other files.
+
+## Agent obligations
+
+1. Resolve the active documentation folder from
+   **`.sedea/documentation-management.yaml`** before locating SoT.
+2. Check for **`<localPath>/source-of-truth/`**. If present, use it as the sole
+   default authority for authoring/editing context.
+3. If absent, distill best-effort truth and do not pretend a SoT exists.
+4. Never edit SoT without explicit user approval (or an approved creation-time
+   SoT update from the active mission gate).
+5. When the user authorizes looking outside SoT, treat that as a **scoped**
+   exception for that turn — do not broaden it silently to later turns.
+
+## Related
+
+- Foundation rule — `rules/00_documentation-management.mdc` (folder registry,
+  sync, indexing).
+- Required tools — `rules/10_required-tools.mdc`.
