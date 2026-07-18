@@ -74,10 +74,11 @@ pretend the Unix script ran.
 
 ## Preconditions
 
-- `gcloud` is available after **Agent shell bootstrap** below (registry install
-  path counts — bare `command -v gcloud` alone is **not** enough to declare
-  missing). If still missing after bootstrap → terminal **`failure`** — do not
-  install the CLI in this skill.
+- `gcloud` is available as bare **`gcloud`** on PATH after the parent mission’s
+  registry install (Unix: SDK at `~/google-cloud-sdk` **plus** `~/bin/gcloud`
+  symlink). If bare `command -v gcloud` fails → terminal **`failure`** — do not
+  install the CLI or PATH-prepend SDK `bin/` in this skill; return the gap to
+  the parent install / symlink repair flow.
 - Mission Control lane with structured choice and MCP result tools.
 
 ## Agent shell bootstrap (binding — every turn that runs gcloud)
@@ -85,23 +86,25 @@ pretend the Unix script ran.
 Before any `gcloud` / org-policy / keys / Drive command in the **agent** shell:
 
 ```bash
-export PATH="${HOME}/google-cloud-sdk/bin:${HOME}/bin:${PATH}"
 export CLOUDSDK_CORE_DISABLE_PROMPTS=1
 ```
 
-1. Prefer probing **`${HOME}/google-cloud-sdk/bin/gcloud`** when present.
+1. Probe with bare **`command -v gcloud`**. Mission Control shells already include
+   **`~/bin`** on PATH; registry installs expose Unix gcloud via **`~/bin/gcloud`**.
 2. **Forbidden:** hanging on interactive gcloud prompts (`API … not enabled.
    Would you like to enable and retry (y/N)?`). Always keep
    `CLOUDSDK_CORE_DISABLE_PROMPTS=1`; pre-enable APIs with
    `gcloud services enable …` instead of answering `y`.
-3. Re-apply PATH + disable-prompts at the start of each substantive shell
-   block — agent PATH often lacks the registry install.
+3. **Forbidden:** `export PATH="${HOME}/google-cloud-sdk/bin:…"` (or equivalent)
+   as normal policy — incomplete symlink exposure is a parent install failure,
+   not a skill workaround. Re-apply **`CLOUDSDK_CORE_DISABLE_PROMPTS=1`** at the
+   start of each substantive shell block.
 
 ## Hardened control-flow (summary)
 
 ```text
-PATH bootstrap + CLOUDSDK_CORE_DISABLE_PROMPTS=1
-probe gcloud (registry path first)
+CLOUDSDK_CORE_DISABLE_PROMPTS=1
+probe bare gcloud on PATH
   → auth list; if empty → external-wait login (unavoidable)
   → list/create project (checkpoint only if preference ambiguous)
   → derive legal SA account id (auto-shorten ≤30; no checkpoint for length alone)
@@ -172,12 +175,11 @@ After 1a succeeds:
 
 ### 2. Confirm gcloud CLI
 
-Re-apply **Agent shell bootstrap**. Probe `command -v gcloud` **and**
-`${HOME}/google-cloud-sdk/bin/gcloud` (or user-supplied / registry path from
-parent handover). If missing after bootstrap → **`failure`** with message that
-CLI install belongs to the parent mission registry flow. **Forbidden:**
-declaring CLI missing solely because bare `command -v gcloud` failed while the
-registry binary exists.
+Re-apply **Agent shell bootstrap**. Probe bare **`command -v gcloud`**. If
+missing → **`failure`** with message that CLI install and Unix **`~/bin`**
+symlink exposure belong to the parent mission registry flow. **Forbidden:**
+PATH-prepending **`${HOME}/google-cloud-sdk/bin`** to paper over a missing
+symlink; declaring success from a full SDK path when bare **`gcloud`** is absent.
 
 ### 3. Select or create GCP project
 

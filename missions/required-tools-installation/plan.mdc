@@ -70,12 +70,13 @@ pointing at that rule.
 - **Expected output:** Per-tool probe table (resolved command, version string or none, classification).
 - **Next-step resolution:** All **ok** → §6 (dry-runs still required). Any **missing** / **outdated** → §4.
 
-For each tool:
+For each tool (probe order matches registry **Resolve and invoke**):
 
-1. Resolve executable: user-supplied path/command if set for that tool; else `command -v <cli>` (or OS-equivalent PATH probe). On Windows, also probe the registry fixed path for method `fixed-path-exe` when documented (`%LOCALAPPDATA%\Programs\rclone\rclone.exe` for `rclone`).
-2. If not found → **missing**.
-3. If found, obtain version (prefer `<cli> version` / `--version` as documented for that tool). Compare to **`minVersion`** → **ok** or **outdated**.
-4. Do not install in this step.
+1. Resolve executable: user-supplied path/command if set for that tool; else bare **`cli`** via `command -v` (or OS-equivalent PATH probe).
+2. If PATH misses, expand the OS **`macosInstallPath`** / **`linuxInstallPath`** / **`windowsInstallPath`** and check existence only — presence without PATH reachability is **incomplete** (for example Unix **`gcloud`** SDK installed but `~/bin` symlinks missing) → treat as **missing** / incomplete for §4 repair. **Forbidden:** silently prepending SDK `bin/` dirs to PATH as normal policy.
+3. If not found on PATH and install path absent → **missing**.
+4. If found on PATH (or via **`use-path`**), obtain version (prefer `<cli> version` / `--version` as documented for that tool). Compare to **`minVersion`** → **ok** or **outdated**.
+5. Do not install in this step.
 
 ### 4. Confirm installs and path overrides
 
@@ -103,7 +104,9 @@ Options are **install** / **use-path** / **skip** / **abort** only (plus **More 
 Read **`installUrl`** and the method notes for the exact commands for the sole
 method id. Prefer the official procedure; do not browse randomly when the install
 page is sufficient. On Windows `fixed-path-exe`, install only to the registry
-fixed path.
+fixed path. On Unix **`gcloud`** (`curl-sdk`), after the SDK is at
+**`~/google-cloud-sdk`**, create the registry-required **`~/bin`** symlinks
+(`gcloud`, `bq`, `gsutil`) before dry-runs — see registry **Unix PATH exposure**.
 
 USER_CHECKPOINT — retry, skip failed tool, or abort after an install failure.
 
@@ -115,7 +118,9 @@ USER_CHECKPOINT — retry, skip failed tool, or abort after an install failure.
 - **Expected output:** Per-tool dry-run log (command, exit code, pass/fail vs `expect`).
 - **Next-step resolution:** All required dry-runs pass → §7 when tool **`gcloud`** is in scope for this pass; otherwise → §8. Failures → USER_CHECKPOINT below, then §7 or §8 as appropriate.
 
-Run **`dryRuns`** in listed order. Do not substitute undocumented checks.
+Run **`dryRuns`** in listed order with bare **`cli`** (or the user **`use-path`**
+override). Do not substitute undocumented checks. Do not PATH-prepend install
+dirs to force dry-runs to pass.
 
 USER_CHECKPOINT — retry dry-runs, accept partial, or abort after dry-run failure.
 

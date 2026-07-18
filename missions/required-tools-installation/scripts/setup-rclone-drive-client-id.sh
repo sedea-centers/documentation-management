@@ -18,16 +18,9 @@
 # Exit codes: 0 ok | 1 usage | 2 preconditions | 3 GCP/oauth | 4 rclone | 5 windows
 set -euo pipefail
 
-# Agent / non-interactive shells: never hang on gcloud "enable API? (y/N)"
+# Prefer bare gcloud/rclone on PATH (Mission Control shells include ~/bin).
+# Incomplete registry exposure is a parent install failure — do not PATH-prepend.
 export CLOUDSDK_CORE_DISABLE_PROMPTS="${CLOUDSDK_CORE_DISABLE_PROMPTS:-1}"
-
-# Prefer registry install paths when bare gcloud/rclone are missing from PATH
-if ! command -v gcloud >/dev/null 2>&1 && [[ -x "${HOME}/google-cloud-sdk/bin/gcloud" ]]; then
-  export PATH="${HOME}/google-cloud-sdk/bin:${PATH}"
-fi
-if ! command -v rclone >/dev/null 2>&1 && [[ -x "${HOME}/bin/rclone" ]]; then
-  export PATH="${HOME}/bin:${PATH}"
-fi
 
 SCRIPT_NAME="$(basename "$0")"
 CLIENT_DISPLAY_NAME_DEFAULT="sedea-rclone-drive"
