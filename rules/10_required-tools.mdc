@@ -1,9 +1,7 @@
 ---
 description: >-
-  Extensible registry of tools required by Documentation Management — min
-  versions, docs/install URLs, sole OS install method per platform, canonical
-  install paths for placement/probe, PATH-first invoke, dry-run commands, and
-  Drive auth invoke shape.
+  Extensible registry of CLI tools and Sedea extensions required by Documentation
+  Management — versions, sole install methods, probes, dry-runs, and Drive auth.
 globs: "**/*"
 alwaysApply: false
 ---
@@ -14,28 +12,30 @@ alwaysApply: false
 Missions that install or verify tooling **must** read this file — do not invent
 a second required-tools list.
 
-When adding a tool later, append a row under **Tool inventory** with every
-required field. Prefer official docs and install pages; keep dry-run commands
-executable without further browsing.
+When adding a tool later, append a row under **Tool inventory** with every field
+required for its **`kind`**. Prefer official docs and install pages; keep dry-run
+commands executable without further browsing.
 
 ## Schema (per tool)
 
 | Field | Required | Meaning |
 |-------|----------|---------|
-| **`id`** | yes | Stable kebab-case tool id (also usual CLI name when identical) |
-| **`cli`** | yes | Primary command name for PATH probes and normal invocation |
+| **`id`** | yes | Stable kebab-case tool id |
+| **`kind`** | yes | `cli` or `sedea-extension` |
 | **`minVersion`** | yes | Minimum semver (or tool-native version string) the center accepts |
 | **`docsUrl`** | yes | Primary documentation URL |
 | **`installUrl`** | yes | Installation documentation URL (may equal docs when install is a subsection) |
-| **`macosInstallPath`** | yes | Canonical path of the binary after the sole macOS method succeeds (tilde allowed) |
-| **`linuxInstallPath`** | yes | Canonical path of the binary after the sole Linux method succeeds (tilde allowed) |
-| **`windowsInstallPath`** | yes | Canonical path of the binary after the sole Windows method succeeds (`%VAR%` allowed) |
+| **`cli`** | `cli` only | Primary command name for PATH probes and normal invocation |
+| **`extensionId`** | `sedea-extension` only | Open VSX identifier in `publisher.extension` form |
+| **`macosInstallPath`** | `cli` only | Canonical path of the binary after the sole macOS method succeeds (tilde allowed) |
+| **`linuxInstallPath`** | `cli` only | Canonical path of the binary after the sole Linux method succeeds (tilde allowed) |
+| **`windowsInstallPath`** | `cli` only | Canonical path of the binary after the sole Windows method succeeds (`%VAR%` allowed) |
 | **`macosMethods`** | yes | Ordered list of install method ids allowed on macOS — **exactly one** sole method |
 | **`linuxMethods`** | yes | Ordered list of install method ids allowed on Linux — **exactly one** sole method |
 | **`windowsMethods`** | yes | Ordered list of install method ids allowed on Windows — **exactly one** sole method |
 | **`dryRuns`** | yes | Ordered list of `{ command, expect }` checks after install |
 
-**Install paths** are the **canonical placement** after a registry install and the
+For **`kind: cli`**, install paths are the **canonical placement** after a registry install and the
 **first existence probe** when checking for an existing install. Expand `~` and
 Windows `%VAR%` in the agent shell.
 
@@ -52,12 +52,13 @@ PATH as normal policy.
 on **`installUrl`** and in the method notes. Agents **must not** invent methods
 absent from the tool’s `macosMethods` / `linuxMethods` / `windowsMethods` lists.
 When a list has one entry, that id is **mandatory** — **do not** ask the user to
-pick a method or an install directory (paths are fixed by **`macosInstallPath`** /
-**`linuxInstallPath`** / **`windowsInstallPath`**).
+pick a method. For `cli` tools, do not ask for an install directory (paths are
+fixed by **`macosInstallPath`** / **`linuxInstallPath`** /
+**`windowsInstallPath`**).
 
 ## Resolve and invoke (binding)
 
-Detect the current OS, then read the matching registry field:
+For **`kind: cli`**, detect the current OS, then read the matching registry field:
 
 | OS | Detect | Registry field |
 |----|--------|----------------|
@@ -80,10 +81,44 @@ Detect the current OS, then read the matching registry field:
 install (or with the user **`use-path`** override). Substitute a full path only
 when dry-running an explicit override.
 
+For **`kind: sedea-extension`**, follow **Sedea extension resolve and invoke**
+below instead of the binary-path algorithm.
+
 ## Invoke and probe (by OS)
 
 Use these patterns after install or when verifying an existing install. Replace
 placeholders; do not print secret material.
+
+### Sedea extensions
+
+Resolve the installed Sedea application's extension-management CLI:
+
+| OS | Resolution order |
+|----|------------------|
+| macOS | Explicit user `use-path`; otherwise `/Applications/Sedea.app/Contents/Resources/app/bin/code` |
+| Linux | Explicit user `use-path`; otherwise `sedea` on PATH |
+| Windows | Explicit user `use-path`; otherwise `sedea` on PATH |
+
+The macOS launcher filename is inherited from VS Code packaging; invoking that
+path still targets **Sedea** and its extension directory. Do **not** substitute a
+different editor's `code` command from PATH.
+
+**Probe:** run `"<sedea-cli>" --list-extensions --show-versions`. Match
+**`extensionId`** case-insensitively and parse `<extensionId>@<version>`.
+Absent → **missing**; version below **`minVersion`** → **outdated**; otherwise
+**ok**. A missing Sedea CLI is a failed/incomplete probe and routes to the
+mission's **`use-path`** choice — it is not a reason to install through another
+editor.
+
+**Install:** after explicit consent only, run
+`"<sedea-cli>" --install-extension "<extensionId>" --force`. This installs or
+updates the extension from Sedea's configured Open VSX gallery. It does **not**
+add the extension to the Sedea application bundle. A dedicated MCP tool is not
+required.
+
+**Dry-run:** repeat `"<sedea-cli>" --list-extensions --show-versions` and require
+the installed entry to meet **`minVersion`**. Do not claim functional document
+rendering was tested by this inventory check.
 
 ### `rclone`
 
@@ -136,11 +171,35 @@ to mission **configure-gcloud-drive**.
 
 ## Tool inventory
 
+### `vscode-office`
+
+| Field | Value |
+|-------|-------|
+| **id** | `vscode-office` |
+| **kind** | `sedea-extension` |
+| **extensionId** | `cweijan.vscode-office` |
+| **minVersion** | `4.1.5` |
+| **docsUrl** | https://open-vsx.org/extension/cweijan/vscode-office |
+| **installUrl** | https://code.visualstudio.com/docs/configure/extensions/extension-marketplace#_command-line-extension-management |
+
+**macOS / Linux / Windows methods:**
+
+| Registry fields | Sole method id | Notes |
+|-----------------|----------------|-------|
+| `macosMethods`, `linuxMethods`, `windowsMethods` | `sedea-cli-install-extension` | Resolve the Sedea CLI per **Sedea extensions**, then install `cweijan.vscode-office` with `--install-extension` after consent. **Forbidden:** adding it to Sedea's built-in extension bundle; using another editor's profile; marketplace download/VSIX side-loading when the Open VSX CLI install is available. |
+
+**dryRuns:**
+
+| # | `command` | `expect` |
+|---|-----------|----------|
+| 1 | `"<sedea-cli>" --list-extensions --show-versions` | Exit **0**; output includes `cweijan.vscode-office@<version>` with version ≥ **`minVersion`** |
+
 ### `rclone`
 
 | Field | Value |
 |-------|--------|
 | **id** | `rclone` |
+| **kind** | `cli` |
 | **cli** | `rclone` |
 | **minVersion** | `1.60.0` |
 | **docsUrl** | https://rclone.org/docs/ |
@@ -255,6 +314,7 @@ command shape** only.
 | Field | Value |
 |-------|--------|
 | **id** | `gcloud` |
+| **kind** | `cli` |
 | **cli** | `gcloud` |
 | **minVersion** | `450.0.0` |
 | **docsUrl** | https://cloud.google.com/sdk/gcloud |
@@ -295,19 +355,23 @@ symlinks exist). Full install-path executable is allowed only for an explicit
 ## Agent obligations
 
 1. Treat this inventory as the **only** required-tools source for this center.
-2. Probe in order: (a) any **user-supplied path/command** from the install mission
+2. Branch by **`kind`**. For `sedea-extension`, use the Sedea CLI probe/install
+   contract above; never use another editor's extension profile. For `cli`,
+   probe in order: (a) any **user-supplied path/command** from the install mission
    gate; (b) `command -v` / PATH on **`cli`**; (c) if PATH misses, check the
    resolved OS install path for incomplete-install detection only. Do not invent
    alternate install directories. Do not PATH-prepend SDK `bin/` as normal policy.
-3. Compare discovered version to **`minVersion`** — classify **ok**, **outdated**,
-   or **missing** (including incomplete symlink exposure for **`gcloud`**).
+3. Compare discovered binary or extension version to **`minVersion`** — classify
+   **ok**, **outdated**, or **missing** (including incomplete CLI resolution).
 4. Install only after structured-choice consent to **install** (not method/path
-   choice). Use the **sole** listed OS method id; place the binary exactly at
-   the OS install path; follow method notes and **`installUrl`** (including Unix
-   **`gcloud`** `~/bin` symlinks). **Forbidden:** method pickers; install-directory
-   questions.
+   choice). Use the **sole** listed OS method id. For `cli`, place the binary
+   exactly at the OS install path and follow method notes and **`installUrl`**
+   (including Unix **`gcloud`** `~/bin` symlinks). For `sedea-extension`, install
+   through the resolved Sedea CLI without bundling. **Forbidden:** method pickers;
+   install-directory questions.
 5. After install (or path override), run **every** **`dryRuns`** row in order
-   with bare **`cli`** (or the override) and record pass/fail.
+   with bare **`cli`** for `cli` tools or the resolved Sedea CLI for
+   `sedea-extension` tools, then record pass/fail.
 6. For Drive **`lsf`** / **bisync**, apply **Drive auth invoke** — SA flags and
    probe order — before suggesting **`rclone config reconnect`**.
 

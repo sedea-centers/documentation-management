@@ -1,8 +1,7 @@
 ---
 description: >-
-  Install and verify tools required by the Documentation Management Center —
-  shell probes, install consent, sole OS install method, documented dry-runs,
-  and spawned gcloud / Google Drive configuration when gcloud is in scope.
+  Install and verify CLI tools and Sedea extensions required by Documentation
+  Management — probes, consent, sole methods, dry-runs, and Drive configuration.
 alwaysApply: false
 ---
 
@@ -11,13 +10,14 @@ alwaysApply: false
 ## Objectives
 
 1. Keep the center’s **required-tools registry** (`rules/10_required-tools.mdc`) as
-   the single source of truth for tools, minimum versions, docs/install URLs,
-   the **sole** OS install method id (and fixed path when defined), and dry-run
-   commands.
-2. Detect which required tools are **missing** or **below `minVersion`** via shell
-   probes (respecting a user-supplied path/command when provided).
+   the single source of truth for CLI tools and Sedea extensions, minimum
+   versions, docs/install URLs, the **sole** OS install method id (and fixed
+   path when defined), and dry-run commands.
+2. Detect which required tools are **missing** or **below `minVersion`** via
+   kind-specific probes (respecting a user-supplied path/command when provided).
 3. Install only tools the user **explicitly consents** to install, using the
-   **sole** registry install method id for the current OS (never a method picker).
+   **sole** registry install method id for the current OS (never a method picker);
+   install Sedea extensions after consent rather than bundling them with the app.
 4. After install or path override, run each tool’s documented **dry-runs** and
    report pass/fail without further documentation browsing.
 5. When tool **`gcloud`** is in scope for the pass (**ok**, newly installed, or
@@ -56,7 +56,7 @@ USER_CHECKPOINT — confirm install intent when the opening command phrase does 
 - **Type:** Simple skill execution
 - **Intent:** Materialize the tool list for this pass.
 - **Inputs:** Center rule [`.sedea/centers/documentation-management/rules/10_required-tools.mdc`](../../rules/10_required-tools.mdc) (resolve under active **`CENTER_WORKTREE_ROOT`** or primary center checkout for read).
-- **Expected output:** Ordered list of tool records (`id`, `cli`, `minVersion`, `docsUrl`, `installUrl`, `macosMethods` / `windowsMethods`, `dryRuns`).
+- **Expected output:** Ordered list of tool records (`id`, `kind`, `cli` or `extensionId`, `minVersion`, `docsUrl`, `installUrl`, OS methods, `dryRuns`).
 - **Next-step resolution:** Registry loads → §3. Missing/empty inventory → stop; report gap (do not invent tools).
 
 Read the registry completely. Do **not** hardcode tool lists in this plan beyond
@@ -70,13 +70,19 @@ pointing at that rule.
 - **Expected output:** Per-tool probe table (resolved command, version string or none, classification).
 - **Next-step resolution:** All **ok** → §6 (dry-runs still required). Any **missing** / **outdated** → §4.
 
-For each tool (probe order matches registry **Resolve and invoke**):
+For each tool, branch on registry **`kind`**:
 
-1. Resolve executable: user-supplied path/command if set for that tool; else bare **`cli`** via `command -v` (or OS-equivalent PATH probe).
-2. If PATH misses, expand the OS **`macosInstallPath`** / **`linuxInstallPath`** / **`windowsInstallPath`** and check existence only — presence without PATH reachability is **incomplete** (for example Unix **`gcloud`** SDK installed but `~/bin` symlinks missing) → treat as **missing** / incomplete for §4 repair. **Forbidden:** silently prepending SDK `bin/` dirs to PATH as normal policy.
-3. If not found on PATH and install path absent → **missing**.
-4. If found on PATH (or via **`use-path`**), obtain version (prefer `<cli> version` / `--version` as documented for that tool). Compare to **`minVersion`** → **ok** or **outdated**.
-5. Do not install in this step.
+1. **`cli`:** resolve the executable from user `use-path`, bare **`cli`** on
+   PATH, then the OS install path for incomplete-install detection only.
+   Presence without PATH reachability is incomplete. Obtain and compare the
+   documented version; do not PATH-prepend install directories.
+2. **`sedea-extension`:** resolve the Sedea extension-management CLI exactly as
+   the registry specifies, then run its `--list-extensions --show-versions`
+   probe. Match **`extensionId`** case-insensitively and compare its version.
+   Do not use another editor's `code` command or extension profile.
+3. Classify **ok**, **outdated**, or **missing**. A missing Sedea CLI is
+   incomplete and routes to §4 **`use-path`**.
+4. Do not install in this step.
 
 ### 4. Confirm installs and path overrides
 
@@ -89,7 +95,7 @@ For each tool (probe order matches registry **Resolve and invoke**):
 USER_CHECKPOINT — confirm which tools to install, skip, or override with an existing path/command.
 
 Present structured choice covering tools that are **missing** or **outdated**.
-Options are **install** / **use-path** / **skip** / **abort** only (plus **More details for option _**). Detect OS via shell. For each **`install`**, take the **sole** method id from that tool’s `macosMethods` / `windowsMethods` (the single listed entry) — **do not** ask the user to choose a method. When method notes define a fixed install path, use that path — **do not** ask where to install. Always include an option to **provide existing path or command** (via More details) for **`use-path`**.
+Options are **install** / **use-path** / **skip** / **abort** only (plus **More details for option _**). Detect OS via shell. For each **`install`**, take the **sole** method id from that tool’s `macosMethods` / `linuxMethods` / `windowsMethods` (the single listed entry) — **do not** ask the user to choose a method. When CLI method notes define a fixed install path, use that path — **do not** ask where to install. For a `sedea-extension`, **`use-path`** supplies the Sedea extension-management CLI path/command, not an alternate extension package. Always include an option to provide the applicable existing path or command.
 
 **Forbidden:** installing without this gate; inventing method ids not listed in the registry; method pickers; install-directory questions when the sole method defines a fixed path.
 
@@ -103,10 +109,15 @@ Options are **install** / **use-path** / **skip** / **abort** only (plus **More 
 
 Read **`installUrl`** and the method notes for the exact commands for the sole
 method id. Prefer the official procedure; do not browse randomly when the install
-page is sufficient. On Windows `fixed-path-exe`, install only to the registry
-fixed path. On Unix **`gcloud`** (`curl-sdk`), after the SDK is at
-**`~/google-cloud-sdk`**, create the registry-required **`~/bin`** symlinks
-(`gcloud`, `bq`, `gsutil`) before dry-runs — see registry **Unix PATH exposure**.
+page is sufficient.
+
+- For **`kind: cli`**, follow the registry's placement contract. On Windows
+  `fixed-path-exe`, install only to the registry fixed path. On Unix
+  **`gcloud`** (`curl-sdk`), create the registry-required **`~/bin`** symlinks
+  after installation and before dry-runs.
+- For **`kind: sedea-extension`**, run the registry command against the resolved
+  **Sedea** CLI after consent. Do not add the extension to Sedea's built-in
+  extension bundle, invoke another editor's profile, or require a new MCP tool.
 
 USER_CHECKPOINT — retry, skip failed tool, or abort after an install failure.
 
@@ -118,9 +129,11 @@ USER_CHECKPOINT — retry, skip failed tool, or abort after an install failure.
 - **Expected output:** Per-tool dry-run log (command, exit code, pass/fail vs `expect`).
 - **Next-step resolution:** All required dry-runs pass → §7 when tool **`gcloud`** is in scope for this pass; otherwise → §8. Failures → USER_CHECKPOINT below, then §7 or §8 as appropriate.
 
-Run **`dryRuns`** in listed order with bare **`cli`** (or the user **`use-path`**
-override). Do not substitute undocumented checks. Do not PATH-prepend install
-dirs to force dry-runs to pass.
+Run **`dryRuns`** in listed order. For **`kind: cli`**, use bare **`cli`** (or
+the user **`use-path`** override). For **`kind: sedea-extension`**, use the
+resolved Sedea CLI and verify the listed extension id/version. Do not substitute
+undocumented checks, PATH-prepend install dirs, or claim extension functionality
+was exercised when the dry-run only proves installation.
 
 USER_CHECKPOINT — retry dry-runs, accept partial, or abort after dry-run failure.
 
