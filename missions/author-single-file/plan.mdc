@@ -22,6 +22,11 @@ alwaysApply: false
    structured choice when local and remote change intent diverges semantically.
 5. Close the dispatch with an explicit Squad Leader resolution proposal when the
    pass is complete, partially complete, or abandoned.
+6. Optionally convert the authored source to PDF after outbound sync:
+   documentation-folder destination with remote sync, operations-docs link only,
+   or skip — without replacing the source document. Conversion mechanics live in
+   the **Convert Document** mission; this mission only chooses the export mode
+   and hands off.
 
 ## Protocol
 
@@ -72,7 +77,7 @@ dispatch for **`install required tools`** on center **`documentation-management`
   shape (when no template), user approval, and write the initial scaffold file.
 - **Inputs:** `folderSlug`, `localPath`, `operationsDocsDirectory` from Mission Control; optional `subfolder`; optional `templatePath`; intent **`create`** from §1.
 - **Expected output:** Child **`mission_control_send_agent_result`** with `relativeFilePath`, `scaffoldWritten: true`, `continuationStatus: terminal`.
-- **Next-step resolution:** Child success → §4 (treat scaffold as existing document). Child failure → USER_CHECKPOINT below, then §9.
+- **Next-step resolution:** Child success → §4 (treat scaffold as existing document). Child failure → USER_CHECKPOINT below, then §10.
 
 **When to run:** Only when intent is **`create`**. When intent is **`change`** → skip to §4.
 
@@ -118,7 +123,7 @@ bisync in until §7 first push).
   conflicts, write the merged file locally, and **`rclone sync`** the result to remote.
 - **Inputs:** `relativeFilePath`, `localPath`, `rclone.remote`, `rclone.remotePath`, `operationsDocsDirectory`; conflict file paths from §4 or §7.
 - **Expected output:** Child result with `conflictResolved: true`, `resolutionPath` (`local` | `remote` | `merged`), `syncedToRemote: true`, `continuationStatus: terminal`.
-- **Next-step resolution:** Child success → resume caller step (§5 after §4, §8 after §7). Child failure → USER_CHECKPOINT at caller, then §9.
+- **Next-step resolution:** Child success → resume caller step (§5 after §4, §8 after §7, §9 after §8b). Child failure → USER_CHECKPOINT at caller, then §10.
 
 **When to run:** When §4 or §7 bisync reports a both-sides-changed conflict.
 
@@ -138,7 +143,7 @@ USER_CHECKPOINT — retry synchronizer spawn or abort after child failure.
   under the dispatch **`plans/`** directory.
 - **Inputs:** `relativeFilePath`, `localPath`, `operationsDocsDirectory`, intent; user sources (files, images, CSV, slides, links).
 - **Expected output:** Child result with `planPath` (absolute under dispatch bundle `plans/`), `planApproved: true`, `continuationStatus: terminal`.
-- **Next-step resolution:** Child success → §6. Child failure or plan not approved → USER_CHECKPOINT below, then §9.
+- **Next-step resolution:** Child success → §6. Child failure or plan not approved → USER_CHECKPOINT below, then §10.
 
 **Target skill:** [skills/planner/SKILL.md](skills/planner/SKILL.md)
 
@@ -166,7 +171,7 @@ USER_CHECKPOINT — retry planner spawn, revise plan scope, or abort after child
   the user until the document is done.
 - **Inputs:** `planPath`, `relativeFilePath`, `localPath`, `operationsDocsDirectory`.
 - **Expected output:** Child result with `documentComplete: true`, `relativeFilePath`, `continuationStatus: terminal`.
-- **Next-step resolution:** Child success → §7. Child failure or user stops early → USER_CHECKPOINT below, then §7 or §9.
+- **Next-step resolution:** Child success → §7. Child failure or user stops early → USER_CHECKPOINT below, then §7 or §10.
 
 **Target skill:** [skills/author/SKILL.md](skills/author/SKILL.md)
 
@@ -191,21 +196,129 @@ Run **`rclone bisync`** with the same remote binding as §4. When the remote is
 
 USER_CHECKPOINT — retry bisync · spawn file-synchronizer (§4a) · abort.
 
-### 8. More changes gate
+### 8. Choose optional PDF export
+
+- **Type:** Branching logic
+- **Intent:** Let the user choose whether and where to produce a PDF after the
+  authored source file is synchronized, without replacing the source document.
+- **Inputs:** `folderSlug`, `localPath`, `relativeFilePath`, `rclone.remote`,
+  `rclone.remotePath`, `operationsDocsDirectory`, and the §7 outbound-sync result.
+- **Expected output:** `pdfExportMode` = `documentation-folder-sync` | `operations-result` | `skip`.
+- **Next-step resolution:**
+  - `documentation-folder-sync` → §8a with a PDF destination inside the registered
+    documentation folder; §8b publishes through bisync/conflict afterward.
+  - `operations-result` → §8a with output under `operationsDocsDirectory`; present
+    a link/reference to the generated PDF and skip §8b remote sync.
+  - `skip` → §9.
+  - Conversion failure after §8a → USER_CHECKPOINT for retry, accept source-only
+    completion, or abort (§10).
+
+USER_CHECKPOINT — export PDF to documentation folder and sync · save PDF under operations docs and return link · skip PDF export.
+
+**Forbidden:** embedding Drive conversion transport in this mission; replacing or
+renaming the source document during export.
+
+### 8a. Convert selected document to PDF (spawned)
+
+- **Type:** Agent engagement and handover
+- **execution:** `spawned`
+- **Intent:** Convert the authored source to PDF through the reusable Convert
+  Document skill without changing or replacing the source.
+- **Target agent role:** PDF conversion agent
+- **Assigned skill:** [`.sedea/centers/documentation-management/missions/convert-document/skills/pdf-converter/SKILL.md`](../convert-document/skills/pdf-converter/SKILL.md)
+  *(Convert Document mission asset — create via a separate **`create new mission`**
+  dispatch when missing)*
+- **Required rule context:** Documentation Management rules
+  `00_documentation-management.mdc` and `10_required-tools.mdc`; Convert Document
+  mission plan; assigned skill.
+- **Inputs:**
+  - `sourcePath`: absolute local source path derived from `localPath` + `relativeFilePath`
+  - `sourceKind`: `docx` | `native-google-doc` | `auto`
+  - `outputMode`: approved §8 value (`documentation-folder-sync` | `operations-result`)
+  - `outputDirectory`: registered documentation folder destination or `operationsDocsDirectory`
+  - `outputFilename`: source basename with `.pdf`, unless the user supplied another name
+  - `folderSlug`, `rclone.remote`, `rclone.remotePath`
+  - Drive service-account and temporary-folder configuration resolved by the skill
+    without exposing secrets
+- **Expected output:** Child **`mission_control_send_agent_result`** with `pdfPath`,
+  `pdfRef`, `sourcePreserved: true`, `temporaryRemoteDeleted: true`,
+  `conversionWarnings[]`, `outputMode`, and `continuationStatus: terminal`.
+- **Next-step resolution:**
+  - Documentation-folder output → §8b.
+  - Operations output → present `pdfRef`, then §9.
+  - Conversion failure or cleanup uncertainty → USER_CHECKPOINT for retry,
+    source-only completion, or abort (§10).
+
+**Procedure constraints**
+
+1. Detect native Google Doc input; skip DOCX import when native.
+2. For DOCX, upload to a unique temporary Shared Drive folder using
+   `--drive-import-formats docx` plus required service-account/root-folder flags.
+3. Export the temporary/native Google document using `--drive-export-formats pdf`.
+4. Validate a non-empty PDF and write only to `outputDirectory`.
+5. Always delete temporary Google artifacts in guaranteed cleanup; report failure
+   if cleanup cannot be confirmed.
+6. Never overwrite or rename the source.
+7. Return fidelity warnings for fonts, pagination, tracked changes, fields, and macros.
+8. Reserve strict-fidelity conversion for a future LibreOffice or Microsoft Word transport.
+
+**Spawn:** Emit **`mission_control_spawn_agent`** with the fields above. Open
+**external-wait / next-step** structured choice before ending the turn while
+waiting for the child result. The child does not resolve the dispatch.
+
+USER_CHECKPOINT — retry Convert Document spawn · accept source-only completion · abort after conversion failure.
+
+### 8b. Sync generated PDF to documentation remote
+
+- **Type:** Branching logic
+- **Intent:** Publish the validated PDF through the registered folder’s existing
+  rclone bisync and conflict-resolution contract without overwriting the source
+  document.
+- **Inputs:** `outputMode`, `pdfPath`, `pdfRelativeFilePath`, `folderSlug`,
+  `localPath`, `rclone.remote`, `rclone.remotePath`, `operationsDocsDirectory`,
+  and conversion warnings from §8a.
+- **Expected output:** `pdfSyncStatus` = `synced` | `conflict-resolved` | `skipped` | `failed`;
+  `pdfRef`; optional conflict-resolution result.
+- **Next-step resolution:**
+  - `outputMode: operations-result` → set `pdfSyncStatus: skipped`, present `pdfRef`, continue to §9.
+  - Documentation-folder output + clean bisync → set `pdfSyncStatus: synced`, continue to §9.
+  - Both-sides-changed conflict → spawn existing
+    [skills/file-synchronizer/SKILL.md](skills/file-synchronizer/SKILL.md) with
+    `pdfRelativeFilePath` as `relativeFilePath`; child success sets
+    `conflict-resolved`, then §9.
+  - Hard sync or conflict-resolution failure → USER_CHECKPOINT for retry, keep
+    local PDF without remote publication, or abort (§10).
+
+**Procedure**
+
+1. Confirm `pdfPath` is inside the selected registered `localPath`; reject path escape.
+2. Probe rclone using the center’s required-tool contract.
+3. Build the same service-account/root-folder authenticated bisync shape used by
+   source-document §7.
+4. Bisync only the generated PDF path and minimal parent tree.
+5. Never replace, rename, or delete the source document.
+6. On conflict, delegate to the existing file-synchronizer; do not invent overwrite policy.
+7. Record the published PDF reference and carry conversion fidelity warnings into
+   the completion recap.
+
+USER_CHECKPOINT — retry PDF sync · keep local PDF without remote publication · abort after hard failure.
+
+### 9. More changes gate
 
 - **Type:** Branching logic
 - **Intent:** Ask whether another edit pass is needed on the same or another file.
-- **Inputs:** Outcomes from §5–§7; current `relativeFilePath`.
+- **Inputs:** Outcomes from §5–§8b; current `relativeFilePath`; optional PDF export
+  outcome (`pdfExportMode`, `pdfRef`, `pdfSyncStatus`).
 - **Expected output:** `moreChanges: true | false`; optional new intent/file binding.
-- **Next-step resolution:** `moreChanges: true` → §2 (new binding) or §5 (same file). `moreChanges: false` → §9.
+- **Next-step resolution:** `moreChanges: true` → §2 (new binding) or §5 (same file). `moreChanges: false` → §10.
 
 USER_CHECKPOINT — make more changes on this file · start a new file (create) · change a different file · finish dispatch.
 
-### 9. Dispatch resolution (Squad Leader)
+### 10. Dispatch resolution (Squad Leader)
 
 - **Type:** Finish/stop logic
 - **Intent:** Close this Mission Control dispatch explicitly.
-- **Inputs:** Scaffold, plan, author, and sync outcomes.
+- **Inputs:** Scaffold, plan, author, sync, and optional PDF export/sync outcomes.
 - **Expected output:** MCP **`mission_control_propose_dispatch_resolution`** with status + summary.
 - **Next-step resolution:** Terminal for this dispatch after user Accept/Continue on the resolution card.
 
@@ -214,10 +327,10 @@ Call **`mission_control_propose_dispatch_resolution`** per
 
 | Status | When |
 |--------|------|
-| **`resolved`** | Document authored, plan approved, outbound bisync clean (or conflicts resolved via §4a) |
-| **`partial`** | Useful progress but skipped sync, unresolved conflicts, or incomplete authoring remain |
+| **`resolved`** | Document authored, plan approved, outbound bisync clean (or conflicts resolved via §4a); optional PDF path completed or explicitly skipped |
+| **`partial`** | Useful progress but skipped sync, unresolved conflicts, incomplete authoring, or incomplete PDF export/sync remain |
 | **`abandoned`** | User aborted |
 | **`aborted`** | Blocking error prevented continuation |
 
 **Forbidden:** prose-only wrap-up without the MCP resolution proposal; child lanes
-proposing dispatch resolution (this mission's Squad Leader owns §9).
+proposing dispatch resolution (this mission's Squad Leader owns §10).
