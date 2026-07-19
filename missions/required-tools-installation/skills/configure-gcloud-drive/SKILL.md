@@ -141,20 +141,24 @@ Present short, friendly instructions (paraphrase freely; keep the checklist):
 
 1. Open **[https://console.cloud.google.com/](https://console.cloud.google.com/)** in a browser
    (sign in with the Google account they will use for this setup).
-2. Confirm they can reach the **Google Cloud console / dashboard** (not an
-   error page or a blocked-org screen).
-3. If the page pushes **“Try for free”** / **“Try for free now”** (or similar
-   free-trial signup), they should complete that flow **or** use an org that
-   already has Google Cloud enabled — until the normal Cloud dashboard is
-   usable, `gcloud` login and project creation will fail.
-4. If their **organization** manages Google Cloud, they may need an admin to
-   turn on Cloud for their user; the skill cannot do that for them.
+2. Confirm they can reach the **Google Cloud console** (not an error page or a
+   blocked-org screen).
+3. **Readiness signal (binding):** Console is ready when they can open the
+   **navigation sidebar** with Cloud dashboard items **and** use the
+   **organization / project selector** to choose the intended org and project.
+   A **“Start for Free”** / **“Try for free”** / **“Try for free now”** banner
+   (or similar) is **not** diagnostic — it does **not** mean Cloud is missing
+   or unusable. Do **not** require free-trial signup merely because that message
+   appears.
+4. If they cannot open the sidebar or select an organization/project, and their
+   **organization** manages Google Cloud, they may need an admin to turn on
+   Cloud for their user; the skill cannot do that for them.
 
 Open an **external-wait / next-step** structured choice before ending the turn,
-for example: **Dashboard looks good — continue to login**, **Still blocked /
-need help**, **Abort**, **More details for option _**. Do **not** proceed to
-`gcloud auth login` until the user selects a continue path that means the
-dashboard is usable.
+for example: **Sidebar and project selector work — continue to login**, **Still
+blocked / need help**, **Abort**, **More details for option _**. Do **not**
+proceed to `gcloud auth login` until the user selects a continue path that means
+the Console sidebar and organization/project selector are usable.
 
 #### 1b. Sign in with gcloud in the terminal
 
