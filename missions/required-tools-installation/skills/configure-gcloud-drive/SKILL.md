@@ -187,13 +187,22 @@ symlink; declaring success from a full SDK path when bare **`gcloud`** is absent
 
 ### 3. Select or create GCP project
 
-1. List accessible projects (`gcloud projects list`).
-2. USER_CHECKPOINT — select an **existing** project **or** create default
-   **`sedea-agent-squad`** (use `inputs.defaultNewProjectId`, normally
-   `sedea-agent-squad`).
-3. On **create**: confirm the id/name in structured choice **before**
+1. **Auth guard (binding).** Re-apply Agent shell bootstrap, then confirm an
+   active account with `gcloud auth list`. If none is active — or a later
+   `gcloud projects list` returns an auth/credential error — do **not** list or
+   select projects. Route back to step 1b: ask the user to run `gcloud auth
+   login` in the integrated terminal (Ctrl+`), open an external-wait / next-step
+   structured choice (**Auth done — continue** · **Retry probe** · **Abort** ·
+   **More details for option _**), and resume only after auth succeeds.
+2. When authenticated, list accessible projects (`gcloud projects list`).
+3. USER_CHECKPOINT — choose one **existing** project from the listed projects,
+   **or** create the default **`sedea-agent-squad`**
+   (`inputs.defaultNewProjectId`). Present each listed project as its own option
+   (id / name); include the create-default option and **More details for option
+   _**. Do not require free-form id entry when the list is available.
+4. On **create**: confirm the id/name in structured choice **before**
    `gcloud projects create`. Do not create silently.
-4. Set the active project for subsequent commands
+5. Set the active project for subsequent commands
    (`gcloud config set project <id>` or `--project` flags).
 
 ### 4. Select or create service account; download JSON
