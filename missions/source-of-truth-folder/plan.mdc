@@ -1,0 +1,182 @@
+---
+description: >-
+  Author or refresh a registered folder's source-of-truth/ tree — intake via
+  documents, brainstorm, or existing agent plan; then gather, plan, write, and
+  ship (sync / hosting PR when needed).
+alwaysApply: false
+---
+
+# Mission plan
+
+## Objectives
+
+1. Resolve the target **registered** documentation folder from
+   **`.sedea/documentation-management.yaml`** (slug → `localPath`).
+2. Gather source-of-truth inputs via exactly one intake path:
+   **documents** (file or folder), **brainstorm** with the user, or an
+   **existing agent plan**.
+3. Produce a reviewable **SoT change plan** naming creates/updates under
+   **`<localPath>/source-of-truth/`**.
+4. Write SoT files **only** after explicit user approval per
+   [`.sedea/centers/documentation-management/rules/20_source-of-truth.mdc`](../../rules/20_source-of-truth.mdc)
+   write authority — approved paths only.
+5. When hosting-tracked changes are required (registry, `.gitignore`,
+   `.cursorignore` indexing), ship via hosting-repo worktree → commit → PR →
+   merge. SoT **payload** stays under the gitignored documentation tree;
+   sync with **rclone** when the user confirms.
+6. Close the dispatch with an explicit Squad Leader resolution proposal when
+   SoT work is complete, deferred, or abandoned.
+
+## Squad operations (three-lane hosting-repo delivery)
+
+Use when a later **improve / expand / fix** pass on **this mission** ships
+**substantive hosting-repo** changes through PRs. Runtime SoT authoring on this
+mission follows **Protocol** §§1–8 below (not three-lane by default).
+
+Normative contract: [`.sedea/centers/sedea/docs/mission-three-lane-cadence.md`](.sedea/centers/sedea/docs/mission-three-lane-cadence.md).
+
+**Roles (when three-lane active)**
+
+| Role | Lane | `execution` | Spawns | Does not |
+|------|------|-------------|--------|----------|
+| **Squad Leader** | Dispatch leader | — | Requirements → Planning → Implement skill paths under `skills/` | Inline planning skills on leader |
+| **Requirements author** | Child lane 1 | `spawned` | — | `mission_control_propose_dispatch_resolution` |
+| **Planning agent** | Child lane 2 | `spawned` | Inline `pr-breakdown`, `new-plan`, `pr-plan` on this lane | `mission_control_propose_dispatch_resolution` |
+| **Implementation agent** | Child lane 3 | `spawned` | — | `mission_control_propose_dispatch_resolution` |
+
+**Planning constraints (binding when three-lane active):** one phase only · PR breakdown only (≤3 PRs) · complexity ≤12 · forbid `delivery-phases` / `phase-planner`.
+
+**Dispatch display refresh (Squad Leader).** When dispatch scope is readable on the leader lane (matched command phrase, resolved folder slug, or scope title), call MCP **`mission_control_update_dispatch_display`** with non-empty **`dispatchTitle`** (≤64 chars) and optional **`dispatchDescription`** / **`dispatchHoverDescription`** (≤512 chars). **Skip** when chrome already matches. **Forbidden:** **`mission_control_update_lane_display`** to relabel **child** slots from the leader lane; hand-editing **`dispatch-tab.v1.json`**. **Title content (binding):** topic/domain of the **whole dispatch** only — **not** live sync status. See [`.sedea/centers/sedea/rules/9_display-metadata-authority.mdc`](.sedea/centers/sedea/rules/9_display-metadata-authority.mdc) § *Dispatch title content*.
+
+## Protocol
+
+### 1. Infer intent from the opening command phrase
+
+- **Type:** Branching logic
+- **Intent:** Match command phrases and prepare routing.
+- **Inputs:** Opening message; **`mission.yaml`** `commands`.
+- **Expected output:** Intent label (`author` | `refresh`).
+- **Next-step resolution:** Phrase matches → §2 (auto-advance). No match → USER_CHECKPOINT below.
+
+USER_CHECKPOINT — confirm author vs refresh when the opening command phrase does not match unambiguously.
+
+- Apply **phrase matching** from [`.sedea/centers/sedea/rules/4_mission.mdc`](.sedea/centers/sedea/rules/4_mission.mdc) (longer phrases first).
+- Map phrases from **`mission.yaml`**:
+  - **`author source of truth`** → intent **`author`**
+  - **`refresh source of truth`** → intent **`refresh`**
+- After intent is mapped, when dispatch scope is readable, run **Dispatch display refresh** — skip when chrome already matches.
+
+### 2. Resolve registered documentation folder
+
+- **Type:** Branching logic
+- **Intent:** Bind work to one registered folder slug and its `localPath`.
+- **Inputs:** Opening message remainder; **`.sedea/documentation-management.yaml`**.
+- **Expected output:** `folderSlug`, `localPath`, whether `<localPath>/source-of-truth/` already exists.
+- **Next-step resolution:** Folder clear → §3. Not clear → USER_CHECKPOINT below.
+
+USER_CHECKPOINT — pick registered folder slug when the opening message does not name one.
+
+- Read the registry; list folders with slug + `localPath`.
+- Validate `localPath` exists on disk (or stop with a clear gap — may need **configure new documentation folder** on a new dispatch).
+- Record whether **`source-of-truth/`** is present (informs `author` vs `refresh` expectations).
+- Re-run **Dispatch display refresh** when the folder slug improves the title.
+
+### 3. Pick intake mode
+
+- **Type:** Branching logic
+- **Intent:** Choose how SoT source material is gathered.
+- **Inputs:** Intent from §1; optional opening seeds (paths, plan `@path`).
+- **Expected output:** `intakeMode`: `documents` | `brainstorm` | `existing-plan`.
+- **Next-step resolution:** Mode selected → §4.
+
+USER_CHECKPOINT — pick intake mode (documents · brainstorm · existing agent plan).
+
+| Mode | Meaning |
+|------|---------|
+| **`documents`** | User supplies a file or folder of source materials |
+| **`brainstorm`** | Free-form research / Q&A with the user until enough context exists |
+| **`existing-plan`** | User supplies an existing agent plan (`@path` or absolute path) |
+
+### 4. Gather information
+
+- **Type:** Simple skill execution (with early exits)
+- **Intent:** Collect enough evidence to draft a SoT change plan.
+- **Inputs:** `intakeMode`; folder binding from §2; source paths or plan path when applicable.
+- **Expected output:** Gathered notes / excerpt ledger sufficient for §5 (paths read, decisions, gaps).
+- **Next-step resolution:** Enough context → §5. Blocked (unreadable path, empty materials) → USER_CHECKPOINT below.
+
+**Procedure by mode**
+
+1. **`documents`** — Read supplied file(s) or folder; build a source ledger. Do not invent content from titles alone.
+2. **`brainstorm`** — Ask structured questions; accumulate answers until the user confirms gathering is complete.
+3. **`existing-plan`** — Read the plan; extract SoT-relevant scope; note out-of-scope items.
+
+When **`source-of-truth/`** already exists, consult it as the sole default authority for current SoT state per rule **20** — do not treat other folder paths as authoritative unless the user explicitly expands scope.
+
+USER_CHECKPOINT — retry paths · switch intake mode · pause when gathering cannot proceed.
+
+### 5. Draft SoT change plan
+
+- **Type:** Branching logic + authoring confirmation
+- **Intent:** Produce an explicit plan of SoT file creates/updates before any write.
+- **Inputs:** Gathered materials; existing `source-of-truth/` tree when present.
+- **Expected output:** Approved SoT change plan (file list + one-line purpose each; create vs update).
+- **Next-step resolution:** Approved → §6. Revise → re-draft. Defer → pause.
+
+USER_CHECKPOINT — approve SoT change plan before writing any `source-of-truth/` files.
+
+Present in one turn: delta + full plan in **`displayMarkdown`**, then structured choice (approve · revise · pause · More details for option _).
+
+**Forbidden:** writing SoT files before this approval; unilateral “keep SoT in sync.”
+
+### 6. Write source-of-truth
+
+- **Type:** Simple skill execution
+- **Intent:** Apply only approved SoT paths under **`<localPath>/source-of-truth/`**.
+- **Inputs:** Approved change plan from §5.
+- **Expected output:** Files written/updated exactly as approved; short write recap.
+- **Next-step resolution:** Writes done → §7.
+
+- Create **`source-of-truth/`** when missing and the plan includes creates.
+- Edit **only** approved paths. Do not delete or rewrite unrelated SoT files.
+- Directory name must be exactly **`source-of-truth`** (kebab-case) per rule **20**.
+
+### 7. Sync and optional hosting-repo ship
+
+- **Type:** Branching logic
+- **Intent:** Persist documentation payload remotely when needed; ship hosting-tracked edits only when this pass changed them.
+- **Inputs:** Write recap; whether hosting-tracked files changed this pass.
+- **Expected output:** Sync status and/or hosting PR URL when applicable.
+- **Next-step resolution:** Complete → §8.
+
+USER_CHECKPOINT — rclone sync now · skip sync · start hosting ship (when tracked files changed) · More details for option _.
+
+| Branch | When | Action |
+|--------|------|--------|
+| **rclone sync** | User confirms | Sync registered folder per center registry / rclone contract |
+| **Skip sync** | User defers remote | Record local SoT done; note sync remaining |
+| **Hosting ship** | This pass edited hosting-tracked files | Hosting-repo ship cadence: worktree (if needed) → commit/push/PR → inline **`pr-review`** until terminal → developer merge → post-merge cleanup |
+
+**Hosting-repo ship cadence (when applicable):** [`.sedea/centers/sedea/skills/worktree-setup/SKILL.md`](.sedea/centers/sedea/skills/worktree-setup/SKILL.md) → rule **6** pipeline → [`.sedea/centers/sedea/skills/pr-review/SKILL.md`](.sedea/centers/sedea/skills/pr-review/SKILL.md) → merge → [`.sedea/centers/sedea/skills/worktree-cleanup/SKILL.md`](.sedea/centers/sedea/skills/worktree-cleanup/SKILL.md).
+
+SoT payload is **not** committed to hosting-repo git.
+
+### 8. Dispatch resolution (Squad Leader)
+
+- **Type:** Finish/stop logic
+- **Intent:** Close the dispatch when SoT objectives are met or the user stops.
+- **Inputs:** §§2–7 outcomes; remaining tasks.
+- **Expected output:** MCP **`mission_control_propose_dispatch_resolution`**.
+- **Next-step resolution:** Terminal for this dispatch after user Accept on the resolution card.
+
+USER_CHECKPOINT — approve dispatch resolution when SoT work is done or the user signals closure.
+
+```json
+{ "status": "<resolved|partial|aborted|abandoned>", "summary": "<short recap>" }
+```
+
+Use **`resolved`** when approved SoT writes (and agreed sync/ship) are done; **`partial`** when sync or hosting PR remains; **`abandoned`** / **`aborted`** when stopped or blocked.
+
+### Three-lane hosting-repo delivery (optional — mission improve/fix)
+
+When improving **this mission’s** playbook or related hosting-tracked assets via coordinated PRs, follow [`.sedea/centers/sedea/docs/mission-three-lane-cadence.md`](.sedea/centers/sedea/docs/mission-three-lane-cadence.md): Requirements → Planning (≤3 PRs) → Implement. Skills under **`missions/source-of-truth-folder/skills/`** when authored. Not the default path for runtime SoT authoring (§§1–8).

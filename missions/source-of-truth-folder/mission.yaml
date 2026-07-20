@@ -1,0 +1,12 @@
+name: Source-of-truth folder
+description: >-
+  Author or refresh a registered folder's source-of-truth/ tree — intake via
+  documents, brainstorm, or existing agent plan; then gather, plan, write, and
+  ship (sync / hosting PR when needed).
+commands:
+  - phrase: author source of truth
+    description: >-
+      Create or update source-of-truth/ for a registered documentation folder.
+  - phrase: refresh source of truth
+    description: >-
+      Bring an existing source-of-truth/ folder up to date from new inputs.
