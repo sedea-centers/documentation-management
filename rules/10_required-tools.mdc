@@ -300,6 +300,14 @@ state may require **`--resync`**. Mission-specific §7 construction (for example
 **author-simple-document**) may add further flags — this rule defines the **auth-bearing
 command shape** only.
 
+**Drive format pairing (cross-ref):** When the local file is Office (for example
+**`.docx`**) and the remote object is a **native Google Doc**, upload/download as a
+plain binary fails even with correct SA flags. Before treating hard failures as
+auth or suggesting reconnect, apply **author-simple-document** plan § **Drive
+format pairing** — typed `rclone lsjson` mime probe plus
+`--drive-import-formats docx` / `--drive-export-formats docx` as that table
+requires. This rule still owns **auth**; the mission owns **format-pair flags**.
+
 **On failure:**
 
 | Symptom | Likely cause | Agent action |

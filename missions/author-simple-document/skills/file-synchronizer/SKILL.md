@@ -55,6 +55,18 @@ and ask which resolution path prevails (`local` | `remote` | `merged` via More
 details). Write the final file to `localPath` + `relativeFilePath`, then run
 **`rclone sync`** (not bisync) to update the remote copy.
 
+### Drive format pairing on outbound `rclone sync` (binding)
+
+Before **`rclone sync`**, apply the mission plan § **Drive format pairing
+(local Office ↔ native Google Docs)** (typed remote mime probe + flag table).
+
+When the local file is **`.docx`** and the remote is a **native Google Doc**
+(`application/vnd.google-apps.document`), include **`--drive-import-formats docx`**
+together with the required SA / `--drive-root-folder-id` flags from
+**`10_required-tools.mdc`**. Do **not** treat a refused binary upload as an auth
+failure until that pair is checked. If remote type is unknown after a successful
+auth probe → USER_CHECKPOINT — do not invent retry loops.
+
 ## Completion (spawned)
 
 **outputs:** `conflictResolved`, `resolutionPath`, `syncedToRemote`, `continuationStatus`

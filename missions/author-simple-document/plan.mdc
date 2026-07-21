@@ -109,6 +109,13 @@ minimum version and dry-run discipline from **`10_required-tools.mdc`** when
 probing first. Do **not** substitute `rclone sync` for this pre-edit pull unless
 bisync is unsupported for the path class — then stop and report.
 
+**Drive format pairing (binding — before bisync):** Apply § **Drive format pairing
+(local Office ↔ native Google Docs)** below. For inbound sync when the remote is
+a native Google Doc and the local working file is **`.docx`**, include
+**`--drive-export-formats docx`** (with the required SA / root-folder flags). Do
+**not** treat a refused binary upload/download as an auth failure until format
+pairing has been checked.
+
 USER_CHECKPOINT — retry bisync · spawn file-synchronizer (§4a) · provide alternate local path · abort.
 
 **Forbidden:** planning or authoring before this step completes (except when §3
@@ -194,7 +201,54 @@ Run **`rclone bisync`** with the same remote binding as §4. When the remote is
 "dirty" (both sides changed since last bisync), treat as §4a conflict — spawn
 **file-synchronizer** rather than overwriting silently.
 
+**Drive format pairing (binding — before bisync):** Apply § **Drive format pairing
+(local Office ↔ native Google Docs)** below. For outbound sync when the local
+file is **`.docx`** and the remote object is a native Google Doc, include
+**`--drive-import-formats docx`** (with the required SA / root-folder flags). Do
+**not** upload the Office binary as if the remote were a plain `.docx` blob —
+Drive refuses that when the remote is already a Google Doc.
+
 USER_CHECKPOINT — retry bisync · spawn file-synchronizer (§4a) · abort.
+
+### Drive format pairing (local Office ↔ native Google Docs)
+
+**Binding for §4, §7, and [skills/file-synchronizer/SKILL.md](skills/file-synchronizer/SKILL.md).**
+PDF conversion (§8a) already uses import/export formats; source-document sync
+must do the same.
+
+**Problem:** Local working copies are often **`.docx`**. Remotes on Google Drive
+are often **native Google Docs** (`application/vnd.google-apps.document`). Uploading
+or bisyncing the local Office file as a binary `.docx` **fails** when the remote
+name maps to a Google Doc — this is a **format-pair** failure, not (usually) missing
+SA auth.
+
+**Procedure (typed detection — not trial-and-error):**
+
+1. **Local kind** — from `relativeFilePath` extension (for example `.docx`).
+2. **Remote kind** — one **`rclone lsjson`** (or equivalent) on the remote object
+   with the same SA / root-folder flags as **`10_required-tools.mdc`** § Drive auth.
+   Read Drive **`MimeType`** / rclone mime fields. Treat
+   **`application/vnd.google-apps.document`** as **native Google Doc**.
+3. **Apply the flag table** (below). Do **not** loop random flag combinations.
+4. If remote kind is **unknown** or probe fails after auth succeeds →
+   USER_CHECKPOINT (ask whether the remote is a native Google Doc / Office file /
+   other) — **forbidden:** blind retries or reconnect-first.
+
+| Local | Remote | Inbound (§4 / pull) | Outbound (§7 / push / file-synchronizer sync) |
+|-------|--------|---------------------|-----------------------------------------------|
+| `.docx` | Native Google Doc | `--drive-export-formats docx` | `--drive-import-formats docx` |
+| `.docx` | Office / binary `.docx` | (no import/export pair flags) | (no import/export pair flags) |
+| Native export path / non-docx | Native Google Doc | Use matching `--drive-export-formats` when local expects that type | Do not invent Office import without a local Office file |
+
+**Always** keep required auth flags from **`10_required-tools.mdc`**
+(`--drive-service-account-file`, `--drive-root-folder-id` when applicable).
+
+**Forbidden:** treating “upload refused” / cryptic Drive errors as opaque auth
+failure before checking this table; suggesting **`rclone config reconnect`** for
+format-pair failures; inventing a second sync engine.
+
+**Follow-up (out of scope here):** per-document sync metadata (sidecar or registry
+`files:` map) so agents can skip the remote probe — larger center schema change.
 
 ### 8. Choose optional PDF export
 
