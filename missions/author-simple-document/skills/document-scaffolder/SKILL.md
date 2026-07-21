@@ -31,12 +31,12 @@ inputs:
 timeoutMs: 900000
 warmUpRules:
   - .sedea/centers/documentation-management/rules/00_documentation-management.mdc
-  - .sedea/centers/documentation-management/missions/author-single-file/plan.mdc
+  - .sedea/centers/documentation-management/missions/author-simple-document/plan.mdc
 ---
 
 # Document Scaffolder
 
-Spawned specialist for **author-single-file** intent **`create`**. Walk the user
+Spawned specialist for **author-simple-document** intent **`create`**. Walk the user
 through filename and optional subfolder placement, ask whether a scaffolding
 template exists, and when none is supplied gather file type and document kind
 (invoice, consulting contract, memo, …). Propose a section outline (each section

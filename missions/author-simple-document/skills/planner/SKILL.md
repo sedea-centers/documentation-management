@@ -1,5 +1,5 @@
 ---
-name: Author Single File Planner
+name: Author Simple Document Planner
 designation:
   allowed: Plan drafting; source intake; unresolved-question gates; approved plan write under dispatch plans/
   forbidden: Dispatch resolution; document edits before plan approval
@@ -30,12 +30,12 @@ inputs:
     required: false
 timeoutMs: 1800000
 warmUpRules:
-  - .sedea/centers/documentation-management/missions/author-single-file/plan.mdc
+  - .sedea/centers/documentation-management/missions/author-simple-document/plan.mdc
 ---
 
-# Author Single File Planner
+# Author Simple Document Planner
 
-Spawned planner for **author-single-file**. Read the target file at
+Spawned planner for **author-simple-document**. Read the target file at
 `localPath` + `relativeFilePath`. Intake what the user wants changed and how.
 Attach user sources (files, images, CSV, slide decks, links) to the plan context.
 Draft required sections; ask each unresolved question via structured choice (one

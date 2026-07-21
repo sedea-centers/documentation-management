@@ -1,5 +1,5 @@
 ---
-name: Author Single File Author
+name: Author Simple Document Author
 designation:
   allowed: Render approved plan into target document; user iteration until complete
   forbidden: Dispatch resolution; edits without approved planPath
@@ -25,12 +25,12 @@ inputs:
     required: true
 timeoutMs: 3600000
 warmUpRules:
-  - .sedea/centers/documentation-management/missions/author-single-file/plan.mdc
+  - .sedea/centers/documentation-management/missions/author-simple-document/plan.mdc
 ---
 
-# Author Single File Author
+# Author Simple Document Author
 
-Spawned author for **author-single-file**. Load `planPath` and the document at
+Spawned author for **author-simple-document**. Load `planPath` and the document at
 `localPath` + `relativeFilePath`. Render **Proposed Changes** into the file.
 Interact with the user until they confirm the document is done. Do not edit
 without a plan where `planApproved` was true.

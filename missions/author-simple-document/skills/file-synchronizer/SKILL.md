@@ -39,12 +39,12 @@ inputs:
 timeoutMs: 1800000
 warmUpRules:
   - .sedea/centers/documentation-management/rules/00_documentation-management.mdc
-  - .sedea/centers/documentation-management/missions/author-single-file/plan.mdc
+  - .sedea/centers/documentation-management/missions/author-simple-document/plan.mdc
 ---
 
 # File Synchronizer
 
-Spawned conflict specialist for **author-single-file**. When **`rclone bisync`**
+Spawned conflict specialist for **author-simple-document**. When **`rclone bisync`**
 reports both-sides-changed conflicts, locate `.conflict1` and `.conflict2`
 artifacts beside the target file. Compare versions; perform smart merge when
 changes are non-overlapping textual edits.

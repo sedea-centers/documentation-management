@@ -297,7 +297,7 @@ rclone lsf "sedea-gdrive:" `
 
 **Bisync** uses the same auth flags. First outbound push after no prior bisync
 state may require **`--resync`**. Mission-specific §7 construction (for example
-**author-single-file**) may add further flags — this rule defines the **auth-bearing
+**author-simple-document**) may add further flags — this rule defines the **auth-bearing
 command shape** only.
 
 **On failure:**
