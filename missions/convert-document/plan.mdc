@@ -1,0 +1,168 @@
+---
+description: >-
+  Convert Document — reusable PDF conversion (DOCX or native Google Doc) via
+  Drive import/export without replacing the source. Spawned by Author Simple
+  Document, Author Multi-Part Document, or run standalone via convert document.
+alwaysApply: false
+---
+
+# Mission plan
+
+## Objectives
+
+1. Provide reusable **PDF conversion** for documentation-management — standalone
+   **`convert document`**, or spawned from **Author Simple Document** /
+   **Author Multi-Part Document**.
+2. Convert **DOCX** or **native Google Doc** to PDF via rclone Drive
+   import/export. **Never** replace or rename the source document.
+3. Honor caller **`outputMode`**: `documentation-folder-sync` |
+   `operations-result`. Callers own export-mode USER_CHECKPOINTs and any
+   post-PDF bisync/conflict resolution.
+4. Use a unique temporary Shared Drive folder when DOCX import is required;
+   **always** delete temporary remote artifacts and report when cleanup cannot
+   be confirmed. Collect fidelity warnings (fonts, pagination, tracked changes,
+   fields, macros).
+5. Resolve Drive service-account and temporary-folder configuration from center
+   rules without exposing secrets.
+6. Close standalone dispatches with Squad Leader
+   **`mission_control_propose_dispatch_resolution`**. Children only call
+   **`mission_control_send_agent_result`**.
+
+## Squad operations (document conversion)
+
+This mission is **document conversion**, not hosting-repo three-lane PR shipping.
+Skills live under **`missions/convert-document/skills/`**.
+
+| Role | Lane | `execution` | Spawns / owns | Does not |
+|------|------|-------------|---------------|----------|
+| **Squad Leader** | Dispatch leader (standalone) | — | pdf-converter; output-mode gates when run alone | Resolve from a child lane |
+| **PDF converter** | Child | `spawned` | — | `mission_control_propose_dispatch_resolution`; overwrite source; skip temp cleanup |
+
+When spawned **from another mission**, the **caller** is Squad Leader for export
+mode and post-PDF sync; this mission’s skill runs as the conversion child only.
+
+**Dispatch display refresh (Squad Leader).** When dispatch scope is readable
+(matched command phrase, source basename, output mode), call MCP
+**`mission_control_update_dispatch_display`** with non-empty **`dispatchTitle`**
+(≤64 chars) and optional description/hover (≤512). **Skip** when chrome already
+matches. **Forbidden:** child-slot relabels from the leader lane; live status as
+title. See [`.sedea/centers/sedea/rules/9_display-metadata-authority.mdc`](.sedea/centers/sedea/rules/9_display-metadata-authority.mdc).
+
+**Skill:** [skills/pdf-converter/SKILL.md](skills/pdf-converter/SKILL.md).
+
+## Protocol
+
+### 1. Infer intent from the opening command phrase
+
+- **Type:** Branching logic
+- **Intent:** Match this mission’s command phrases and prepare routing.
+- **Inputs:** Opening message; **`mission.yaml`** `commands`.
+- **Expected output:** Intent label (`convert-pdf`).
+- **Next-step resolution:** Phrase matches → §2 (auto-advance). No match →
+  USER_CHECKPOINT below.
+
+USER_CHECKPOINT — confirm intent when the opening command phrase does not match unambiguously.
+
+- Apply **phrase matching** from [`.sedea/centers/sedea/rules/4_mission.mdc`](.sedea/centers/sedea/rules/4_mission.mdc)
+  (longer phrases first).
+- Map phrases from **`mission.yaml`**:
+  - **`convert document`** → intent **`convert-pdf`**
+- After intent is mapped, run **Dispatch display refresh** when scope is readable.
+
+When this skill is spawned by another mission with full inputs already bound,
+skip §§1–2 intake and go to §3.
+
+### 2. Resolve source and output context
+
+- **Type:** Branching logic
+- **Intent:** Bind source path, kind, output mode, and output directory.
+- **Inputs:** [`.sedea/documentation-management.yaml`](.sedea/documentation-management.yaml);
+  user hints; spawn `inputs` when present.
+- **Expected output:** `sourcePath`, `sourceKind` (`docx` | `native-google-doc` |
+  `auto`), `outputMode`, `outputDirectory`, `outputFilename`; optional
+  `folderSlug`, `rclone.remote`, `rclone.remotePath`; `operationsDocsDirectory`.
+- **Next-step resolution:** Bound → §3. Incomplete → USER_CHECKPOINT.
+
+USER_CHECKPOINT — provide source path · pick outputMode (documentation-folder-sync · operations-result) · pick output directory · start Required Tools Installation in a new dispatch · abort.
+
+Preconditions follow
+[`.sedea/centers/documentation-management/rules/00_documentation-management.mdc`](../../rules/00_documentation-management.mdc)
+and
+[`.sedea/centers/documentation-management/rules/10_required-tools.mdc`](../../rules/10_required-tools.mdc).
+
+**`outputMode` (binding):**
+
+| Mode | PDF destination | Post-conversion |
+|------|-----------------|-----------------|
+| **`documentation-folder-sync`** | Under the registered documentation folder | **Caller** owns bisync / conflict for the PDF |
+| **`operations-result`** | Under `operationsDocsDirectory` | Present `pdfRef`; no remote PDF sync in this mission |
+
+**Forbidden:** embedding Drive conversion transport outside **pdf-converter**;
+replacing or renaming the source; inventing folder slugs or remotes.
+
+### 3. Convert to PDF (spawned pdf-converter)
+
+- **Type:** Agent engagement and handover
+- **execution:** `spawned`
+- **Intent:** Convert the source to PDF without changing the source.
+- **Target skill:** [skills/pdf-converter/SKILL.md](skills/pdf-converter/SKILL.md)
+- **Inputs:** `sourcePath`, `sourceKind`, `outputMode`, `outputDirectory`,
+  `outputFilename`, optional folder/rclone fields, `operationsDocsDirectory`.
+- **Expected output:** Child **`mission_control_send_agent_result`** with
+  `pdfPath`, `pdfRef`, `sourcePreserved: true`, `temporaryRemoteDeleted: true`,
+  `conversionWarnings[]`, `outputMode`, `continuationStatus: terminal`.
+- **Next-step resolution:** Success → §4. Failure → USER_CHECKPOINT below.
+
+**Procedure constraints (binding — skill implements):**
+
+1. Detect native Google Doc input; skip DOCX import when native.
+2. For DOCX, upload to a unique temporary Shared Drive folder using
+   `--drive-import-formats docx` plus required service-account / root-folder
+   flags from **`10_required-tools.mdc`**.
+3. Export using `--drive-export-formats pdf`.
+4. Validate a non-empty PDF; write only to `outputDirectory`.
+5. Always delete temporary Google artifacts; report if cleanup cannot be confirmed.
+6. Never overwrite or rename the source.
+7. Return fidelity warnings for fonts, pagination, tracked changes, fields, and macros.
+8. Reserve strict-fidelity conversion for a future LibreOffice or Microsoft Word transport.
+
+**Spawn:** Emit **`mission_control_spawn_agent`** with the fields above. Open
+**#external-wait** before ending the turn while waiting for the child result.
+
+USER_CHECKPOINT — retry Convert Document spawn · accept source-only (no PDF) · abort after conversion failure.
+
+### 4. Present result and hand back
+
+- **Type:** Branching logic
+- **Intent:** Surface `pdfPath` / `pdfRef` and warnings; return control to the
+  caller mission or continue to standalone resolution.
+- **Inputs:** Child result from §3.
+- **Expected output:** User-visible PDF reference; `continuationStatus`.
+- **Next-step resolution:**
+  - Spawned by another mission → terminal for this conversion pass (caller resumes).
+  - Standalone dispatch → §5.
+
+Do **not** run documentation-folder bisync inside this mission — callers that
+chose `documentation-folder-sync` own § sync after receiving `pdfPath`.
+
+### 5. Dispatch resolution (Squad Leader — standalone only)
+
+- **Type:** Finish/stop logic
+- **Intent:** Close when standalone conversion completes, partially succeeds, or
+  the user abandons.
+- **Inputs:** Conversion outcome; user finish signal.
+- **Expected output:** MCP **`mission_control_propose_dispatch_resolution`**.
+- **Next-step resolution:** Terminal after user Accept on the resolution card.
+
+USER_CHECKPOINT — propose resolved · propose partial · abandon · convert another source (§2).
+
+```json
+{ "status": "<resolved|partial|aborted|abandoned>", "summary": "<short recap>" }
+```
+
+**Forbidden in MCP args:** host-resolved identity keys (`correlationId`,
+`dispatchId`, `slotId`, …).
+
+**Forbidden:** child lanes calling **`mission_control_propose_dispatch_resolution`**.
+When this mission’s skill was spawned by another mission, the **caller** owns
+dispatch resolution — do not propose resolution from the conversion child.

@@ -1,0 +1,11 @@
+name: Convert Document
+description: >-
+  Convert DOCX or native Google Doc to PDF via Drive import/export without
+  replacing the source — reusable by Author Simple Document, Author Multi-Part
+  Document, or standalone convert document.
+commands:
+  - phrase: convert document
+    description: >-
+      Convert a source document (DOCX or native Google Doc) to PDF via Drive
+      import/export without replacing the source; return pdfPath/pdfRef for
+      caller-chosen output modes.
