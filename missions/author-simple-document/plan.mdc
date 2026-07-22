@@ -79,26 +79,46 @@ dispatch for **`install required tools`** on center **`documentation-management`
 
 - **Type:** Agent engagement and handover
 - **execution:** `spawned`
-- **Intent:** Collect filename, optional subfolder, optional template, document
-  shape (when no template), user approval, and write the initial scaffold file.
+- **Intent:** Collect create-mode choice, filename, destination folder, optional
+  existing template or document shape, user approval, and write the initial
+  scaffold (standard document **or** new template file).
 - **Inputs:** `folderSlug`, `localPath`, `operationsDocsDirectory` from Mission Control; optional `subfolder`; optional `templatePath`; intent **`create`** from §1.
-- **Expected output:** Child **`mission_control_send_agent_result`** with `relativeFilePath`, `scaffoldWritten: true`, `continuationStatus: terminal`.
+- **Expected output:** Child **`mission_control_send_agent_result`** with `relativeFilePath`, `scaffoldWritten: true`, `scaffoldKind` (`document` | `template`), `continuationStatus: terminal`.
 - **Next-step resolution:** Child success → §4 (treat scaffold as existing document). Child failure → USER_CHECKPOINT below, then §10.
 
 **When to run:** Only when intent is **`create`**. When intent is **`change`** → skip to §4.
+
+**Create intake modes (binding — all retained):** The scaffolder USER_CHECKPOINT must
+offer **all** of the following (plus destination override and **More details for option _**):
+
+| Mode | Outcome |
+|------|---------|
+| **Author new template — I'll explain how** | User describes the template; agent proposes template shape; write a **new template** file |
+| **Use existing template** | User supplies `templatePath`; scaffold a **standard document** from that template |
+| **No template / shape from kind** | Document kind (invoice, memo, …) → section outline → write a **standard document** (non-template) |
+
+**Default destination:** For **Author new template — I'll explain how**, default
+`subfolder` is **`templates`** (write under `<localPath>/templates/…`). The intake
+modal must let the user **change the destination folder** to another relative
+subfolder under `localPath`. Standard-document modes keep existing placement
+behavior (optional subfolder; no forced `templates/` default unless the user picks it).
 
 **Target skill:** [skills/document-scaffolder/SKILL.md](skills/document-scaffolder/SKILL.md)
 
 **Spawn:** Emit **`mission_control_spawn_agent`** with `skillPath` to that skill,
 `inputs` (`folderSlug`, `localPath`, `operationsDocsDirectory`, optional
 `subfolder`, optional `templatePath`), optional `warmUpRules` / `initiatingPrompt`
-(intent summary + folder binding). Open **external-wait / next-step** structured
-choice before ending the turn while waiting for the child result.
+(intent summary + folder binding). When author-new-template and `subfolder` is
+omitted, the child applies the **`templates`** default. Open **external-wait /
+next-step** structured choice before ending the turn while waiting for the child
+result.
 
 USER_CHECKPOINT — retry scaffold spawn, accept partial path only, or abort after child failure.
 
 **Forbidden:** child proposing dispatch resolution; writing outside the bound
-`localPath` tree; skipping user shape approval when no template is supplied.
+`localPath` tree; skipping shape approval for author-new-template or for no-template
+document shape; dropping **Use existing template** or **No template / shape from
+kind** from the create intake modal.
 
 ### 4. Sync local file from remote (`rclone bisync`)
 
