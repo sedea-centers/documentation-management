@@ -1,0 +1,311 @@
+---
+description: >-
+  Multi-part document authoring — master plan, per-part planner/author lanes,
+  optional gap analysis and gap-closer, Generate Content, sync anytime, and
+  Squad Leader–initiated PDF export. Extends Author Simple Document with
+  part-based delivery over hours to weeks.
+alwaysApply: false
+---
+
+# Mission plan
+
+## Objectives
+
+1. Intake a multi-part document (template **or** given structure) under a folder
+   registered in **`.sedea/documentation-management.yaml`**.
+2. Produce an approved **master plan** — overview of document sections and part
+   delivery order. Unlike **Author Simple Document**, do **not** plan and render
+   the entire document in one pass.
+3. Deliver each part via a **part-planner** child lane, then an **author** child
+   lane. The structure of each part plan is defined during that part’s planning
+   session.
+4. Between parts, when the user requests it, spawn a **gap-analyzer** to detect
+   contradictions or misinterpretations across authored parts; when gaps are
+   found, offer to spawn a **gap-closer** child lane.
+5. Keep Squad Leader / master-plan standing options available for the whole
+   active dispatch: **Generate Content**, **Sync**, **Export PDF**, continue
+   part delivery, request gap analysis, and finish/approve content.
+6. Support long-running authoring (hours, days, or weeks) with repeatable sync
+   and content-generation passes until all parts are authored and the user
+   approves the content.
+7. **PDF export (Squad Leader):** On **user request**, offer the same PDF export
+   modes as Author Simple Document (`documentation-folder-sync` |
+   `operations-result` | `skip`), then spawn Convert Document **`pdf-converter`**.
+   Do **not** auto-export after each part. Never replace the source document.
+8. Close the dispatch with an explicit Squad Leader
+   **`mission_control_propose_dispatch_resolution`** when the pass is complete,
+   partial, or abandoned.
+
+## Squad operations (multi-part document delivery)
+
+This mission is **document delivery**, not hosting-repo three-lane PR shipping.
+Skills live under **`missions/author-multi-part-document/skills/`** unless noted.
+Sync and PDF conversion reuse Author Simple Document / Convert Document contracts.
+
+| Role | Lane | `execution` | Spawns / owns | Does not |
+|------|------|-------------|---------------|----------|
+| **Squad Leader / Master Plan agent** | Dispatch leader | — | part-planner, author, gap-analyzer, gap-closer, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter** | Resolve dispatch from a child lane |
+| **Part planner** | Child | `spawned` | — | `mission_control_propose_dispatch_resolution` |
+| **Author** | Child | `spawned` | — | `mission_control_propose_dispatch_resolution` |
+| **Gap analyzer** | Child | `spawned` | — | Spawn gap-closer (parent offers); resolve dispatch |
+| **Gap closer** | Child | `spawned` | — | `mission_control_propose_dispatch_resolution` |
+| **Content generator** | Child | `spawned` | — | `mission_control_propose_dispatch_resolution` |
+| **File synchronizer** | Child | `spawned` | — | Same conflict contract as Author Simple Document |
+| **PDF converter** | Child | `spawned` | Convert Document `pdf-converter` | Resolve dispatch; overwrite source |
+
+**Dispatch display refresh (Squad Leader).** When dispatch scope is readable
+(matched command phrase, folder slug, document title), call MCP
+**`mission_control_update_dispatch_display`** with non-empty **`dispatchTitle`**
+(≤64 chars) and optional description/hover (≤512). **Skip** when chrome already
+matches. **Forbidden:** child-slot relabels from the leader lane; live status as
+title. See [`.sedea/centers/sedea/rules/9_display-metadata-authority.mdc`](.sedea/centers/sedea/rules/9_display-metadata-authority.mdc).
+
+**Skill stubs (author under `skills/` when implementing):**
+`master-plan` (optional if leader owns master plan inline), `part-planner`,
+`author`, `gap-analyzer`, `gap-closer`, `content-generator`. Sync:
+[../author-simple-document/skills/file-synchronizer/SKILL.md](../author-simple-document/skills/file-synchronizer/SKILL.md).
+PDF: [../convert-document/skills/pdf-converter/SKILL.md](../convert-document/skills/pdf-converter/SKILL.md)
+*(Convert Document mission — create via a separate **`create new mission`**
+dispatch when missing)*.
+
+## Protocol
+
+### 1. Infer intent from the opening command phrase
+
+- **Type:** Branching logic
+- **Intent:** Match this mission’s command phrases and prepare routing.
+- **Inputs:** Opening message; **`mission.yaml`** `commands`.
+- **Expected output:** Intent label (`author-multi-part`).
+- **Next-step resolution:** Phrase matches → §2 (auto-advance). No match →
+  USER_CHECKPOINT below.
+
+USER_CHECKPOINT — confirm intent when the opening command phrase does not match unambiguously.
+
+- Apply **phrase matching** from [`.sedea/centers/sedea/rules/4_mission.mdc`](.sedea/centers/sedea/rules/4_mission.mdc)
+  (longer phrases first).
+- Map phrases from **`mission.yaml`**:
+  - **`author multi-part document`** → intent **`author-multi-part`**
+- After intent is mapped, run **Dispatch display refresh** when scope is readable.
+
+### 2. Resolve documentation folder and target file context
+
+- **Type:** Branching logic
+- **Intent:** Bind this dispatch to a registered documentation folder and the
+  multi-part document path (new or existing).
+- **Inputs:** [`.sedea/documentation-management.yaml`](.sedea/documentation-management.yaml);
+  intent from §1; user hints (folder slug, relative file path).
+- **Expected output:** `folderSlug`, `localPath`, `rclone.remote`,
+  `rclone.remotePath`; `relativeFilePath` under `localPath` when known.
+- **Next-step resolution:** Folder resolved → §3. Missing registry or tools →
+  USER_CHECKPOINT below.
+
+Read the folder registry completely. Do **not** invent slugs, remotes, or local
+roots. Preconditions follow
+[`.sedea/centers/documentation-management/rules/00_documentation-management.mdc`](../../rules/00_documentation-management.mdc)
+and
+[`.sedea/centers/documentation-management/rules/10_required-tools.mdc`](../../rules/10_required-tools.mdc).
+
+USER_CHECKPOINT — pick registered folder slug · provide relative file path · start Required Tools Installation in a new dispatch · abort.
+
+### 3. Intake — template or structure
+
+- **Type:** Branching logic
+- **Intent:** Collect how the multi-part document is shaped before master planning.
+- **Inputs:** Folder binding from §2; optional template path; optional structure
+  outline from the user.
+- **Expected output:** `intakeMode` = `template` | `structure-given`; template
+  path and/or approved structure outline; optional existing document to extend.
+- **Next-step resolution:** Intake approved → §4. Incomplete → re-ask.
+
+USER_CHECKPOINT — use template · supply structure outline · revise intake · abort.
+
+**Modes (binding):**
+
+| Mode | Outcome |
+|------|---------|
+| **Use template** | User supplies template path; master plan derives sections from template |
+| **Structure given** | User supplies section/part structure; master plan uses that outline |
+
+### 4. Author and approve master plan
+
+- **Type:** Branching logic (leader or spawned master-plan skill)
+- **Intent:** Produce a reviewable **master plan**: document overview, ordered
+  parts/sections, and high-level content notes — not full part prose.
+- **Inputs:** Intake from §3; folder binding; optional prior master plan artifact.
+- **Expected output:** Approved master plan (path or in-dispatch artifact);
+  `parts[]` with stable part ids/titles; `continuationStatus` for the delivery loop.
+- **Next-step resolution:** Approved → §5 standing options / §6 part loop.
+  Rejected → revise master plan.
+
+USER_CHECKPOINT — approve master plan · revise master plan · abort.
+
+**Forbidden:** one-pass full-document authoring on this step (that is Author
+Simple Document).
+
+### 5. Standing options (Squad Leader — always while active)
+
+- **Type:** Branching logic
+- **Intent:** Keep long-running control options available between part deliveries.
+- **Inputs:** Master plan; part completion ledger; sync/PDF state.
+- **Expected output:** User-selected next action.
+- **Next-step resolution:** Route per table below; re-open this gate after child
+  terminals and after each part completes.
+
+USER_CHECKPOINT — start/continue next part · request gap analysis · Generate Content · Sync · Export PDF · approve all content / finish · pause.
+
+| Option | Next |
+|--------|------|
+| **Start / continue next part** | §6 |
+| **Request gap analysis** | §7 |
+| **Generate Content** | §8 |
+| **Sync** | §9 |
+| **Export PDF** | §10 (Squad Leader only) |
+| **Approve all content / finish** | §11 |
+| **Pause** | Resumable wait; re-open §5 later |
+
+### 6. Part delivery loop (planner then author)
+
+- **Type:** Agent engagement and handover
+- **execution:** `spawned` (sequential children)
+- **Intent:** For the next incomplete part in the master plan, run **part-planner**
+  then **author**.
+- **Inputs:** `partId` / part title from master plan; folder binding;
+  `operationsDocsDirectory`; prior authored parts for context pointers.
+- **Expected output:** Part plan approved; part content authored; ledger marks
+  part complete or deferred.
+- **Next-step resolution:** After author terminal → §5. Failure → USER_CHECKPOINT.
+
+**Procedure**
+
+1. Spawn **`skills/part-planner/SKILL.md`** with part identity and master-plan
+   excerpt. Part plan shape is defined in that session (not fixed globally).
+2. Open **#external-wait** resume options before ending the turn.
+3. On approved part plan, spawn **`skills/author/SKILL.md`** with the part plan
+   and document path.
+4. Open **#external-wait**; on success, update the part ledger; return to §5.
+
+USER_CHECKPOINT — retry part-planner · retry author · skip/defer this part · abort after child failure.
+
+### 7. Gap analysis (optional between parts)
+
+- **Type:** Agent engagement and handover
+- **execution:** `spawned`
+- **Intent:** Identify contradictions or misinterpretations between newly authored
+  parts and previously authored parts.
+- **Inputs:** Paths/excerpts of authored parts; master plan; user focus hints.
+- **Expected output:** Gap report; `gapsFound: true | false`; optional proposed
+  closer actions.
+- **Next-step resolution:** `gapsFound: false` → §5. `gapsFound: true` →
+  USER_CHECKPOINT to spawn gap-closer or continue without closing.
+
+**Target skill:** `skills/gap-analyzer/SKILL.md`
+
+USER_CHECKPOINT — spawn gap-closer · continue without closing gaps · revise analysis · abort.
+
+When the user chooses gap-closer, spawn **`skills/gap-closer/SKILL.md`**, wait
+with **#external-wait**, then return to §5.
+
+### 8. Generate Content (content-generator)
+
+- **Type:** Agent engagement and handover
+- **execution:** `spawned`
+- **Intent:** On Squad Leader / master-plan **Generate Content**, spawn
+  **content-generator** to add content with chosen style and placement.
+- **Inputs:** Document path; master plan; existing content-characteristic state
+  when present.
+- **Expected output:** Content written or proposed; updated characteristic state
+  when newly defined.
+- **Next-step resolution:** Child terminal → §5.
+
+**Target skill:** `skills/content-generator/SKILL.md`
+
+**Content characteristics (binding):**
+
+1. If style, placement, and related characteristics are **already defined** for
+   this document/dispatch, **do not** re-ask — proceed with them and offer an
+   explicit option to **change** characteristics.
+2. If not defined, ask style and placement (and related) before generating.
+
+**Style options (illustrative — skill may extend):** flat · nested · with links ·
+outline-only · Q&A blocks · tables-first · narrative-prose.
+
+**Placement options (illustrative — skill may extend):** beginning · end ·
+after named section/part.
+
+USER_CHECKPOINT — after content-generator: keep characteristics · change characteristics · return to standing options.
+
+Open **#external-wait** while the child runs.
+
+### 9. Sync (Author Simple Document rules)
+
+- **Type:** Branching logic + optional spawned file-synchronizer
+- **Intent:** Align local working copy with remote via **`rclone bisync`** and
+  conflict resolution — **same rules and skills as Author Simple Document**.
+- **Inputs:** Folder binding; `relativeFilePath`; Drive format pairing rules from
+  Author Simple Document.
+- **Expected output:** Clean bisync, or conflict resolved via file-synchronizer.
+- **Next-step resolution:** Success → §5. Conflict → spawn file-synchronizer then
+  §5. Hard error → USER_CHECKPOINT.
+
+Follow Author Simple Document protocol sections for inbound/outbound bisync,
+Drive format pairing, and
+[../author-simple-document/skills/file-synchronizer/SKILL.md](../author-simple-document/skills/file-synchronizer/SKILL.md).
+
+USER_CHECKPOINT — retry bisync · spawn file-synchronizer · abort sync.
+
+**Binding:** User may sync **any number of times** during the multi-part pass.
+Do not treat sync as a one-shot end-of-mission step only.
+
+### 10. Export PDF (Squad Leader–initiated)
+
+- **Type:** Branching logic + spawned conversion
+- **Intent:** On **user request** from §5, Squad Leader runs PDF export — same
+  modes as Author Simple Document §8 / §8a / §8b.
+- **Inputs:** Folder binding; `relativeFilePath`; `operationsDocsDirectory`;
+  preferably after a successful sync when publishing to the documentation folder.
+- **Expected output:** `pdfExportMode` = `documentation-folder-sync` |
+  `operations-result` | `skip`; when converting, `pdfPath` / `pdfRef` with
+  `sourcePreserved: true`.
+- **Next-step resolution:**
+  - `documentation-folder-sync` → spawn pdf-converter → sync generated PDF per
+    Author Simple Document §8b → §5
+  - `operations-result` → spawn pdf-converter → present link → §5
+  - `skip` → §5
+  - Conversion failure → USER_CHECKPOINT (retry · accept source-only · abort)
+
+USER_CHECKPOINT — export PDF to documentation folder and sync · save PDF under operations docs and return link · skip PDF export.
+
+**Squad Leader responsibility (binding):** Only the Squad Leader initiates this
+gate. Children do not offer PDF export as their primary completion path.
+**Forbidden:** auto-PDF after each part; embedding Drive conversion transport in
+this mission; replacing or renaming the source document.
+
+**Target skill:** [../convert-document/skills/pdf-converter/SKILL.md](../convert-document/skills/pdf-converter/SKILL.md)
+*(create Convert Document via a separate Mission Control dispatch when missing)*.
+
+Open **#external-wait** while conversion runs. Inputs mirror Author Simple
+Document §8a (`sourcePath`, `sourceKind`, `outputMode`, `outputDirectory`,
+`outputFilename`, folder/rclone fields).
+
+### 11. Dispatch resolution (Squad Leader)
+
+- **Type:** Finish/stop logic
+- **Intent:** Close when all parts are approved or the user signals wrap-up.
+- **Inputs:** Part ledger; open gaps; user finish signal.
+- **Expected output:** MCP **`mission_control_propose_dispatch_resolution`**.
+- **Next-step resolution:** Terminal for this dispatch after user Accept on the
+  resolution card.
+
+USER_CHECKPOINT — propose resolved · propose partial (list remaining parts/gaps) · abandon · continue authoring (§5).
+
+```json
+{ "status": "<resolved|partial|aborted|abandoned>", "summary": "<short recap>" }
+```
+
+**Forbidden in MCP args:** host-resolved identity keys (`correlationId`,
+`dispatchId`, `slotId`, …).
+
+Use **`resolved`** when all planned parts are authored and approved (and optional
+PDF/sync done as requested); **`partial`** when useful progress remains with
+documented follow-ups; **`abandoned`** / **`aborted`** when the user stops or
+execution cannot continue.
