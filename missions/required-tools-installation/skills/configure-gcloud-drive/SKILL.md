@@ -16,9 +16,15 @@ inputs:
     required: false
   defaultNewProjectId:
     type: string
-    description: Default new project id/name when creating
-    required: true
-    default: sedea-agent-squad
+    description: >-
+      Optional seed for a new project id when creating. Prefer omit or pass
+      an org-prefixed unique suggestion (e.g. sedea-<short-slug>). Agents MUST
+      derive `<org-prefix>-<short-slug>` from the Google organization when this
+      seed is missing, blank, or already taken — never treat a fixed id such as
+      sedea-agent-squad as guaranteed available (GCP project ids are globally
+      unique).
+    required: false
+    default: ""
   serviceAccountPreference:
     type: string
     description: select-existing | create-default
@@ -195,14 +201,34 @@ symlink; declaring success from a full SDK path when bare **`gcloud`** is absent
    structured choice (**Auth done — continue** · **Retry probe** · **Abort** ·
    **More details for option _**), and resume only after auth succeeds.
 2. When authenticated, list accessible projects (`gcloud projects list`).
-3. USER_CHECKPOINT — choose one **existing** project from the listed projects,
-   **or** create the default **`sedea-agent-squad`**
-   (`inputs.defaultNewProjectId`). Present each listed project as its own option
-   (id / name); include the create-default option and **More details for option
-   _**. Do not require free-form id entry when the list is available.
-4. On **create**: confirm the id/name in structured choice **before**
-   `gcloud projects create`. Do not create silently.
-5. Set the active project for subsequent commands
+3. **Derive a suggested new project id** (create path only):
+   - GCP **project ids are globally unique**. A fixed default such as
+     **`sedea-agent-squad`** may already be owned by another org — **forbidden**
+     to present it as a guaranteed-available create id.
+   - Resolve the Google **organization** for the active account
+     (`gcloud organizations list` / project ancestors). Derive
+     **`<org-prefix>`** as a kebab-case slug from the org **display name**
+     (example: org **Sedea** → **`sedea-`**). When multiple orgs apply or the
+     prefix is ambiguous, USER_CHECKPOINT — pick organization / prefix before
+     suggesting a create id.
+   - Build **`<org-prefix>-<short-slug>`** (lowercase letters, digits, hyphens;
+     6–30 chars preferred for readability). Use
+     `inputs.defaultNewProjectId` only when it already matches this
+     org-prefixed pattern and is not known-taken; otherwise ignore fixed legacy
+     seeds.
+   - Show the **full suggested id** in the create option label.
+4. USER_CHECKPOINT — choose one **existing** project from the listed projects,
+   **or** create with the **org-prefixed unique suggested id** from step 3.
+   Present each listed project as its own option (id / name); include the
+   create option (label = suggested id) and **More details for option _**.
+   Do not require free-form id entry when the list is available.
+5. On **create**: confirm the id/name in structured choice **before**
+   `gcloud projects create`. Do not create silently. If create fails because
+   the id is **taken** / `ALREADY_EXISTS`, derive a new unique suffix (e.g.
+   `-centers`, short hash, or developer-picked slug under the same
+   **`<org-prefix>-`**), re-open confirm, and retry — do not stop on the first
+   collision alone.
+6. Set the active project for subsequent commands
    (`gcloud config set project <id>` or `--project` flags).
 
 ### 4. Select or create service account; download JSON
