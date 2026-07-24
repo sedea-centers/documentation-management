@@ -23,6 +23,7 @@ commands executable without further browsing.
 | **`id`** | yes | Stable kebab-case tool id |
 | **`kind`** | yes | `cli` or `sedea-extension` |
 | **`minVersion`** | yes | Minimum semver (or tool-native version string) the center accepts |
+| **`latestVersionProbe`** | no | How to discover the newest available release for **upgrade-available** classification when installed ≥ **`minVersion`**. Omit when no reliable probe exists — agents must **not** invent one |
 | **`docsUrl`** | yes | Primary documentation URL |
 | **`installUrl`** | yes | Installation documentation URL (may equal docs when install is a subsection) |
 | **`cli`** | `cli` only | Primary command name for PATH probes and normal invocation |
@@ -75,7 +76,12 @@ For **`kind: cli`**, detect the current OS, then read the matching registry fiel
    (for example missing `~/bin` symlinks for **`gcloud`**) — classify **missing**
    / incomplete and route to install repair; **do not** PATH-prepend SDK dirs as
    normal invoke policy.
-4. Compare discovered version to **`minVersion`** → **ok** or **outdated**.
+4. Compare discovered version to **`minVersion`** → **outdated** (below) or
+   candidate **ok** (meets or exceeds).
+5. When candidate **ok** and **`latestVersionProbe`** is defined, run that probe.
+   If discovered **latest** &gt; installed → **upgrade-available**. If the probe is
+   absent, fails, or is not reliably parseable → leave as **ok**; **do not** invent
+   a latest source.
 
 **Dry-runs:** run listed **`dryRuns`** with bare **`cli`** after a successful
 install (or with the user **`use-path`** override). Substitute a full path only
@@ -106,11 +112,12 @@ different editor's `code` command from PATH.
 **Probe:** run `"<sedea-cli>" --list-extensions --show-versions`. Match
 **`extensionId`** case-insensitively and parse `<extensionId>@<version>`.
 Absent → **missing**; version below **`minVersion`** → **outdated**; otherwise
-**ok**. A missing Sedea CLI is a failed/incomplete probe and routes to the
-mission's **`use-path`** choice — it is not a reason to install through another
-editor.
+candidate **ok**. When candidate **ok** and **`latestVersionProbe`** is defined,
+run it; latest &gt; installed → **upgrade-available**; otherwise **ok**. A missing
+Sedea CLI is a failed/incomplete probe and routes to the mission's **`use-path`**
+choice — it is not a reason to install through another editor.
 
-**Install:** after explicit consent only, run
+**Install / upgrade:** after explicit consent only, run
 `"<sedea-cli>" --install-extension "<extensionId>" --force`. This installs or
 updates the extension from Sedea's configured Open VSX gallery. It does **not**
 add the extension to the Sedea application bundle. A dedicated MCP tool is not
@@ -179,6 +186,7 @@ to mission **configure-gcloud-drive**.
 | **kind** | `sedea-extension` |
 | **extensionId** | `cweijan.vscode-office` |
 | **minVersion** | `4.1.5` |
+| **latestVersionProbe** | `curl -fsSL https://open-vsx.org/api/cweijan/vscode-office` — parse JSON **`version`** (semver). Compare to installed extension version from `--list-extensions --show-versions`. |
 | **docsUrl** | https://open-vsx.org/extension/cweijan/vscode-office |
 | **installUrl** | https://code.visualstudio.com/docs/configure/extensions/extension-marketplace#_command-line-extension-management |
 
@@ -202,6 +210,7 @@ to mission **configure-gcloud-drive**.
 | **kind** | `cli` |
 | **cli** | `rclone` |
 | **minVersion** | `1.60.0` |
+| **latestVersionProbe** | `curl -fsSL https://downloads.rclone.org/version.txt` — parse the version token (e.g. `rclone v1.68.2` → `1.68.2`). Compare to installed `rclone version`. |
 | **docsUrl** | https://rclone.org/docs/ |
 | **installUrl** | https://rclone.org/install/ |
 | **macosInstallPath** | `~/bin/rclone` |
@@ -325,6 +334,7 @@ requires. This rule still owns **auth**; the mission owns **format-pair flags**.
 | **kind** | `cli` |
 | **cli** | `gcloud` |
 | **minVersion** | `450.0.0` |
+| **latestVersionProbe** | With an installed **`gcloud`**, run `gcloud components update --dry-run` (non-interactive). If the dry-run reports one or more components that would update → treat discovered latest as newer than installed (**upgrade-available**). If dry-run reports nothing to update, fails, or is unavailable → leave as **ok** (do not invent another latest source; channel metadata version strings are not comparable to `gcloud version` SDK numbers). |
 | **docsUrl** | https://cloud.google.com/sdk/gcloud |
 | **installUrl** | https://cloud.google.com/sdk/docs/install-sdk |
 | **macosInstallPath** | `~/google-cloud-sdk/bin/gcloud` |
@@ -370,14 +380,18 @@ symlinks exist). Full install-path executable is allowed only for an explicit
    resolved OS install path for incomplete-install detection only. Do not invent
    alternate install directories. Do not PATH-prepend SDK `bin/` as normal policy.
 3. Compare discovered binary or extension version to **`minVersion`** — classify
-   **ok**, **outdated**, or **missing** (including incomplete CLI resolution).
-4. Install only after structured-choice consent to **install** (not method/path
-   choice). Use the **sole** listed OS method id. For `cli`, place the binary
-   exactly at the OS install path and follow method notes and **`installUrl`**
-   (including Unix **`gcloud`** `~/bin` symlinks). For `sedea-extension`, install
-   through the resolved Sedea CLI without bundling. **Forbidden:** method pickers;
-   install-directory questions.
-5. After install (or path override), run **every** **`dryRuns`** row in order
+   **missing**, **outdated** (below `minVersion`), or candidate **ok**. When
+   candidate **ok** and **`latestVersionProbe`** is defined, run it — latest &gt;
+   installed → **upgrade-available**; otherwise **ok**. Incomplete CLI resolution
+   counts as **missing**.
+4. Install or **upgrade** only after structured-choice consent (**install** or
+   **upgrade**, not method/path choice). Use the **sole** listed OS method id.
+   For `cli`, place the binary exactly at the OS install path and follow method
+   notes and **`installUrl`** (including Unix **`gcloud`** `~/bin` symlinks). For
+   `sedea-extension`, install/upgrade through the resolved Sedea CLI with
+   `--force` without bundling. **Forbidden:** method pickers; install-directory
+   questions; inventing latest-version sources not listed as **`latestVersionProbe`**.
+5. After install, upgrade, or path override, run **every** **`dryRuns`** row in order
    with bare **`cli`** for `cli` tools or the resolved Sedea CLI for
    `sedea-extension` tools, then record pass/fail.
 6. For Drive **`lsf`** / **bisync**, apply **Drive auth invoke** — SA flags and
@@ -387,8 +401,8 @@ symlinks exist). Full install-path executable is allowed only for an explicit
 
 - Mission **Required Tools Installation** —
   `missions/required-tools-installation/` (command phrase **`install required tools`**);
-  spawned **configure-gcloud-drive** after **`gcloud`** is in scope (includes
-  Internal Desktop OAuth `client_id` → rclone via
+  probe → install/upgrade consent → dry-run; spawned **configure-gcloud-drive** after
+  **`gcloud`** is in scope (includes Internal Desktop OAuth `client_id` → rclone via
   `missions/required-tools-installation/scripts/setup-rclone-drive-client-id.sh`;
   Windows `.ps1` follow-up).
 - Foundation rule — `rules/00_documentation-management.mdc` (rclone as primary sync tool;

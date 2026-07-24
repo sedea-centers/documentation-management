@@ -1,10 +1,11 @@
 name: Required Tools Installation
 description: >-
-  Install and verify tools required by the Documentation Management Center —
-  shell probes, install consent, sole OS install method (macOS curl; Windows
-  fixed-path exe), and documented dry-runs.
+  Install, upgrade, and verify tools required by the Documentation Management
+  Center — shell probes, install/upgrade consent, sole OS install method
+  (macOS curl; Windows fixed-path exe), and documented dry-runs. Operators can
+  re-run regularly to pick up newer tool versions when available.
 commands:
   - phrase: install required tools
     description: >-
-      Run the required-tools install and verify protocol for Documentation
-      Management (probe, consent, install, dry-run).
+      Run the required-tools install/upgrade and verify protocol for
+      Documentation Management (probe, consent, install or upgrade, dry-run).
