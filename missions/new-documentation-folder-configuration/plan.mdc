@@ -238,45 +238,55 @@ USER_CHECKPOINT — retry dry-run · fix path/share · abort after dry-run failu
 
 ### 6. Promote hosting worktree to main
 
-- **Type:** Simple skill execution + merge gate
+- **Type:** Simple skill execution
 - **Intent:** Land hosting-repo tracked edits (**`.gitignore`**, **`.cursorignore`**,
-   and **`.sedea/documentation-management.yaml`**) on **`main`** before full pull —
-   same **`WORKTREE_ROOT`**, auto ship through PR create, then agent merge after
-   explicit merge approval.
+   and **`.sedea/documentation-management.yaml`**) on **`main`** before full pull.
+   Under **`trustLevel: checkpoint`**, prior **configuration** USER_CHECKPOINTs
+   (Drive folder, SA share, local name, **Apply** hosting edits) plus successful
+   bind/dry-run / correctly saved artifacts **are** ship consent **through merge** —
+   the PR is only the vehicle to land the pre-approved configuration; there is no
+   second product approval on the PR itself.
 - **Inputs:** Hosting **`WORKTREE_ROOT`** from §4 Apply (updated in §5 when needed);
-   prior **Apply** consent (covers commit / push / PR create).
-- **Expected output:** PR merged by agent after merge gate; worktree cleaned up;
-   **`HOSTING_ROOT`** on updated **`main`**.
-- **Next-step resolution:** Success or skip-no-changes → §7 (full pull). Abort →
-  USER_CHECKPOINT below.
+   prior configuration USER_CHECKPOINT approvals; §5 dry-run pass (or
+   skip-no-changes).
+- **Expected output:** PR merged by agent **without** a separate merge modal on
+   the Checkpoint happy path; worktree cleaned up; **`HOSTING_ROOT`** on updated
+   **`main`**.
+- **Next-step resolution:** Success or skip-no-changes → §7 (full pull). Ship
+  failure → USER_CHECKPOINT below.
 
 When this pass has **no** uncommitted/unmerged hosting-repo tracked changes,
 **skip** this section and continue to §7.
 
 Otherwise promote **this pass’s** **`WORKTREE_ROOT`** only:
 
-1. **Auto-advance** (Apply consent is enough — **do not** open rule **6**
-   pipeline-depth AskQuestion for `commit-only` / `commit-push` /
-   `commit-push-pr`): stage named paths for **`.gitignore`**, **`.cursorignore`**,
-   and **`.sedea/documentation-management.yaml`** only → `git commit` → `git push`
-   → `gh pr create`.
-2. Inline **`pr-review`** until **`continuationStatus: terminal`**.
-
-USER_CHECKPOINT — Merge this PR (`approve-merge-pr`) · check PR status · defer full pull · abort · More details for option _.
-
-3. On **`approve-merge-pr`**: agent runs `gh pr review --approve` + `gh pr merge`
-   for **that** PR (same-turn structured-choice consent per
+1. **Auto-advance** (configuration approval under Checkpoint authorizes full
+   promote — **do not** open rule **6** pipeline-depth AskQuestion for
+   `commit-only` / `commit-push` / `commit-push-pr`; **do not** open a post-PR
+   merge AskQuestion on the happy path): stage named paths for **`.gitignore`**,
+   **`.cursorignore`**, and **`.sedea/documentation-management.yaml`** only →
+   `git commit` → `git push` → `gh pr create`.
+2. Optional/best-effort inline **`pr-review`** until **`continuationStatus:
+   terminal`** when useful for hygiene — **does not** block merge on the
+   Checkpoint happy path when review is clean or empty. Review blockers →
+   USER_CHECKPOINT below (retry ship · skip to full pull with documented risk ·
+   abort).
+3. **Auto-advance merge:** agent runs `gh pr review --approve` + `gh pr merge`
+   for **that** PR. Mission-owned: prior configuration USER_CHECKPOINTs under
+   Checkpoint = promote consent through merge (see
    [`.sedea/centers/sedea/rules/6_git-commit-push-gate.mdc`](.sedea/centers/sedea/rules/6_git-commit-push-gate.mdc)
-   § *Approval-gated agent approve+merge*).
+   § *Mission-owned git*). **Forbidden:** waiting for a second
+   **`approve-merge-pr`** pick when configuration was already approved and
+   artifacts saved correctly.
 4. **Auto-advance** after merge: inline **`worktree-cleanup`** (MCP detach when
    mounted, then center **`worktree-cleanup.sh`**) for **this** path only —
    Path A or Path B ownership; then on **`HOSTING_ROOT`**: **`git pull origin main`**.
 
 **Forbidden:** full pull (§7) while this pass still has an unmerged hosting
-worktree PR for the configure edit set; agent merge **without** same-turn
-**`approve-merge-pr`** (or equivalent) pick; separate worktrees or PRs for
-gitignore vs **`.cursorignore`** vs registry; removing worktrees you do not own;
-re-asking create-worktree or pipeline-depth after Apply.
+worktree PR for the configure edit set; separate worktrees or PRs for gitignore
+vs **`.cursorignore`** vs registry; removing worktrees you do not own; re-asking
+create-worktree, pipeline-depth, or merge after Apply on the Checkpoint happy
+path.
 
 USER_CHECKPOINT — retry ship · skip to full pull (document risk) · abort after ship failure.
 
