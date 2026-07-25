@@ -117,11 +117,16 @@ run it; latest &gt; installed → **upgrade-available**; otherwise **ok**. A mis
 Sedea CLI is a failed/incomplete probe and routes to the mission's **`use-path`**
 choice — it is not a reason to install through another editor.
 
-**Install / upgrade:** after explicit consent only, run
-`"<sedea-cli>" --install-extension "<extensionId>" --force`. This installs or
-updates the extension from Sedea's configured Open VSX gallery. It does **not**
-add the extension to the Sedea application bundle. A dedicated MCP tool is not
-required.
+**Install / upgrade:** after explicit consent only, follow the tool’s **sole** OS
+method notes:
+
+| Default | Override |
+|---------|----------|
+| Gallery id — `"<sedea-cli>" --install-extension "<extensionId>" --force` (Open VSX gallery) | When method notes specify **VSIX download + path install**, download the pinned `.vsix` URL then run `"<sedea-cli>" --install-extension "<local-vsix-path>" --force` |
+
+Local `.vsix` install does **not** fetch the gallery `.sigzip` used by id-based
+install. Neither path adds the extension to the Sedea application bundle. A
+dedicated MCP tool is not required.
 
 **Dry-run:** repeat `"<sedea-cli>" --list-extensions --show-versions` and require
 the installed entry to meet **`minVersion`**. Do not claim functional document
@@ -188,19 +193,19 @@ to mission **configure-gcloud-drive**.
 | **minVersion** | `4.1.5` |
 | **latestVersionProbe** | `curl -fsSL https://open-vsx.org/api/cweijan/vscode-office` — parse JSON **`version`** (semver). Compare to installed extension version from `--list-extensions --show-versions`. |
 | **docsUrl** | https://open-vsx.org/extension/cweijan/vscode-office |
-| **installUrl** | https://code.visualstudio.com/docs/configure/extensions/extension-marketplace#_command-line-extension-management |
+| **installUrl** | https://open-vsx.org/api/cweijan/vscode-office/4.1.7/file/cweijan.vscode-office-4.1.7.vsix |
 
 **macOS / Linux / Windows methods:**
 
 | Registry fields | Sole method id | Notes |
 |-----------------|----------------|-------|
-| `macosMethods`, `linuxMethods`, `windowsMethods` | `sedea-cli-install-extension` | Resolve the Sedea CLI per **Sedea extensions**, then install `cweijan.vscode-office` with `--install-extension` after consent. **Forbidden:** adding it to Sedea's built-in extension bundle; using another editor's profile; marketplace download/VSIX side-loading when the Open VSX CLI install is available. |
+| `macosMethods`, `linuxMethods`, `windowsMethods` | `sedea-cli-install-vsix` | Resolve the Sedea CLI per **Sedea extensions**. After consent, **download the pinned Open VSX VSIX** then install that path (bypasses broken gallery `.sigzip` for `4.1.7` — [sedea-ai/community#9](https://github.com/sedea-ai/community/issues/9)). **Pinned assets:** VSIX `https://open-vsx.org/api/cweijan/vscode-office/4.1.7/file/cweijan.vscode-office-4.1.7.vsix`. **Agent-executable (Unix):** `VSIX_URL="https://open-vsx.org/api/cweijan/vscode-office/4.1.7/file/cweijan.vscode-office-4.1.7.vsix"`; `VSIX_PATH="${TMPDIR:-/tmp}/cweijan.vscode-office-4.1.7.vsix"`; `curl -fsSL -o "$VSIX_PATH" "$VSIX_URL"`; `"<sedea-cli>" --install-extension "$VSIX_PATH" --force`. **Windows (PowerShell):** download the same URL to `$env:TEMP\cweijan.vscode-office-4.1.7.vsix`, then `"<sedea-cli>" --install-extension <that-path> --force`. **Acceptance:** extension listed via `--list-extensions` (id + version ≥ **`minVersion`**) — **not** gallery signature verify success. **Forbidden:** gallery id `cweijan.vscode-office` while Open VSX ships empty `.signature.p7s` for the release; adding the extension to Sedea's built-in bundle; using another editor's profile. When Open VSX republishes a valid signature, gallery id may return; keep VSIX as a durable empty-sig fallback. |
 
 **dryRuns:**
 
 | # | `command` | `expect` |
 |---|-----------|----------|
-| 1 | `"<sedea-cli>" --list-extensions --show-versions` | Exit **0**; output includes `cweijan.vscode-office@<version>` with version ≥ **`minVersion`** |
+| 1 | `"<sedea-cli>" --list-extensions --show-versions` | Exit **0**; output includes `cweijan.vscode-office@<version>` with version ≥ **`minVersion`** (installation proof only — not gallery signature success) |
 
 ### `rclone`
 
@@ -388,9 +393,10 @@ symlinks exist). Full install-path executable is allowed only for an explicit
    **upgrade**, not method/path choice). Use the **sole** listed OS method id.
    For `cli`, place the binary exactly at the OS install path and follow method
    notes and **`installUrl`** (including Unix **`gcloud`** `~/bin` symlinks). For
-   `sedea-extension`, install/upgrade through the resolved Sedea CLI with
-   `--force` without bundling. **Forbidden:** method pickers; install-directory
-   questions; inventing latest-version sources not listed as **`latestVersionProbe`**.
+   `sedea-extension`, install/upgrade through the resolved Sedea CLI per method
+   notes (gallery id **or** pinned VSIX download + path) with `--force` without
+   bundling. **Forbidden:** method pickers; install-directory questions;
+   inventing latest-version sources not listed as **`latestVersionProbe`**.
 5. After install, upgrade, or path override, run **every** **`dryRuns`** row in order
    with bare **`cli`** for `cli` tools or the resolved Sedea CLI for
    `sedea-extension` tools, then record pass/fail.

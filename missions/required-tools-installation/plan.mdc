@@ -126,10 +126,11 @@ sole install procedure (overwrite in place at the registry fixed path).
   `fixed-path-exe`, install only to the registry fixed path. On Unix
   **`gcloud`** (`curl-sdk`), create the registry-required **`~/bin`** symlinks
   after installation/upgrade and before dry-runs.
-- For **`kind: sedea-extension`**, run the registry command against the resolved
-  **Sedea** CLI after consent (including `--force` so upgrades refresh the
-  gallery build). Do not add the extension to Sedea's built-in
-  extension bundle, invoke another editor's profile, or require a new MCP tool.
+- For **`kind: sedea-extension`**, run the **sole registry method** against the
+  resolved **Sedea** CLI after consent (gallery id **or** pinned VSIX download +
+  path per method notes, including `--force` so upgrades refresh the install).
+  Do not add the extension to Sedea's built-in extension bundle, invoke another
+  editor's profile, or require a new MCP tool.
 
 USER_CHECKPOINT — retry, skip failed tool, or abort after an install/upgrade failure.
 
