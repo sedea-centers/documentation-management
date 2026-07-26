@@ -136,7 +136,7 @@ USER_CHECKPOINT — use template · supply structure outline · revise intake ·
 1. Templates stay blank / reusable — **forbidden** to offer editing the template file, or to write part content / master-plan body into `templatePath`.
 2. Before collecting document content or spawning part lanes, **propose a new filename** (and optional subfolder under `localPath`) via structured choice; after confirmation, **copy** the template to that path and set `relativeFilePath` to the copy.
 3. Treat `templatePath` as **read-only** for structure derivation only (section headings / outline). All authoring, Generate Content, Sync of the working doc, and PDF export use `relativeFilePath`.
-4. Mirror Author Simple Document create mode **Use existing template** → scaffold a **standard document** from the template (non-template outcome).
+4. Mirror Author Simple Document create mode **Use template** → scaffold a **standard document** from the template (non-template outcome).
 
 **Forbidden:** editing the selected template in place; treating the template path as the multi-part working document; skipping the new-filename proposal when `intakeMode` is `template`.
 
