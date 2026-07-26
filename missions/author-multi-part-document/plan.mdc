@@ -96,6 +96,8 @@ USER_CHECKPOINT — confirm intent when the opening command phrase does not matc
   intent from §1; user hints (folder slug, relative file path).
 - **Expected output:** `folderSlug`, `localPath`, `rclone.remote`,
   `rclone.remotePath`; `relativeFilePath` under `localPath` when known.
+  When §3 used a template, `relativeFilePath` **must** be the duplicated
+  working file — **never** the template path.
 - **Next-step resolution:** Folder resolved → §3. Missing registry or tools →
   USER_CHECKPOINT below.
 
@@ -113,9 +115,12 @@ USER_CHECKPOINT — pick registered folder slug · provide relative file path ·
 - **Intent:** Collect how the multi-part document is shaped before master planning.
 - **Inputs:** Folder binding from §2; optional template path; optional structure
   outline from the user.
-- **Expected output:** `intakeMode` = `template` | `structure-given`; template
-  path and/or approved structure outline; optional existing document to extend.
-- **Next-step resolution:** Intake approved → §4. Incomplete → re-ask.
+- **Expected output:** `intakeMode` = `template` | `structure-given`; when
+  `template`: `templatePath` (read-only source) + `relativeFilePath` (new working
+  document under `localPath`); when `structure-given`: approved structure outline;
+  optional existing document to extend (non-template path only).
+- **Next-step resolution:** Intake approved with a writable working document → §4.
+  Incomplete → re-ask.
 
 USER_CHECKPOINT — use template · supply structure outline · revise intake · abort.
 
@@ -123,8 +128,17 @@ USER_CHECKPOINT — use template · supply structure outline · revise intake ·
 
 | Mode | Outcome |
 |------|---------|
-| **Use template** | User supplies template path; master plan derives sections from template |
-| **Structure given** | User supplies section/part structure; master plan uses that outline |
+| **Use template** | User supplies `templatePath`. Agent **duplicates** the template into a **new** working document under `localPath` (propose a new filename; confirm or revise before write). Master plan and all later edits target **only** the new file. |
+| **Structure given** | User supplies section/part structure; master plan uses that outline on a new or existing **non-template** working file. |
+
+**Template reuse (binding — Use template):**
+
+1. Templates stay blank / reusable — **forbidden** to offer editing the template file, or to write part content / master-plan body into `templatePath`.
+2. Before collecting document content or spawning part lanes, **propose a new filename** (and optional subfolder under `localPath`) via structured choice; after confirmation, **copy** the template to that path and set `relativeFilePath` to the copy.
+3. Treat `templatePath` as **read-only** for structure derivation only (section headings / outline). All authoring, Generate Content, Sync of the working doc, and PDF export use `relativeFilePath`.
+4. Mirror Author Simple Document create mode **Use existing template** → scaffold a **standard document** from the template (non-template outcome).
+
+**Forbidden:** editing the selected template in place; treating the template path as the multi-part working document; skipping the new-filename proposal when `intakeMode` is `template`.
 
 ### 4. Author and approve master plan
 
