@@ -184,6 +184,14 @@ USER_CHECKPOINT — start/continue next part · request gap analysis · Generate
    and document path.
 4. Open **#external-wait**; on success, update the part ledger; return to §5.
 
+**Part-planner open questions (binding — child lane):** Each open question,
+concern, ambiguity, or incompleteness on the **part-planner** lane is asked via
+**structured choice** (one `askQuestion.questions` entry per item; same modal may
+batch). **Forbidden:** documenting open items only in the part plan and expecting
+prose answers at plan review/approval. When items remain, co-present per-item
+picks with Approve / Revise on the same approval turn — see
+`skills/part-planner/SKILL.md` steps 4–5.
+
 USER_CHECKPOINT — retry part-planner · retry author · skip/defer this part · abort after child failure.
 
 ### 7. Gap analysis (optional between parts)
