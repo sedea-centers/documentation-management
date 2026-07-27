@@ -328,7 +328,7 @@ Record what was applied in `permissionsApplied`.
 ### 7. Provision rclone own Desktop `client_id` (script — binding)
 
 rclone’s **shared** Google Drive `client_id` is retiring during 2026. New Drive
-remotes must use an operator-owned OAuth client. This step **automates** that
+remotes must use a user-owned OAuth client. This step **automates** that
 provisioning using authenticated **gcloud** + the SA JSON from step 4.
 
 **Canonical guide:** [Making your own client_id](https://rclone.org/drive/#making-your-own-client-id)

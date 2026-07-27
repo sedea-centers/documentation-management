@@ -21,7 +21,7 @@ alwaysApply: false
 3. Install or **upgrade** only tools the user **explicitly consents** to, using the
    **sole** registry install method id for the current OS (never a method picker);
    install/upgrade Sedea extensions after consent rather than bundling them with
-   the app. Operators may re-run this mission regularly to refresh to newest
+   the app. Users may re-run this mission regularly to refresh to newest
    available versions.
 4. After install, upgrade, or path override, run each tool’s documented **dry-runs** and
    report pass/fail without further documentation browsing.
@@ -98,7 +98,7 @@ For each tool, branch on registry **`kind`**:
 ### 4. Confirm installs, upgrades, and path overrides
 
 - **Type:** Branching logic
-- **Intent:** Obtain explicit consent before any install or upgrade; allow path/command override to avoid duplicate installs; let operators refresh to newest tooling on a regular pass.
+- **Intent:** Obtain explicit consent before any install or upgrade; allow path/command override to avoid duplicate installs; let users refresh to newest tooling on a regular pass.
 - **Inputs:** Probe table from §3 with classifications **ok**, **missing**, **outdated** (below `minVersion`), **upgrade-available** (installed meets `minVersion` but a newer release is available per registry probe).
 - **Expected output:** Per-tool action: `install` · `upgrade` · `use-path` (user path/command) · `skip` · `abort`.
 - **Next-step resolution:** At least one `install`, `upgrade`, or `use-path` → §5. All `skip` with nothing to verify → §8. `abort` → §8 abandoned.

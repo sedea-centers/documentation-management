@@ -8,7 +8,7 @@ alwaysApply: false
 
 # Required tools
 
-**Normative registry** for tools this center expects on the operator machine.
+**Normative registry** for tools this center expects on the user machine.
 Missions that install or verify tooling **must** read this file — do not invent
 a second required-tools list.
 
@@ -329,7 +329,7 @@ requires. This rule still owns **auth**; the mission owns **format-pair flags**.
 | **403** / **notFound** | Folder not shared with SA **`client_email`** | Share fix — not reconnect |
 | Missing SA JSON | Configure not run | **`install required tools`** / **configure-gcloud-drive** |
 | `empty token found` | Remote has OAuth client_id but no token and no SA in config | Retry **with SA CLI flags** — **forbidden:** reconnect-first USER_CHECKPOINT |
-| **Reconnect** | User OAuth out of band | Operator-only; never default in agent checkpoints |
+| **Reconnect** | User OAuth out of band | User-only; never default in agent checkpoints |
 
 ### `gcloud`
 
