@@ -4,15 +4,16 @@ designation:
   allowed: >-
     Plan one document part from the master plan; define part-plan shape in
     session; resolve open questions/concerns via structured choice; write
-    approved part plan under dispatch plans/
+    approved part plan under dispatch plans/; spawn author for this part; notify
+    author of plan revisions
   forbidden: >-
-    Dispatch resolution; full-document one-pass authoring; spawning author or
-    other children from this lane; documenting open questions only in the plan
-    file and expecting prose answers at approval
+    Dispatch resolution; full-document one-pass authoring; documenting open
+    questions only in the plan file and expecting prose answers at approval;
+    requiring Squad Leader to re-spawn author for plan revisions
 description: >-
   Spawned part planner for author-multi-part-document. Draft and approve a plan
-  for a single master-plan part; resolve each open question/concern via
-  structured choice before plan approval.
+  for a single master-plan part; spawn the author child; push plan revisions
+  directly to that author lane.
 inputs:
   partId:
     type: string
@@ -42,7 +43,7 @@ inputs:
     type: string
     description: Absolute ops docs write root from Mission Control
     required: true
-timeoutMs: 1800000
+timeoutMs: 3600000
 warmUpRules:
   - .sedea/centers/documentation-management/missions/author-multi-part-document/plan.mdc
 ---
@@ -50,7 +51,8 @@ warmUpRules:
 # Multi-Part Document Part Planner
 
 Spawned **part-planner** for **author-multi-part-document**. Plan **one** part
-from the approved master plan. Do **not** author full document prose here.
+from the approved master plan, then **spawn author** for that part. Do **not**
+author full document prose here.
 
 ## Inputs
 
@@ -83,15 +85,36 @@ from the approved master plan. Do **not** author full document prose here.
    When open items remain after step 4, **co-present** per-item resolution picks
    **and** Approve / Revise / Defer / Abort on the **same** turn — **forbidden**
    to hide Approve until all items are cleared.
-6. On approval, set `partPlanApproved: true` and complete.
+6. On approval, set `partPlanApproved: true`. Then emit
+   **`mission_control_spawn_agent`** for **`skills/author/SKILL.md`** with
+   `partPlanPath`, `partId`, `localPath`, `relativeFilePath`, and
+   `operationsDocsDirectory`. Record the author child slug for revision notify.
+   Set `continuationStatus: active`. Open **#external-wait** for the author
+   result (do **not** emit a terminal planner result yet).
+7. **Plan revisions after author spawn (binding):** When the part plan is revised
+   while the author lane is active, push the revision to the **author** child:
+   - Prefer **`mission_control_notify_child_lanes`** with
+     `changeType: plan-revision`, `affectedPlanPaths: [<partPlanPath>]`, and
+     `targetSlugs: [<authorSlug>]` when plan-change notification is enabled.
+   - Otherwise re-handoff the updated `partPlanPath` on the author lane without
+     Squad Leader re-spawn.
+   - **Forbidden:** requiring Squad Leader to re-spawn author solely to deliver a
+     plan revision.
+8. On author **`mission_control_send_agent_result`** for this part (success,
+   partial, deferred, or failure), merge author outputs into the planner result
+   and complete this skill (`continuationStatus: terminal`).
 
 **Forbidden:** planning every remaining part in one pass; editing the target
 document body on this lane; calling `mission_control_propose_dispatch_resolution`;
-prose-only open-question collection at the approval gate.
+prose-only open-question collection at the approval gate; emitting a **terminal**
+planner result before author has finished (or the part is deferred/aborted
+without author).
 
 ## Completion (spawned)
 
-**outputs:** `partId`, `partPlanPath`, `partPlanApproved`, `unresolvedCount`, `continuationStatus`
+**outputs:** `partId`, `partPlanPath`, `partPlanApproved`, `unresolvedCount`,
+`authorSpawned`, `authorSlug`, `partComplete` (when author reported),
+`continuationStatus`
 
 ### MCP result preflight (`mission_control_send_agent_result`)
 
@@ -99,12 +122,13 @@ prose-only open-question collection at the approval gate.
 |------|--------|
 | R1 | Call **`mission_control_send_agent_result`** with **`status`**, **`summary`**, optional **`outputs`** / **`errors`** |
 | R2 | **Forbidden args absent** — no **`correlationId`**, **`dispatchId`**, **`slotId`**, or other host-resolved keys |
-| R3 | Populate **`outputs`** from the required field list above; `partPlanApproved` only after user approval; `unresolvedCount` = remaining open items (0 when none) |
-| R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) |
+| R3 | Populate **`outputs`** from the required field list above; `partPlanApproved` only after user approval; `unresolvedCount` = remaining open items (0 when none); set `authorSpawned: true` and `authorSlug` after author spawn; keep `continuationStatus: active` until author terminal (or defer/abort without author) |
+| R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) — including milestone updates after author spawn when useful |
 
-Stop after the MCP result call. Do not emit another **`mission_control_spawn_agent`** on this lane.
+After author spawn, **do** emit **`mission_control_spawn_agent`** for author on
+this lane. Emit the **terminal** planner result only after step 8.
 
 ## Completion (inline)
 
-Report `partId`, part plan path, approval status, `unresolvedCount`, and
-`continuationStatus` in prose.
+Report `partId`, part plan path, approval status, `unresolvedCount`, author spawn
+status, and `continuationStatus` in prose.

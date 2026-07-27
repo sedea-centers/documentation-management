@@ -16,9 +16,12 @@ alwaysApply: false
 2. Produce an approved **master plan** — overview of document sections and part
    delivery order. Unlike **Author Simple Document**, do **not** plan and render
    the entire document in one pass.
-3. Deliver each part via a **part-planner** child lane, then an **author** child
-   lane. The structure of each part plan is defined during that part’s planning
-   session.
+3. Deliver each part via a **part-planner** child lane that **spawns** the
+   **author** child for that part. Plan revisions flow **planner → author**
+   (not via Squad Leader rebroadcast). After authoring, the author reviews the
+   part conversation for SoT alterations and collects per-change approvals into
+   the SoT changes follow-up document. The structure of each part plan is
+   defined during that part’s planning session.
 4. Between parts, when the user requests it, spawn a **gap-analyzer** to detect
    contradictions or misinterpretations across authored parts; when gaps are
    found, offer to spawn a **gap-closer** child lane.
@@ -44,9 +47,9 @@ Sync and PDF conversion reuse Author Simple Document / Convert Document contract
 
 | Role | Lane | `execution` | Spawns / owns | Does not |
 |------|------|-------------|---------------|----------|
-| **Squad Leader / Master Plan agent** | Dispatch leader | — | part-planner, author, gap-analyzer, gap-closer, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter** | Resolve dispatch from a child lane |
-| **Part planner** | Child | `spawned` | — | `mission_control_propose_dispatch_resolution` |
-| **Author** | Child | `spawned` | — | `mission_control_propose_dispatch_resolution` |
+| **Squad Leader / Master Plan agent** | Dispatch leader | — | part-planner, gap-analyzer, gap-closer, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter** | Spawn **author** on the happy path (part-planner owns that); resolve dispatch from a child lane |
+| **Part planner** | Child | `spawned` | **author** (after part-plan approval); plan-revision notify to author | `mission_control_propose_dispatch_resolution`; requiring Squad Leader to re-spawn author for plan revisions |
+| **Author** | Child | `spawned` (by part-planner) | SoT conversation review + SoT follow-up collection | `mission_control_propose_dispatch_resolution`; spawning other parts |
 | **Gap analyzer** | Child | `spawned` | — | Spawn gap-closer (parent offers); resolve dispatch |
 | **Gap closer** | Child | `spawned` | — | `mission_control_propose_dispatch_resolution` |
 | **Content generator** | Child | `spawned` | — | `mission_control_propose_dispatch_resolution` |
@@ -177,26 +180,43 @@ USER_CHECKPOINT — start/continue next part · request gap analysis · Generate
 | **Approve all content / finish** | §11 |
 | **Pause** | Resumable wait; re-open §5 later |
 
-### 6. Part delivery loop (planner then author)
+### 6. Part delivery loop (planner owns author)
 
 - **Type:** Agent engagement and handover
-- **execution:** `spawned` (sequential children)
-- **Intent:** For the next incomplete part in the master plan, run **part-planner**
-  then **author**.
+- **execution:** `spawned` (nested: leader → part-planner → author)
+- **Intent:** For the next incomplete part in the master plan, Squad Leader
+  spawns **part-planner**; part-planner approves the part plan, then **spawns
+  author** and owns plan-revision handoff to that author lane.
 - **Inputs:** `partId` / part title from master plan; folder binding;
   `operationsDocsDirectory`; prior authored parts for context pointers.
-- **Expected output:** Part plan approved; part content authored; ledger marks
-  part complete or deferred.
-- **Next-step resolution:** After author terminal → §5. Failure → USER_CHECKPOINT.
+- **Expected output:** Part plan approved; part content authored; optional SoT
+  follow-up rows appended; ledger marks part complete or deferred.
+- **Next-step resolution:** After part-planner terminal (which follows author
+  terminal on the happy path) → §5. Failure → USER_CHECKPOINT.
 
 **Procedure**
 
-1. Spawn **`skills/part-planner/SKILL.md`** with part identity and master-plan
-   excerpt. Part plan shape is defined in that session (not fixed globally).
-2. Open **#external-wait** resume options before ending the turn.
-3. On approved part plan, spawn **`skills/author/SKILL.md`** with the part plan
-   and document path.
-4. Open **#external-wait**; on success, update the part ledger; return to §5.
+1. Squad Leader spawns **`skills/part-planner/SKILL.md`** with part identity and
+   master-plan excerpt. Part plan shape is defined in that session (not fixed
+   globally). **Forbidden on the happy path:** Squad Leader spawning **author**
+   directly.
+2. Open **#external-wait** resume options before ending the turn (wait for
+   part-planner terminal).
+3. **On the part-planner lane** (see `skills/part-planner/SKILL.md`): after the
+   part plan is approved, emit **`mission_control_spawn_agent`** for
+   **`skills/author/SKILL.md`** with `partPlanPath` and document binding. Keep
+   **`continuationStatus: active`** until the author child finishes (or the part
+   is deferred/aborted).
+4. **Plan revisions (binding):** When the part plan changes after author spawn,
+   **part-planner** pushes revision context to the **author** child — prefer
+   **`mission_control_notify_child_lanes`** with `changeType: plan-revision` and
+   `affectedPlanPaths` including `partPlanPath` when plan-change notification is
+   enabled; otherwise same-lane re-handoff / updated `partPlanPath` without
+   Squad Leader re-spawn. **Forbidden:** requiring Squad Leader to re-spawn
+   author solely to deliver a plan revision.
+5. On author terminal (`partComplete: true`, deferred, or failure), part-planner
+   emits its own terminal result to Squad Leader. Leader updates the part ledger
+   and returns to §5.
 
 **Part-planner open questions (binding — child lane):** Each open question,
 concern, ambiguity, or incompleteness on the **part-planner** lane is asked via
@@ -206,7 +226,15 @@ prose answers at plan review/approval. When items remain, co-present per-item
 picks with Approve / Revise on the same approval turn — see
 `skills/part-planner/SKILL.md` steps 4–5.
 
-USER_CHECKPOINT — retry part-planner · retry author · skip/defer this part · abort after child failure.
+**Author SoT follow-up (binding — author lane):** After the user confirms the part
+is complete, the author reviews the part conversation for SoT content that was
+altered in practice, then runs one structured-choice question per identified
+change and appends approved items to the **SoT changes follow-up document**
+(additive to direct user SoT requests collected on the same document). See
+`skills/author/SKILL.md`. **Forbidden:** writing under **`source-of-truth/`**
+from this mission.
+
+USER_CHECKPOINT — retry part-planner · skip/defer this part · abort after child failure.
 
 ### 7. Gap analysis (optional between parts)
 

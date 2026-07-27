@@ -1,8 +1,9 @@
 name: Author Multi-Part Document
 description: >-
-  Multi-part document authoring — master plan, per-part planner/author lanes,
-  optional gap analysis, Generate Content, sync anytime, and Squad Leader–initiated
-  PDF export (Author Simple Document sync and PDF rules).
+  Multi-part document authoring — master plan, part-planner that spawns author
+  (plan revisions planner→author), optional gap analysis, Generate Content, sync
+  anytime, Squad Leader–initiated PDF export, and author SoT follow-up review
+  (Author Simple Document sync and PDF rules).
 commands:
   - phrase: author multi-part document
     description: >-
