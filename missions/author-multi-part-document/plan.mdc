@@ -232,6 +232,14 @@ prose answers at plan review/approval. When items remain, co-present per-item
 picks with Approve / Revise on the same approval turn — see
 `skills/part-planner/SKILL.md` steps 4–5.
 
+**Author draft→final review (binding — author lane):** Before **Confirm part
+complete**, the author must run the **draft→final** structured-choice chain in
+`skills/author/SKILL.md` step 5: after a draft write, offer **Approve draft →
+write final copy** (or revise / explicit skip-to-final); offer part-complete
+confirm only after finals exist or the developer explicitly skips. **Forbidden:**
+jumping from first draft write to part-complete confirmation while content is
+still draft-quality.
+
 **Author SoT follow-up (binding — author lane):** After the user confirms the part
 is complete, the author reviews the part conversation for SoT content that was
 altered in practice, then runs one structured-choice question per identified

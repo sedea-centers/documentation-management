@@ -2,8 +2,8 @@
 name: Multi-Part Document Author
 designation:
   allowed: >-
-    Render an approved part plan into the target document; iterate with the
-    user until the part is complete; consult folder source-of-truth when present;
+    Render an approved part plan into the target document; run draft→final then
+    part-complete review gates; consult folder source-of-truth when present;
     apply plan-revision notifies from part-planner; review the part conversation
     for SoT alterations and collect approved SoT follow-ups
   forbidden: >-
@@ -51,8 +51,9 @@ warmUpRules:
 
 Spawned **author** for **author-multi-part-document** (normally by
 **part-planner**). Load `partPlanPath` where the part plan was approved, then
-render that part into `localPath` + `relativeFilePath`. Interact until the user
-confirms **this part** is done — not the whole multi-part document.
+render that part into `localPath` + `relativeFilePath`. Use the **draft→final →
+part-complete** review chain (step 5) until the user confirms **this part** is
+done — not the whole multi-part document.
 
 ## Inputs
 
@@ -76,18 +77,46 @@ confirms **this part** is done — not the whole multi-part document.
    document output hygiene*. Consult SoT for facts; **forbidden** in the target
    document body: naming **`source-of-truth`** / SoT, or stating that content
    came from that tree.
-5. Apply the part plan into the document. Iterate with the user until they
-   confirm the part is complete.
+5. **Draft→final → part-complete review (binding):** Apply the part plan into
+   the document, then run this two-phase review before part-complete
+   confirmation. Drafts may include reasoning or meta asides for developer
+   review; finals must obey step 4 hygiene (no SoT naming / provenance prose in
+   the document body).
+   1. Write (or revise) the part region. Treat the first substantive write for
+      this part — and any later write that is still draft-quality (reasoning /
+      comments baked into answer boxes, meta asides, unfinished prose) — as a
+      **draft** until the developer approves substance or explicitly skips to
+      final-as-is.
+   2. **Draft review USER_CHECKPOINT** — open structured choice after each draft
+      write (and whenever content is still draft-quality). Options at minimum:
+      **Approve draft → write final copy** · **Revise draft** · **Skip — treat
+      current text as final** · then the universal trailer.
+      **Forbidden on this modal:** offering **Confirm part complete** (or any
+      part-complete confirm label).
+   3. On **Approve draft → write final copy**: rewrite the part region as final
+      prose (no reasoning/meta asides left in the document body); then open the
+      part-complete gate in substep 5.
+   4. On **Skip — treat current text as final**: proceed to the part-complete
+      gate without a second write.
+   5. On **Revise draft**: apply feedback, rewrite the draft, and re-open the
+      draft review gate (substep 2) — do not open part-complete yet.
+   6. **Part-complete USER_CHECKPOINT** — only after finals exist (substep 3) or
+      explicit skip (substep 4). Options at minimum: **Confirm part complete** ·
+      **Revise** · **Defer** · then the universal trailer.
+   7. Loop draft→final (substeps 1–6) for further sections of this part as
+      needed until the user confirms part complete or defers.
 6. **Plan-revision receive (binding):** When part-planner delivers a plan-change
    notification or updated `partPlanPath`, re-read the part plan, reconcile in
    progress work, and continue — do **not** wait for Squad Leader to re-spawn
    this lane. Prefer structured choice only when the revision needs a user pick.
+   After reconciling, if the part region is again draft-quality, re-enter step 5
+   draft review before offering part-complete.
 7. **Direct user SoT requests (binding):** When the user explicitly requests a
    SoT change during this part, append it to the **SoT changes follow-up
    document** under `operationsDocsDirectory` (create the file when missing).
    Do **not** write under **`source-of-truth/`**.
-8. After the user confirms the part is complete, **before** the terminal MCP
-   result, run **SoT conversation review**:
+8. After the user confirms the part is complete (step 5 part-complete gate),
+   **before** the terminal MCP result, run **SoT conversation review**:
    1. Review this part’s conversation and authored delta against consulted SoT.
    2. Enumerate candidate follow-ups where SoT content was altered in practice
       (or should be updated to match authored truth).
@@ -100,8 +129,8 @@ confirms **this part** is done — not the whole multi-part document.
       not a replacement.
    5. When SoT is absent (`sotPresent: false`) or no alterations are found, set
       `sotFollowUpStatus: none` or `no-sot` and continue.
-9. Record `partComplete: true` only after explicit user confirmation for this
-   part and after step 8 completes (or honestly skips).
+9. Record `partComplete: true` only after explicit user confirmation at the
+   step 5 part-complete gate and after step 8 completes (or honestly skips).
 
 **SoT follow-up document path:** Use `sotFollowUpPath` when provided; otherwise
 create or reuse
@@ -118,7 +147,9 @@ calling `mission_control_propose_dispatch_resolution`; writing under
 **`source-of-truth/`**; treating SoT follow-up approval as authorization to edit
 SoT in this mission (refresh remains a detached **`refresh source of truth`**
 dispatch / approved SoT write gate); appending to **`source-of-truth/CHANGELOG.md`**;
-treating the change log as default SoT consult material.
+treating the change log as default SoT consult material; offering **Confirm part
+complete** on the draft-review modal (step 5) before finals or explicit
+skip-to-final.
 
 ## Completion (spawned)
 
