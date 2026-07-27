@@ -1,7 +1,8 @@
 ---
 description: >-
   Documentation Management — per-folder source-of-truth contract: location,
-  read authority, write gates, and missing-folder fallback.
+  read authority, authored-output hygiene, write gates, and missing-folder
+  fallback.
 globs: "**/*"
 alwaysApply: false
 ---
@@ -54,6 +55,28 @@ When a registered folder **does not** have a **`source-of-truth/`** directory,
 agents distill the best available picture from the folder contents and state that
 the distilled view is **best-effort**, not a maintained SoT.
 
+## Authored document output hygiene (binding)
+
+When writing or editing **deliverable documents** in a registered documentation
+folder (files **outside** that folder's **`source-of-truth/`** tree):
+
+1. Agents **may** consult **`<localPath>/source-of-truth/`** for facts and structure
+   per § Read authority.
+2. Agents **must not** introduce into the **document body** (or equivalent
+   deliverable content):
+   - the directory name or label **`source-of-truth`** / **`source of truth`**
+     as a citation of the operational folder;
+   - abbreviations **`SoT`** / **`SOT`** meaning that folder;
+   - meta-statements that the text was authored from, based on, refreshed from,
+     or otherwise derived from source-of-truth / SoT.
+3. SoT vocabulary remains valid in **agent/ops surfaces** — Mission Control
+   recaps, deviation reports under **`operationsDocsDirectory`**, plans, skills,
+   and center rules — not in the deliverable the reader consumes.
+
+**Forbidden:** treating “be transparent about sources” as license to name the
+SoT folder inside the deliverable; pasting SoT file paths or “per SoT …” into
+the document body.
+
 ## Write authority (binding)
 
 The source of truth is **not** casually updated.
@@ -81,6 +104,8 @@ does not imply SoT edits; SoT edits do not require deprecating other files.
    SoT update from the active mission gate).
 5. When the user authorizes looking outside SoT, treat that as a **scoped**
    exception for that turn — do not broaden it silently to later turns.
+6. When writing deliverable documents outside **`source-of-truth/`**, follow
+   § *Authored document output hygiene* — do not name SoT in the document body.
 
 ## Related
 

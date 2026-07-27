@@ -60,9 +60,13 @@ is done — not the whole multi-part document.
      authoritative context (center rule **20**).
    - **Forbidden:** create, edit, or delete under **`source-of-truth/`**.
    - When absent, set `sotPresent: false` honestly.
-4. Apply the part plan into the document. Iterate with the user until they
+4. Authored output hygiene (binding): Follow center rule **20** § *Authored
+   document output hygiene*. Consult SoT for facts; **forbidden** in the target
+   document body: naming **`source-of-truth`** / SoT, or stating that content
+   came from that tree.
+5. Apply the part plan into the document. Iterate with the user until they
    confirm the part is complete.
-5. Record `partComplete: true` only after explicit user confirmation for this
+6. Record `partComplete: true` only after explicit user confirmation for this
    part.
 
 **Forbidden:** authoring other parts in the same pass without a new spawn;

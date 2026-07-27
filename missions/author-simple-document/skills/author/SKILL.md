@@ -53,6 +53,14 @@ without a plan where `planApproved` was true.
    SoT refresh is a separate mission (**`refresh source of truth`**); parent §6a
    reports deviations after this skill completes.
 
+## Authored output hygiene (binding)
+
+Follow center rule **20** § *Authored document output hygiene*. Consult SoT for
+facts; write the document as if those facts are ordinary domain knowledge.
+**Forbidden** in the target document body: naming **`source-of-truth`** / SoT, or
+stating that content came from that tree. Parent §6a deviation reporting stays
+in Mission Control / ops docs — not inside the deliverable.
+
 Before marking the document complete, record whether SoT was present and whether
 it was consulted so the parent can run §6a.
 

@@ -23,9 +23,11 @@ alwaysApply: false
    structured choice when local and remote change intent diverges semantically.
 5. When the folder has **`source-of-truth/`**, consult it while authoring; after
    the document is complete, **report** any deviations (where they occurred and
-   suggested SoT-oriented fixes). Do **not** write SoT in this mission — the user
-   refreshes SoT via **`refresh source of truth`**
-   (**source-of-truth-folder**) in a separate dispatch when they choose.
+   suggested SoT-oriented fixes) in Mission Control / ops docs — **not** by
+   naming SoT inside the authored file (center rule **20** § *Authored document
+   output hygiene*). Do **not** write SoT in this mission — the user refreshes
+   SoT via **`refresh source of truth`** (**source-of-truth-folder**) in a
+   separate dispatch when they choose.
 6. Close the dispatch with an explicit Squad Leader resolution proposal when the
    pass is complete, partially complete, or abandoned.
 7. Optionally convert the authored source to PDF after outbound sync:
@@ -238,9 +240,11 @@ USER_CHECKPOINT — retry author spawn, accept partial document, or abort.
 - **Type:** Branching logic
 - **Intent:** After the document is complete, compare the authored file to the
   folder’s **`source-of-truth/`** (when present). If content or claims **deviate**,
-  write a user-facing report (where it occurred + suggested SoT-oriented fixes).
-  Do **not** edit SoT here — SoT updates happen when the user runs **`refresh
-  source of truth`** in a **new** Mission Control dispatch.
+  write a user-facing report in Mission Control / **`operationsDocsDirectory`**
+  (where it occurred + suggested SoT-oriented fixes). Do **not** edit SoT here —
+  SoT updates happen when the user runs **`refresh source of truth`** in a
+  **new** Mission Control dispatch. Do **not** inject SoT labels or
+  “derived from source-of-truth” into the authored document (rule **20** hygiene).
 - **Inputs:** `localPath`, `relativeFilePath`, folder SoT path
   **`<localPath>/source-of-truth/`** (if any), authored file contents, optional
   `operationsDocsDirectory` for a durable report copy; author child fields
@@ -270,7 +274,8 @@ pause here so I can run **refresh source of truth** in another dispatch · abort
 
 **Forbidden:** editing **`source-of-truth/`**; treating this gate as SoT write
 approval; opening **source-of-truth-folder** from this dispatch (detached Mission
-Control dispatch only); inventing SoT paths outside **`<localPath>/source-of-truth/`**.
+Control dispatch only); inventing SoT paths outside **`<localPath>/source-of-truth/`**;
+putting SoT / “from source-of-truth” wording into the authored deliverable.
 
 ### 7. Sync local file to remote (`rclone bisync`)
 

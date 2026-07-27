@@ -42,6 +42,7 @@ inputs:
 timeoutMs: 3600000
 warmUpRules:
   - .sedea/centers/documentation-management/missions/author-multi-part-document/plan.mdc
+  - .sedea/centers/documentation-management/rules/20_source-of-truth.mdc
 ---
 
 # Multi-Part Document Content Generator
@@ -66,6 +67,14 @@ outline-only · Q&A blocks · tables-first · narrative-prose.
 
 **Placement options (illustrative — may extend):** beginning · end · after named
 section/part.
+
+## Authored output hygiene (binding)
+
+Follow center rule **20** § *Authored document output hygiene*. When
+**`<localPath>/source-of-truth/`** is present, consult it for facts; write
+generated content as ordinary domain prose. **Forbidden** in the target document
+body: naming **`source-of-truth`** / SoT, or stating that content came from that
+tree.
 
 ## Steps
 

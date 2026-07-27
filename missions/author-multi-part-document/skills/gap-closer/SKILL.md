@@ -56,6 +56,9 @@ and close listed gaps in the target document with user confirmation.
    batch-approve proposed actions.
 3. Apply edits to `localPath` + `relativeFilePath`. Consult
    **`<localPath>/source-of-truth/`** when present; never write under it.
+   Follow center rule **20** § *Authored document output hygiene* — close gaps
+   without naming **`source-of-truth`** / SoT or stating derivation from that
+   tree in the document body.
 4. Confirm with the user which gaps are closed. Record `remainingGaps` for any
    deferred or disputed items.
 
