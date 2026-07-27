@@ -47,6 +47,10 @@ without a plan where `planApproved` was true.
 1. Check for **`<localPath>/source-of-truth/`** per center rule **20**.
 2. When present, consult **only** that tree as default authoritative context while
    authoring (unless the user explicitly expands scope for this turn).
+2b. **Change log:** Do **not** consult **`CHANGELOG.md`** under
+    **`source-of-truth/`** as authoritative context. Use it only when the
+    user explicitly refers to it and explains how it should be used this turn
+    (rule **20** § *Change log*).
 3. When absent, distill best-effort context and set `sotPresent: false` — do not
    pretend a maintained SoT exists.
 4. **Forbidden:** creating, editing, or deleting files under **`source-of-truth/`**.

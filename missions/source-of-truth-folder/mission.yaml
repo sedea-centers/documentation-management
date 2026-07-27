@@ -1,8 +1,8 @@
 name: Source-of-truth folder
 description: >-
   Author or refresh a registered folder's source-of-truth/ tree — intake via
-  documents, brainstorm, or existing agent plan; then gather, plan, write, and
-  ship (sync / hosting PR when needed).
+  documents, brainstorm, or existing agent plan; then gather, plan, write
+  (append CHANGELOG.md for audit), and ship (sync / hosting PR when needed).
 commands:
   - phrase: author source of truth
     description: >-

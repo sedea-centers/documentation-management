@@ -21,7 +21,13 @@ alwaysApply: false
    (not via Squad Leader rebroadcast). After authoring, the author reviews the
    part conversation for SoT alterations and collects per-change approvals into
    the SoT changes follow-up document. The structure of each part plan is
-   defined during that part’s planning session.
+   defined during that part’s planning session. The **SoT changes follow-up
+   document** (ops docs) records *proposed* SoT edits for a later **`refresh
+   source of truth`** dispatch. It is **not**
+   `<localPath>/source-of-truth/CHANGELOG.md` (audit of completed SoT writes).
+   When consulting SoT while authoring a part, do **not** treat
+   **`CHANGELOG.md`** as authoritative unless the user explicitly names it and
+   explains how to use it (rule **20** § *Change log*).
 4. Between parts, when the user requests it, spawn a **gap-analyzer** to detect
    contradictions or misinterpretations across authored parts; when gaps are
    found, offer to spawn a **gap-closer** child lane.
@@ -233,6 +239,11 @@ change and appends approved items to the **SoT changes follow-up document**
 (additive to direct user SoT requests collected on the same document). See
 `skills/author/SKILL.md`. **Forbidden:** writing under **`source-of-truth/`**
 from this mission.
+
+**Follow-up vs change log:** Append approved proposals only to the ops
+**SoT changes follow-up** document. **Forbidden:** appending to or rewriting
+**`source-of-truth/CHANGELOG.md`** from this mission; treating that change log
+as default SoT while authoring.
 
 USER_CHECKPOINT — retry part-planner · skip/defer this part · abort after child failure.
 

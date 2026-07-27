@@ -1,8 +1,8 @@
 ---
 description: >-
   Documentation Management — per-folder source-of-truth contract: location,
-  read authority, authored-output hygiene, write gates, and missing-folder
-  fallback.
+  read authority, authored-output hygiene, write gates, change log (audit only),
+  and missing-folder fallback.
 globs: "**/*"
 alwaysApply: false
 ---
@@ -46,7 +46,9 @@ When authoring or editing documents in a registered folder that **has** a
 **`source-of-truth/`** directory:
 
 1. Agents **must** consult **only** files under that folder's **`source-of-truth/`**
-   for authoritative context.
+   for authoritative context. Do **not** treat **`CHANGELOG.md`** under
+   **`source-of-truth/`** as authoritative SoT content — see § *Change log
+   (audit only)*.
 2. Agents **must not** search, summarize, or treat other paths in the same
    documentation folder (or elsewhere) as authoritative **unless** the user
    **explicitly** instructs them to use additional sources.
@@ -93,12 +95,59 @@ The source of truth is **not** casually updated.
 **separately** from the rest of the documentation folder. Deprecating other files
 does not imply SoT edits; SoT edits do not require deprecating other files.
 
+**Change log:** After applying approved SoT path edits in a pass, append matching
+entries to **`CHANGELOG.md`** per § *Change log (audit only)* before treating the
+write pass as complete.
+
+## Change log (audit only)
+
+Approved creates/updates under **`source-of-truth/`** **must** record a durable
+**change log** for **auditing and review**.
+
+### Location
+
+```text
+<localPath>/source-of-truth/CHANGELOG.md
+```
+
+| Property | Rule |
+|----------|------|
+| **Path** | Exactly **`CHANGELOG.md`** as a sibling of SoT content files under **`source-of-truth/`** (create the file on first logged write if missing) |
+| **Purpose** | Human/agent **audit trail** of what changed, when, and why — not authoritative folder state |
+| **Persistence** | Same payload tree as SoT (gitignored + remote-backed) |
+
+**Forbidden:** a second change-log path; putting the audit log outside
+**`source-of-truth/`** without an explicit user override for **this** folder.
+
+### When to append
+
+On every **approved** SoT write pass (create/update/delete of SoT content paths),
+append **one or more** dated entries covering the paths touched in that pass.
+Minimum fields per entry: **date (ISO)**, **paths**, **summary of change**,
+**approval locus** (e.g. mission phrase / dispatch note). Prefer newest-first
+or clearly chronological sections.
+
+### Read / consult policy (binding)
+
+1. The change log is **not** part of default SoT **read authority**. Agents
+   **must not** consult **`CHANGELOG.md`** (or treat its narrative as current
+   truth) when authoring, editing, planning, or answering from SoT.
+2. Agents **may** open the change log **only** when the user **explicitly**
+   refers to it **and** explains **how** it should be used for that turn
+   (for example: reconstruct prior rationale; verify an audit claim).
+3. That exception is **scoped to the turn** — do not broaden silently later.
+
+**Distinction:** Ops **SoT changes follow-up** docs under
+**`operationsDocsDirectory`** propose *future* SoT edits. The in-folder
+**`CHANGELOG.md`** records *completed* approved SoT writes. Do not conflate them.
+
 ## Agent obligations
 
 1. Resolve the active documentation folder from
    **`.sedea/documentation-management.yaml`** before locating SoT.
 2. Check for **`<localPath>/source-of-truth/`**. If present, use it as the sole
-   default authority for authoring/editing context.
+   default authority for authoring/editing context (excluding **`CHANGELOG.md`**
+   per § *Change log*).
 3. If absent, distill best-effort truth and do not pretend a SoT exists.
 4. Never edit SoT without explicit user approval (or an approved creation-time
    SoT update from the active mission gate).
@@ -106,9 +155,14 @@ does not imply SoT edits; SoT edits do not require deprecating other files.
    exception for that turn — do not broaden it silently to later turns.
 6. When writing deliverable documents outside **`source-of-truth/`**, follow
    § *Authored document output hygiene* — do not name SoT in the document body.
+7. After approved SoT writes, append the change log per § *Change log*.
+8. Never use the change log as default SoT context unless the user explicitly
+   names it and how to use it.
 
 ## Related
 
 - Foundation rule — `rules/00_documentation-management.mdc` (folder registry,
   sync, indexing).
 - Required tools — `rules/10_required-tools.mdc`.
+- Change log — § *Change log (audit only)* above; runtime append on
+  **`source-of-truth-folder`** approved writes.

@@ -27,7 +27,12 @@ alwaysApply: false
    naming SoT inside the authored file (center rule **20** § *Authored document
    output hygiene*). Do **not** write SoT in this mission — the user refreshes
    SoT via **`refresh source of truth`** (**source-of-truth-folder**) in a
-   separate dispatch when they choose.
+   separate dispatch when they choose. Do **not** consult
+   **`source-of-truth/CHANGELOG.md`** as authoritative SoT when authoring or
+   when comparing deviations, unless the user **explicitly** refers to the
+   change log and explains how to use it for that turn (rule **20** § *Change
+   log (audit only)*). Ops deviation reports remain under
+   **`operationsDocsDirectory`**; they are not the in-folder change log.
 6. Close the dispatch with an explicit Squad Leader resolution proposal when the
    pass is complete, partially complete, or abandoned.
 7. Optionally convert the authored source to PDF after outbound sync:
@@ -264,8 +269,11 @@ pause here so I can run **refresh source of truth** in another dispatch · abort
    [`.sedea/centers/documentation-management/rules/20_source-of-truth.mdc`](../../rules/20_source-of-truth.mdc).
    If **`source-of-truth/`** is missing → `sotDeviationStatus: no-sot`, state
    best-effort (no maintained SoT), continue to §7.
-2. Compare the authored file against relevant SoT material (section/claim level
-   when possible).
+2. Compare the authored file against relevant SoT **content** files under
+   **`source-of-truth/`** (section/claim level when possible). **Exclude**
+   **`CHANGELOG.md`** from the default compare set — audit history is not
+   current SoT. Open the change log only when the user explicitly names it
+   and states how to use it for this turn.
 3. On deviation: report **where** (path + locus) and **suggested changes** (what
    a SoT refresh might absorb — not applied here). Optionally write the report
    under `operationsDocsDirectory`.
@@ -275,7 +283,8 @@ pause here so I can run **refresh source of truth** in another dispatch · abort
 **Forbidden:** editing **`source-of-truth/`**; treating this gate as SoT write
 approval; opening **source-of-truth-folder** from this dispatch (detached Mission
 Control dispatch only); inventing SoT paths outside **`<localPath>/source-of-truth/`**;
-putting SoT / “from source-of-truth” wording into the authored deliverable.
+putting SoT / “from source-of-truth” wording into the authored deliverable;
+treating **`CHANGELOG.md`** as default SoT for deviation compare.
 
 ### 7. Sync local file to remote (`rclone bisync`)
 

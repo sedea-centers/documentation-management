@@ -67,7 +67,9 @@ confirms **this part** is done — not the whole multi-part document.
 2. Read the target document; locate the insertion/update region for this part.
 3. Source of truth (binding):
    - When **`<localPath>/source-of-truth/`** exists, consult it as default
-     authoritative context (center rule **20**).
+     authoritative context (center rule **20**), **excluding `CHANGELOG.md`**.
+   - **Change log:** Do not consult **`CHANGELOG.md`** as SoT unless the user
+     explicitly refers to it and explains how to use it this turn.
    - **Forbidden:** create, edit, or delete under **`source-of-truth/`**.
    - When absent, set `sotPresent: false` honestly.
 4. Authored output hygiene (binding): Follow center rule **20** § *Authored
@@ -107,11 +109,16 @@ create or reuse
 Each row should name locus, proposed SoT change, source (`user-direct` |
 `conversation-review`), and approval status.
 
+**Not the change log:** The follow-up file under **`operationsDocsDirectory`**
+is a proposal queue. In-folder **`CHANGELOG.md`** is written only when SoT
+content is approved and applied (**source-of-truth-folder** / rule **20**).
+
 **Forbidden:** authoring other parts in the same pass without a new spawn;
 calling `mission_control_propose_dispatch_resolution`; writing under
 **`source-of-truth/`**; treating SoT follow-up approval as authorization to edit
 SoT in this mission (refresh remains a detached **`refresh source of truth`**
-dispatch / approved SoT write gate).
+dispatch / approved SoT write gate); appending to **`source-of-truth/CHANGELOG.md`**;
+treating the change log as default SoT consult material.
 
 ## Completion (spawned)
 

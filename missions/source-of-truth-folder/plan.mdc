@@ -1,8 +1,8 @@
 ---
 description: >-
   Author or refresh a registered folder's source-of-truth/ tree — intake via
-  documents, brainstorm, or existing agent plan; then gather, plan, write, and
-  ship (sync / hosting PR when needed).
+  documents, brainstorm, or existing agent plan; then gather, plan, write
+  (append CHANGELOG.md for audit), and ship (sync / hosting PR when needed).
 alwaysApply: false
 ---
 
@@ -20,11 +20,16 @@ alwaysApply: false
 4. Write SoT files **only** after explicit user approval per
    [`.sedea/centers/documentation-management/rules/20_source-of-truth.mdc`](../../rules/20_source-of-truth.mdc)
    write authority — approved paths only.
-5. When hosting-tracked changes are required (registry, `.gitignore`,
+5. After each approved SoT write pass, append entries to
+   **`<localPath>/source-of-truth/CHANGELOG.md`** per rule **20** § *Change log
+   (audit only)* — for auditing and review only. Do **not** treat the change
+   log as authoritative SoT unless the user explicitly refers to it and
+   explains how to use it.
+6. When hosting-tracked changes are required (registry, `.gitignore`,
    `.cursorignore` indexing), ship via hosting-repo worktree → commit → PR →
    merge. SoT **payload** stays under the gitignored documentation tree;
    sync with **rclone** when the user confirms.
-6. Close the dispatch with an explicit Squad Leader resolution proposal when
+7. Close the dispatch with an explicit Squad Leader resolution proposal when
    SoT work is complete, deferred, or abandoned.
 
 ## Squad operations (three-lane hosting-repo delivery)
@@ -113,6 +118,10 @@ USER_CHECKPOINT — pick intake mode (documents · brainstorm · existing agent 
 
 When **`source-of-truth/`** already exists, consult it as the sole default authority for current SoT state per rule **20** — do not treat other folder paths as authoritative unless the user explicitly expands scope.
 
+**Change log:** Do **not** consult **`source-of-truth/CHANGELOG.md`** as
+authoritative SoT state during gather/plan/author. Open it only when the user
+explicitly names the change log and states how to use it for this turn (rule **20**).
+
 USER_CHECKPOINT — retry paths · switch intake mode · pause when gathering cannot proceed.
 
 ### 5. Draft SoT change plan
@@ -134,12 +143,22 @@ Present in one turn: delta + full plan in **`displayMarkdown`**, then structured
 - **Type:** Simple skill execution
 - **Intent:** Apply only approved SoT paths under **`<localPath>/source-of-truth/`**.
 - **Inputs:** Approved change plan from §5.
-- **Expected output:** Files written/updated exactly as approved; short write recap.
+- **Expected output:** Files written/updated exactly as approved; short write
+  recap; `changelogPath`; `changelogAppended: true` (or honest skip reason if no
+  SoT content paths changed).
 - **Next-step resolution:** Writes done → §7.
 
 - Create **`source-of-truth/`** when missing and the plan includes creates.
 - Edit **only** approved paths. Do not delete or rewrite unrelated SoT files.
 - Directory name must be exactly **`source-of-truth`** (kebab-case) per rule **20**.
+- **Change log (binding):** After approved SoT content paths are written,
+  append matching entries to **`<localPath>/source-of-truth/CHANGELOG.md`**
+  (create the file if missing) per rule **20** § *Change log (audit only)*.
+  Minimum: ISO date, paths touched, change summary, approval locus
+  (`author source of truth` / `refresh source of truth` + folder slug).
+- **Forbidden:** treating the write pass complete without the change-log
+  append when SoT content paths changed; consulting **`CHANGELOG.md`** as
+  default SoT on later gathers in this or other missions.
 
 ### 7. Sync and optional hosting-repo ship
 
