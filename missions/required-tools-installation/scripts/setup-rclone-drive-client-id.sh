@@ -60,6 +60,22 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die 2 "missing required command: $1"
 }
 
+# Extract first IAP brand resource name from a brands list/create JSON body.
+json_first_brand_name() {
+  jq -r '
+    (.brands // empty) as $b |
+    if ($b | type) == "array" then
+      ($b[0].name // empty)
+    elif ($b | type) == "object" then
+      ($b.name // empty)
+    elif .name then
+      .name
+    else
+      empty
+    end
+  ' 2>/dev/null || true
+}
+
 PROJECT_ID=""
 CREDENTIALS_PATH=""
 RCLONE_REMOTE="sedea-gdrive"
@@ -95,7 +111,8 @@ fi
 require_cmd gcloud
 require_cmd rclone
 require_cmd curl
-require_cmd python3
+require_cmd jq
+require_cmd awk
 
 [[ -f "$CREDENTIALS_PATH" ]] || die 2 "credentials file not found: $CREDENTIALS_PATH"
 
@@ -106,17 +123,10 @@ if [[ -z "$SUPPORT_EMAIL" ]]; then
   SUPPORT_EMAIL="$ACTIVE_ACCOUNT"
 fi
 
-SA_EMAIL="$(python3 - "$CREDENTIALS_PATH" <<'PY'
-import json, sys
-data = json.load(open(sys.argv[1], encoding="utf-8"))
-if data.get("type") != "service_account":
-    raise SystemExit("type must be service_account")
-email = data.get("client_email") or ""
-if not email:
-    raise SystemExit("missing client_email")
-print(email)
-PY
-)" || die 2 "credentials path is not a usable service-account JSON"
+SA_TYPE="$(jq -r '.type // empty' "$CREDENTIALS_PATH")"
+[[ "$SA_TYPE" == "service_account" ]] || die 2 "credentials path is not a usable service-account JSON (type must be service_account)"
+SA_EMAIL="$(jq -r '.client_email // empty' "$CREDENTIALS_PATH")"
+[[ -n "$SA_EMAIL" ]] || die 2 "credentials path is not a usable service-account JSON (missing client_email)"
 
 log "preconditions ok: gcloud=${ACTIVE_ACCOUNT} sa=${SA_EMAIL} project=${PROJECT_ID}"
 
@@ -145,67 +155,39 @@ ACCESS_TOKEN="$(gcloud auth print-access-token)"
 
 oauth_store_valid() {
   [[ -f "$OAUTH_JSON" ]] || return 1
-  python3 - "$OAUTH_JSON" <<'PY'
-import json, sys
-data = json.load(open(sys.argv[1], encoding="utf-8"))
-cid = data.get("client_id") or ""
-sec = data.get("client_secret") or ""
-raise SystemExit(0 if cid and sec else 1)
-PY
+  local cid sec
+  cid="$(jq -r '.client_id // empty' "$OAUTH_JSON" 2>/dev/null)" || return 1
+  sec="$(jq -r '.client_secret // empty' "$OAUTH_JSON" 2>/dev/null)" || return 1
+  [[ -n "$cid" && -n "$sec" ]]
 }
 
 # Prints client_id then client_secret on two lines (caller must not log).
 read_oauth_store() {
-  python3 - "$OAUTH_JSON" <<'PY'
-import json, sys
-data = json.load(open(sys.argv[1], encoding="utf-8"))
-print(data["client_id"])
-print(data["client_secret"])
-PY
+  jq -r '.client_id, .client_secret' "$OAUTH_JSON"
 }
 
 write_oauth_store() {
   local cid="$1" sec="$2"
-  python3 - "$OAUTH_JSON" "$cid" "$sec" "$PROJECT_ID" <<'PY'
-import json, os, sys
-path, cid, sec, project_id = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
-with open(path, "w", encoding="utf-8") as f:
-    json.dump({"client_id": cid, "client_secret": sec, "project_id": project_id}, f)
-os.chmod(path, 0o600)
-PY
+  jq -n \
+    --arg cid "$cid" \
+    --arg sec "$sec" \
+    --arg pid "$PROJECT_ID" \
+    '{client_id: $cid, client_secret: $sec, project_id: $pid}' > "$OAUTH_JSON"
+  chmod 600 "$OAUTH_JSON"
 }
 
 # --- Internal OAuth consent brand via IAP Admin REST (clientauthconfig is 404) ---
 ensure_internal_brand() {
-  local list_json brand_name create_json http_body
+  local list_json brand_name create_json
   list_json="$(curl -sS \
     -H "Authorization: Bearer ${ACCESS_TOKEN}" \
     -H "x-goog-user-project: ${PROJECT_ID}" \
     "https://iap.googleapis.com/v1/projects/${PROJECT_ID}/brands" || true)"
 
-  brand_name="$(python3 -c '
-import json,sys
-raw=sys.stdin.read().strip()
-try:
-    data=json.loads(raw) if raw else {}
-except Exception:
-    data={}
-brands=data.get("brands") or []
-if isinstance(brands, dict):
-    brands=[brands]
-# empty {} means no brands
-if not brands and isinstance(data, dict) and data.get("name"):
-    brands=[data]
-for b in brands:
-    name=b.get("name") or ""
-    if name:
-        print(name)
-        break
-' <<<"$list_json")"
+  brand_name="$(printf '%s' "$list_json" | json_first_brand_name)"
 
   if [[ -n "$brand_name" ]]; then
     log "oauth brand exists (iap)"
-    # Best-effort Internal flag (IAP brands are typically orgInternalOnly already)
     curl -sS -X PATCH \
       -H "Authorization: Bearer ${ACCESS_TOKEN}" \
       -H "x-goog-user-project: ${PROJECT_ID}" \
@@ -222,59 +204,36 @@ for b in brands:
     -H "x-goog-user-project: ${PROJECT_ID}" \
     -H "Content-Type: application/json" \
     "https://iap.googleapis.com/v1/projects/${PROJECT_ID}/brands" \
-    -d "$(python3 -c 'import json,sys; print(json.dumps({"applicationTitle":"Sedea rclone Drive","supportEmail":sys.argv[1]}))' "$SUPPORT_EMAIL")")"
+    -d "$(jq -n --arg email "$SUPPORT_EMAIL" '{applicationTitle: "Sedea rclone Drive", supportEmail: $email}')")"
 
-  brand_name="$(python3 -c '
-import json,sys
-raw=sys.stdin.read()
-try:
-    data=json.loads(raw) if raw else {}
-except Exception:
-    data={}
-name=data.get("name") or ""
-if not name:
-    err={k:data.get(k) for k in ("error","message","status","code") if k in data}
-    # ALREADY_EXISTS may still need a list retry — surface briefly
-    raise SystemExit("brand create failed: "+json.dumps(err or {"raw": raw[:200]})[:400])
-print(name)
-' <<<"$create_json")" || {
-    # Race / already exists: re-list
+  brand_name="$(printf '%s' "$create_json" | json_first_brand_name)"
+  if [[ -z "$brand_name" ]]; then
+    brand_name="$(printf '%s' "$create_json" | jq -r '.name // empty' 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$brand_name" ]]; then
     list_json="$(curl -sS \
       -H "Authorization: Bearer ${ACCESS_TOKEN}" \
       -H "x-goog-user-project: ${PROJECT_ID}" \
       "https://iap.googleapis.com/v1/projects/${PROJECT_ID}/brands" || true)"
-    brand_name="$(python3 -c '
-import json,sys
-raw=sys.stdin.read().strip()
-try:
-    data=json.loads(raw) if raw else {}
-except Exception:
-    data={}
-brands=data.get("brands") or []
-if isinstance(brands, dict):
-    brands=[brands]
-if not brands and isinstance(data, dict) and data.get("name"):
-    brands=[data]
-for b in brands:
-    name=b.get("name") or ""
-    if name:
-        print(name)
-        break
-' <<<"$list_json")"
-    [[ -n "$brand_name" ]] || die 3 "failed to create or locate OAuth consent brand via iap.googleapis.com"
-  }
+    brand_name="$(printf '%s' "$list_json" | json_first_brand_name)"
+    [[ -n "$brand_name" ]] || {
+      local err_snip
+      err_snip="$(printf '%s' "$create_json" | jq -c '{error, message, status, code, raw: (. | tostring | .[0:200])}' 2>/dev/null || printf '%s' "$create_json" | head -c 200)"
+      die 3 "failed to create or locate OAuth consent brand via iap.googleapis.com: ${err_snip}"
+    }
+  fi
 
   printf '%s\n' "$brand_name"
 }
 
 # --- OAuth client under IAP brand (secret returned once; never log) ---
 create_desktop_client() {
-  local brand_name resp_file
+  local brand_name resp_file cid sec name err_snip
   brand_name="$1"
   [[ -n "$brand_name" ]] || die 3 "create_desktop_client: missing brand"
 
   log "creating OAuth client via iap.googleapis.com (displayName=${CLIENT_DISPLAY_NAME}) ..."
-  # Capture body to a mode-600 temp file; never echo. Secret stays in python → oauth store.
   resp_file="$(mktemp)"
   chmod 600 "$resp_file"
   if ! curl -sS -X POST \
@@ -282,102 +241,86 @@ create_desktop_client() {
     -H "x-goog-user-project: ${PROJECT_ID}" \
     -H "Content-Type: application/json" \
     "https://iap.googleapis.com/v1/${brand_name}/identityAwareProxyClients" \
-    -d "$(python3 -c 'import json,sys; print(json.dumps({"displayName": sys.argv[1]}))' "$CLIENT_DISPLAY_NAME")" \
+    -d "$(jq -n --arg n "$CLIENT_DISPLAY_NAME" '{displayName: $n}')" \
     >"$resp_file"
   then
     rm -f "$resp_file"
     die 3 "IAP OAuth client HTTP request failed"
   fi
 
-  if ! python3 - "$OAUTH_JSON" "$PROJECT_ID" "$resp_file" <<'PY'
-import json, os, sys
-from pathlib import Path
-
-oauth_path, project_id, resp_path = sys.argv[1], sys.argv[2], Path(sys.argv[3])
-raw = resp_path.read_text(encoding="utf-8", errors="replace")
-try:
-    data = json.loads(raw) if raw else {}
-except Exception:
-    data = {}
-
-# name: projects/{n}/brands/{n}/identityAwareProxyClients/{clientId}
-name = data.get("name") or ""
-cid = data.get("clientId") or data.get("client_id") or ""
-if not cid and "/identityAwareProxyClients/" in name:
-    cid = name.rsplit("/", 1)[-1]
-sec = data.get("secret") or data.get("clientSecret") or data.get("client_secret") or ""
-
-# Wipe response file before any failure path that might leave secrets on disk
-try:
-    resp_path.write_text("")
-    resp_path.unlink()
-except Exception:
-    pass
-
-if not cid or not sec:
-    err = {k: data.get(k) for k in ("error", "message", "status", "code", "details") if k in data}
-    # Never print raw body (may contain secret on partial parse)
-    print(
-        "iap client create failed: " + json.dumps(err or {"keys": list(data.keys())})[:500],
-        file=sys.stderr,
-    )
-    raise SystemExit(1)
-
-with open(oauth_path, "w", encoding="utf-8") as f:
-    json.dump({"client_id": cid, "client_secret": sec, "project_id": project_id}, f)
-os.chmod(oauth_path, 0o600)
-print(f"OAuth client stored (client_id length={len(cid)}; secret not logged)", file=sys.stderr)
-PY
-  then
-    rm -f "$resp_file"
-    die 3 "IAP OAuth client create failed — need iap.identityAwareProxyClients.create (and brands). Do not paste secrets into chat; fix IAM and re-run."
+  cid="$(jq -r '.clientId // .client_id // empty' "$resp_file")"
+  name="$(jq -r '.name // empty' "$resp_file")"
+  if [[ -z "$cid" && "$name" == *identityAwareProxyClients/* ]]; then
+    cid="${name##*/}"
   fi
+  sec="$(jq -r '.secret // .clientSecret // .client_secret // empty' "$resp_file")"
+
+  if [[ -z "$cid" || -z "$sec" ]]; then
+    err_snip="$(jq -c '{error, message, status, code, details, keys: (keys // [])}' "$resp_file" 2>/dev/null || echo '{}')"
+    rm -f "$resp_file"
+    die 3 "IAP OAuth client create failed — ${err_snip}. Need iap.identityAwareProxyClients.create (and brands). Do not paste secrets into chat; fix IAM and re-run."
+  fi
+
+  write_oauth_store "$cid" "$sec"
   rm -f "$resp_file"
+  log "OAuth client stored (client_id length=${#cid}; secret not logged)"
 }
 
-# Write rclone remote non-interactively (rclone config create can hang on macOS).
+# Non-interactive rclone.conf write (avoids macOS hang on interactive rclone config create).
 write_rclone_remote() {
   local cid="$1" sec="$2"
-  python3 - "$RCLONE_REMOTE" "$cid" "$sec" <<'PY' || die 4 "rclone config write failed"
-import configparser, os, sys
-from pathlib import Path
+  local conf_path conf_dir tmp_path remote
+  conf_path="${RCLONE_CONFIG:-$HOME/.config/rclone/rclone.conf}"
+  conf_dir="$(dirname "$conf_path")"
+  remote="$RCLONE_REMOTE"
+  mkdir -p "$conf_dir"
+  tmp_path="${conf_path}.tmp.$$"
 
-remote, cid, sec = sys.argv[1], sys.argv[2], sys.argv[3]
-conf_path = Path(os.environ.get("RCLONE_CONFIG") or Path.home() / ".config" / "rclone" / "rclone.conf")
-conf_path.parent.mkdir(parents=True, exist_ok=True)
+  if [[ -f "$conf_path" ]] && grep -q "^\[${remote}\]" "$conf_path" 2>/dev/null; then
+    awk -v remote="$remote" -v cid="$cid" -v sec="$sec" '
+      BEGIN { in_sec=0; done=0 }
+      /^\[/ {
+        if (in_sec && !done) {
+          print "type = drive"
+          print "scope = drive"
+          print "client_id = " cid
+          print "client_secret = " sec
+          done=1
+        }
+        in_sec = ($0 == "[" remote "]")
+        print
+        next
+      }
+      in_sec && /^(type|scope|client_id|client_secret) =/ { next }
+      { print }
+      END {
+        if (in_sec && !done) {
+          print "type = drive"
+          print "scope = drive"
+          print "client_id = " cid
+          print "client_secret = " sec
+        }
+      }
+    ' "$conf_path" > "$tmp_path" || die 4 "rclone config write failed"
+  else
+    {
+      [[ -f "$conf_path" ]] && cat "$conf_path"
+      printf '[%s]\n' "$remote"
+      printf 'type = drive\n'
+      printf 'scope = drive\n'
+      printf 'client_id = %s\n' "$cid"
+      printf 'client_secret = %s\n' "$sec"
+    } > "$tmp_path" || die 4 "rclone config write failed"
+  fi
 
-parser = configparser.RawConfigParser()
-if conf_path.exists():
-    parser.read(conf_path)
-
-if not parser.has_section(remote):
-    parser.add_section(remote)
-
-parser.set(remote, "type", "drive")
-parser.set(remote, "scope", "drive")
-parser.set(remote, "client_id", cid)
-parser.set(remote, "client_secret", sec)
-
-with conf_path.open("w", encoding="utf-8") as f:
-    parser.write(f)
-os.chmod(conf_path, 0o600)
-PY
+  mv "$tmp_path" "$conf_path"
+  chmod 600 "$conf_path" 2>/dev/null || true
 }
 
 verify_rclone_client_id() {
-  # Do not pipe into `python3 -` with a heredoc — stdin cannot be both script and dump.
-  python3 - "$RCLONE_REMOTE" <<'PY' || die 4 "rclone remote missing non-empty client_id after write"
-import json, subprocess, sys
-remote = sys.argv[1]
-raw = subprocess.check_output(["rclone", "config", "dump"], text=True)
-try:
-    data = json.loads(raw)
-except Exception:
-    raise SystemExit(1)
-section = data.get(remote) or data.get(remote + ":") or {}
-cid = section.get("client_id") or ""
-raise SystemExit(0 if cid else 1)
-PY
+  local cid
+  cid="$(rclone config dump 2>/dev/null | jq -r --arg r "$RCLONE_REMOTE" '.[$r].client_id // .[$r + ":"].client_id // empty')" || die 4 "rclone remote missing non-empty client_id after write"
+  [[ -n "$cid" ]] || die 4 "rclone remote missing non-empty client_id after write"
 }
 
 if [[ "$REUSE_EXISTING" -eq 1 ]]; then
@@ -404,7 +347,6 @@ log "writing rclone remote ${RCLONE_REMOTE} (non-interactive; secrets not printe
 write_rclone_remote "$CLIENT_ID" "$CLIENT_SECRET"
 verify_rclone_client_id
 
-# Clear secret from shell memory best-effort
 CLIENT_SECRET=""
 unset CLIENT_SECRET
 

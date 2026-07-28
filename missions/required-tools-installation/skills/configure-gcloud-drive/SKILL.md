@@ -368,8 +368,8 @@ bash "<script>" \
    rclone config dump into chat, `displayMarkdown`, or ops docs; asking the
    user to paste secrets from chat into rclone.
 6. Script is bash 3.2-safe (macOS `/bin/bash`). Prefer the shipped script over
-   ad-hoc `gcloud components install alpha` (sudo/Python installer often fails
-   in agent shells).
+   ad-hoc `gcloud components install alpha` (Google's bundled alpha-component
+   installer often fails in agent shells).
 7. **Transitional:** IAP OAuth Admin APIs power brand/client create today and
    carry deprecation warnings — if they hard-fail, stop and document Console
    Desktop-client external-wait; do not reintroduce clientauthconfig.
