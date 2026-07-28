@@ -40,8 +40,10 @@ warmUpRules:
 
 # Multi-Part Document Gap Closer
 
-Spawned **gap-closer** for **author-multi-part-document**. Load `gapReportPath`
-and close listed gaps in the target document with user confirmation.
+Spawned **gap-closer** for **author-multi-part-document**, typically by
+**gap-analyzer** (nested spawn). Load `gapReportPath` and close listed gaps in
+the target document with user confirmation. Terminal result goes to the
+**gap-analyzer** parent lane — not Squad Leader.
 
 ## Inputs
 
@@ -79,7 +81,9 @@ beyond gap closure.
 | R3 | Populate **`outputs`** from the required field list above |
 | R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) |
 
-Stop after the MCP result call. Do not emit another **`mission_control_spawn_agent`** on this lane.
+Stop after the MCP result call. Terminal delivers to the **gap-analyzer** parent
+lane (nested spawn). Do not emit another **`mission_control_spawn_agent`** on
+this lane.
 
 ## Completion (inline)
 

@@ -1,7 +1,7 @@
 ---
 description: >-
   Multi-part document authoring — master plan, per-part planner/author lanes,
-  optional gap analysis and gap-closer, Generate Content, sync anytime, and
+  optional gap analysis (gap-analyzer spawns gap-closer; repeatable runs), Generate Content, sync anytime, and
   Squad Leader–initiated PDF export. Extends Author Simple Document with
   part-based delivery over hours to weeks.
 alwaysApply: false
@@ -30,7 +30,9 @@ alwaysApply: false
    explains how to use it (rule **20** § *Change log*).
 4. Between parts, when the user requests it, spawn a **gap-analyzer** to detect
    contradictions or misinterpretations across authored parts; when gaps are
-   found, offer to spawn a **gap-closer** child lane.
+   found, the **gap-analyzer** spawns **gap-closer** on its lane (nested spawn).
+   After each analyzer/closer cycle, the Squad Leader offers **another gap
+   analysis run** — multiple passes often surface different issues.
 5. Keep Squad Leader / master-plan standing options available for the whole
    active dispatch: **Generate Content**, **Sync documents**, **Export PDF**,
    continue part delivery, request gap analysis, and finish/approve content.
@@ -56,11 +58,11 @@ Sync and PDF conversion reuse Author Simple Document / Convert Document contract
 
 | Role | Lane | `execution` | Spawns / owns | Does not |
 |------|------|-------------|---------------|----------|
-| **Squad Leader / Master Plan agent** | Dispatch leader | — | part-planner, gap-analyzer, gap-closer, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter** | Spawn **author** on the happy path (part-planner owns that); resolve dispatch from a child lane |
+| **Squad Leader / Master Plan agent** | Dispatch leader | — | part-planner, gap-analyzer, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter** | Spawn **author** on the happy path (part-planner owns that); spawn **gap-closer** on the happy path (gap-analyzer owns that); resolve dispatch from a child lane |
 | **Part planner** | Child | `spawned` | **author** (after part-plan approval); plan-revision notify to author | `mission_control_propose_dispatch_resolution`; requiring Squad Leader to re-spawn author for plan revisions |
 | **Author** | Child | `spawned` (by part-planner) | SoT conversation review + SoT follow-up collection | `mission_control_propose_dispatch_resolution`; spawning other parts |
-| **Gap analyzer** | Child | `spawned` | — | Spawn gap-closer (parent offers); resolve dispatch |
-| **Gap closer** | Child | `spawned` | — | `mission_control_propose_dispatch_resolution` |
+| **Gap analyzer** | Child | `spawned` | **gap-closer** (when `gapsFound: true`) | Spawn gap-closer on happy path; resolve dispatch |
+| **Gap closer** | Child | `spawned` (by gap-analyzer) | — | `mission_control_propose_dispatch_resolution`; terminal to gap-analyzer parent only |
 | **Content generator** | Child | `spawned` | — | `mission_control_propose_dispatch_resolution` |
 | **File synchronizer** | Child | `spawned` | — | Same conflict contract as Author Simple Document |
 | **PDF converter** | Child | `spawned` | Convert Document `pdf-converter` | Resolve dispatch; overwrite source |
@@ -288,24 +290,51 @@ as default SoT while authoring.
 
 USER_CHECKPOINT — retry part-planner · skip/defer this part · abort after child failure.
 
-### 7. Gap analysis (optional between parts)
+### 7. Gap analysis with nested gap-closer (repeatable between parts)
 
-- **Type:** Agent engagement and handover
-- **execution:** `spawned`
+- **Type:** Agent engagement and handover (nested: leader → gap-analyzer → gap-closer)
+- **execution:** `spawned` (nested on gap-analyzer lane)
 - **Intent:** Identify contradictions or misinterpretations between newly authored
-  parts and previously authored parts.
-- **Inputs:** Paths/excerpts of authored parts; master plan; user focus hints.
-- **Expected output:** Gap report; `gapsFound: true | false`; optional proposed
-  closer actions.
-- **Next-step resolution:** `gapsFound: false` → §5. `gapsFound: true` →
-  USER_CHECKPOINT to spawn gap-closer or continue without closing.
+  parts and previously authored parts; when gaps exist, close them on the
+  gap-analyzer lane without Squad Leader re-spawn; then offer another analysis
+  pass from the leader.
+- **Inputs:** Paths/excerpts of authored parts; master plan; user focus hints;
+  folder binding (`localPath`, `relativeFilePath`); `operationsDocsDirectory`.
+- **Expected output:** Gap report; `gapsFound: true | false`; when closer runs,
+  `gapsClosed` and `remainingGaps`; gap-analyzer `continuationStatus: terminal`.
+- **Next-step resolution:** Analyzer terminal → post-gap gate (below). Post-gap
+  gate → §7 again (repeat analysis) or §5.
 
-**Target skill:** `skills/gap-analyzer/SKILL.md`
+**Target skill (Squad Leader spawn):** `skills/gap-analyzer/SKILL.md`
 
-USER_CHECKPOINT — spawn gap-closer · continue without closing gaps · revise analysis · abort.
+**Procedure (binding)**
 
-When the user chooses gap-closer, spawn **`skills/gap-closer/SKILL.md`**, wait
-with **#external-wait**, then return to §5.
+1. **Squad Leader** spawns **`skills/gap-analyzer/SKILL.md`** with authored-part
+   refs and folder binding. Open **#external-wait** before ending the turn.
+2. **On the gap-analyzer lane:** write the gap report; set `gapsFound`.
+3. **If `gapsFound: false`:** emit analyzer terminal result → Squad Leader
+   post-gap gate.
+4. **If `gapsFound: true`:** USER_CHECKPOINT on the gap-analyzer lane — spawn
+   gap-closer with full report · spawn subset of proposed closer actions · skip
+   closer (report only). **Forbidden:** Squad Leader spawning **gap-closer** on
+   the happy path.
+5. **On gap-analyzer lane after closer pick:** when the user chooses closer spawn,
+   emit **`mission_control_spawn_agent`** for **`skills/gap-closer/SKILL.md`**
+   with `gapReportPath`, `localPath`, `relativeFilePath`, `operationsDocsDirectory`,
+   and optional `closerActions`. Keep **`continuationStatus: active`** until
+   gap-closer terminal (mirror part-planner → author).
+6. **On gap-closer terminal:** gap-analyzer merges closer outputs and emits **one**
+   terminal **`mission_control_send_agent_result`** to Squad Leader.
+7. **Squad Leader post-gap USER_CHECKPOINT** — run gap analysis again · continue
+   part delivery (§6) · return to §5 standing options · pause. Include
+   **`sync-documents`** per §5a.
+
+USER_CHECKPOINT — run gap analysis again · continue next part · return to standing options · pause.
+
+**Repeat runs (binding):** Multiple gap analysis passes often surface different
+issues. Default to offering **run gap analysis again** after each analyzer/closer
+cycle completes — do not treat one clean pass as permanent closure unless the user
+explicitly stops requesting analysis.
 
 ### 8. Generate Content (content-generator)
 
