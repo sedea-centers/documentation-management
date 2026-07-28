@@ -32,8 +32,11 @@ alwaysApply: false
    contradictions or misinterpretations across authored parts; when gaps are
    found, offer to spawn a **gap-closer** child lane.
 5. Keep Squad Leader / master-plan standing options available for the whole
-   active dispatch: **Generate Content**, **Sync**, **Export PDF**, continue
-   part delivery, request gap analysis, and finish/approve content.
+   active dispatch: **Generate Content**, **Sync documents**, **Export PDF**,
+   continue part delivery, request gap analysis, and finish/approve content.
+   After §2 folder bind, **every** Squad Leader structured-choice modal includes
+   **`sync-documents`** so GDrive edits can bisync into the local folder without
+   waiting for the §5 standing gate alone (§5a).
 6. Support long-running authoring (hours, days, or weeks) with repeatable sync
    and content-generation passes until all parts are authored and the user
    approves the content.
@@ -174,17 +177,44 @@ Simple Document).
 - **Next-step resolution:** Route per table below; re-open this gate after child
   terminals and after each part completes.
 
-USER_CHECKPOINT — start/continue next part · request gap analysis · Generate Content · Sync · Export PDF · approve all content / finish · pause.
+USER_CHECKPOINT — start/continue next part · request gap analysis · Generate Content · Sync documents · Export PDF · approve all content / finish · pause.
 
 | Option | Next |
 |--------|------|
 | **Start / continue next part** | §6 |
 | **Request gap analysis** | §7 |
 | **Generate Content** | §8 |
-| **Sync** | §9 |
+| **`sync-documents`** — Sync documents | §9 |
 | **Export PDF** | §10 (Squad Leader only) |
 | **Approve all content / finish** | §11 |
 | **Pause** | Resumable wait; re-open §5 later |
+
+### 5a. Always-on Sync on Squad Leader structured choice (binding)
+
+After §2 folder bind succeeds, **every** Squad Leader
+**`mission_control_present_structured_choice`** / **AskQuestion** modal on this
+dispatch **must** include **Sync documents** until dispatch resolution.
+
+| Field | Value |
+|-------|-------|
+| **Option id** | `sync-documents` |
+| **Label** | Sync documents |
+| **Placement** | After mission-specific options; **before** the universal modal trailer (`more-details` … `other`) per rule **2** |
+
+**Applies to:** §5 standing gate; intake and master-plan gates (§§3–4);
+**#external-wait** resume modals while child lanes run; gap / content-generator /
+PDF / sync failure gates on the **leader** lane — any Squad Leader gate after
+folder bind.
+
+**Forbidden:** omitting `sync-documents` from any Squad Leader modal after §2
+folder bind; treating sync as available only on the §5 standing gate.
+
+**On select `sync-documents`:** run §9. On success, **re-open the same gate**
+that was active when sync started (same options and mission context). When sync
+was selected from §5 as the primary next action, return to §5 after §9.
+
+**Child lanes:** unchanged — Sync remains Squad Leader–owned (Squad operations
+table).
 
 ### 6. Part delivery loop (planner owns author)
 
@@ -313,8 +343,9 @@ Open **#external-wait** while the child runs.
 - **Inputs:** Folder binding; `relativeFilePath`; Drive format pairing rules from
   Author Simple Document.
 - **Expected output:** Clean bisync, or conflict resolved via file-synchronizer.
-- **Next-step resolution:** Success → §5. Conflict → spawn file-synchronizer then
-  §5. Hard error → USER_CHECKPOINT.
+- **Next-step resolution:** Success → re-open the gate that invoked sync (§5a);
+  when sync started from §5 standing options, return to §5. Conflict → spawn
+  file-synchronizer, then re-open that same gate. Hard error → USER_CHECKPOINT.
 
 Follow Author Simple Document protocol sections for inbound/outbound bisync,
 Drive format pairing, and
