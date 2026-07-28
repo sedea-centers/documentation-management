@@ -5,7 +5,8 @@ designation:
     Render an approved part plan into the target document; run draft→final then
     part-complete review gates; consult folder source-of-truth when present;
     apply plan-revision notifies from part-planner; review the part conversation
-    for SoT alterations and collect approved SoT follow-ups
+    for SoT alterations, record durable review evidence (including zero
+    candidates), and collect approved SoT follow-ups
   forbidden: >-
     Dispatch resolution; edits without approved partPlanPath; writes under
     source-of-truth/; planning other parts; spawning siblings
@@ -127,10 +128,27 @@ done — not the whole multi-part document.
    4. Append **approved** items to the same SoT changes follow-up document used
       for direct user SoT requests. Conversation-derived rows are **additive**,
       not a replacement.
-   5. When SoT is absent (`sotPresent: false`) or no alterations are found, set
-      `sotFollowUpStatus: none` or `no-sot` and continue.
+   5. **Always record review outcome (binding):** Before setting
+      `sotFollowUpStatus` or emitting terminal MCP result, write or update the
+      SoT changes follow-up document with a **Conversation review — {partId}**
+      section that includes: `sotPresent`, `sotConsulted`, candidate count (may
+      be **0**), and a one-line rationale when count = 0. **Forbidden:** terminal
+      result without this durable record when review ran.
+   6. **Zero-candidate USER_CHECKPOINT (binding):** When step 2 finds **no**
+      candidates (including when `sotPresent: false`), open structured choice
+      **before** `mission_control_send_agent_result`. Options at minimum:
+      **Accept none — review complete, zero proposals** · **Nominate follow-up
+      loci** · **Re-diff / challenge review** · then the universal trailer. Set
+      `sotFollowUpStatus: none` or `no-sot` **only after** the developer picks
+      **Accept none** (or after nominate/re-diff resolves with zero approved
+      rows). **Forbidden:** agent-only short-circuit from “matches SoT” without
+      this gate.
+   7. **Status semantics:** `none` / `no-sot` means **review ran; zero approved
+      proposals** — not “review skipped”. Reflect that in `summary` and
+      `outputs`.
 9. Record `partComplete: true` only after explicit user confirmation at the
-   step 5 part-complete gate and after step 8 completes (or honestly skips).
+   step 5 part-complete gate and after step 8 completes (including zero-candidate
+   USER_CHECKPOINT when applicable).
 
 **SoT follow-up document path:** Use `sotFollowUpPath` when provided; otherwise
 create or reuse
@@ -163,8 +181,9 @@ skip-to-final.
 |------|--------|
 | R1 | Call **`mission_control_send_agent_result`** with **`status`**, **`summary`**, optional **`outputs`** / **`errors`** |
 | R2 | **Forbidden args absent** — no **`correlationId`**, **`dispatchId`**, **`slotId`**, or other host-resolved keys |
-| R3 | Populate **`outputs`** from the required field list above; `partComplete` only after user confirmation and SoT conversation review (or honest skip) |
+| R3 | Populate **`outputs`** from the required field list above; `partComplete` only after user confirmation and SoT conversation review completes per step 8 |
 | R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) |
+| R5 | SoT conversation review complete: durable **Conversation review — {partId}** section written; zero-candidate USER_CHECKPOINT passed (or per-change gates completed) before terminal MCP |
 
 Stop after the MCP result call. Do not emit another **`mission_control_spawn_agent`** on this lane.
 

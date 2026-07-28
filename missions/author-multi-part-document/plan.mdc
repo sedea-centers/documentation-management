@@ -275,8 +275,11 @@ is complete, the author reviews the part conversation for SoT content that was
 altered in practice, then runs one structured-choice question per identified
 change and appends approved items to the **SoT changes follow-up document**
 (additive to direct user SoT requests collected on the same document). See
-`skills/author/SKILL.md`. **Forbidden:** writing under **`source-of-truth/`**
-from this mission.
+`skills/author/SKILL.md`. **Zero-candidate path:** write conversation-review
+evidence under ops docs (including count = 0) and open a USER_CHECKPOINT before
+`none` / `no-sot` terminal result — **forbidden:** silent agent-only short-circuit.
+**`none` semantics:** reviewed with zero approved proposals — not skipped review.
+**Forbidden:** writing under **`source-of-truth/`** from this mission.
 
 **Follow-up vs change log:** Append approved proposals only to the ops
 **SoT changes follow-up** document. **Forbidden:** appending to or rewriting
