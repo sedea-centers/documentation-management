@@ -65,12 +65,21 @@ author full document prose here.
 
 1. Load master-plan context for `partId`. Confirm the part is incomplete or the
    user explicitly requested a replan.
-2. Intake how this part should be structured for this session (sections,
+2. **Lane title refresh (binding — own slot):** Build **`title`** =
+   **`P{nn} — {partTitle}`** per **`plan.mdc`** § *Part-planner lane title*
+   (zero-pad `partId` to `{nn}`; truncate `{partTitle}` tail only if the full
+   string exceeds 64 chars). When spawn chrome is generic or stale (for example
+   `"Multi-Part Document Part Planner"` / truncated `"Part Planne…"`), call MCP
+   **`mission_control_update_lane_display`** with that **`title`** and optional
+   **`hoverDescription`** (`partId` + full `partTitle`, ≤512). **Skip** when the
+   own-slot title already matches. **Forbidden:** leader-lane MCP to relabel this
+   child slot (rule **9**).
+3. Intake how this part should be structured for this session (sections,
    outcomes, sources). Part-plan shape is **session-defined**, not a fixed
    global template.
-3. Draft the part plan under the dispatch bundle **`plans/`** directory. Include
+4. Draft the part plan under the dispatch bundle **`plans/`** directory. Include
    an **Unresolved Questions/Concerns** section (empty when none remain).
-4. **Guided open-question resolution (binding):** Enumerate every open question,
+5. **Guided open-question resolution (binding):** Enumerate every open question,
    concern, ambiguity, or incompleteness that blocks a clean part plan. For
    **each** item, ask via **structured choice** (`mission_control_present_structured_choice`
    / AskQuestion) — **one `askQuestion.questions` entry per open item** (same
@@ -81,17 +90,17 @@ author full document prose here.
    - Mirror **author-simple-document** planner: each unresolved question or
      unknown is asked via structured choice (one question per gate / per
      `questions[]` entry).
-5. USER_CHECKPOINT — approve part plan · revise · defer part · abort.
-   When open items remain after step 4, **co-present** per-item resolution picks
+6. USER_CHECKPOINT — approve part plan · revise · defer part · abort.
+   When open items remain after step 5, **co-present** per-item resolution picks
    **and** Approve / Revise / Defer / Abort on the **same** turn — **forbidden**
    to hide Approve until all items are cleared.
-6. On approval, set `partPlanApproved: true`. Then emit
+7. On approval, set `partPlanApproved: true`. Then emit
    **`mission_control_spawn_agent`** for **`skills/author/SKILL.md`** with
    `partPlanPath`, `partId`, `localPath`, `relativeFilePath`, and
    `operationsDocsDirectory`. Record the author child slug for revision notify.
    Set `continuationStatus: active`. Open **#external-wait** for the author
    result (do **not** emit a terminal planner result yet).
-7. **Plan revisions after author spawn (binding):** When the part plan is revised
+8. **Plan revisions after author spawn (binding):** When the part plan is revised
    while the author lane is active, push the revision to the **author** child:
    - Prefer **`mission_control_notify_child_lanes`** with
      `changeType: plan-revision`, `affectedPlanPaths: [<partPlanPath>]`, and
@@ -100,7 +109,7 @@ author full document prose here.
      Squad Leader re-spawn.
    - **Forbidden:** requiring Squad Leader to re-spawn author solely to deliver a
      plan revision.
-8. On author **`mission_control_send_agent_result`** for this part (success,
+9. On author **`mission_control_send_agent_result`** for this part (success,
    partial, deferred, or failure), merge author outputs into the planner result
    and complete this skill (`continuationStatus: terminal`).
 
@@ -126,7 +135,7 @@ without author).
 | R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) — including milestone updates after author spawn when useful |
 
 After author spawn, **do** emit **`mission_control_spawn_agent`** for author on
-this lane. Emit the **terminal** planner result only after step 8.
+this lane. Emit the **terminal** planner result only after step 9.
 
 ## Completion (inline)
 

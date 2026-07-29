@@ -74,6 +74,30 @@ Sync and PDF conversion reuse Author Simple Document / Convert Document contract
 matches. **Forbidden:** child-slot relabels from the leader lane; live status as
 title. See [`.sedea/centers/sedea/rules/9_display-metadata-authority.mdc`](.sedea/centers/sedea/rules/9_display-metadata-authority.mdc).
 
+**Part-planner lane title (Squad Leader spawn + part-planner self-refresh).**
+Part-planner child lanes must use a compact part-index prefix so Mission Control
+lane tabs stay readable within the 64-char **`title`** limit — **not** the skill
+frontmatter name alone (which truncates to `"Part Planne…"`).
+
+| Agent | Obligation |
+|-------|------------|
+| **Squad Leader** (§6 spawn) | Set spawn **`name`** to the format below; one-line **`description`** (part scope, ≤512 chars) |
+| **Part planner** (own slot) | After warm-up, call **`mission_control_update_lane_display`** with the same **`title`** when spawn chrome is stale or generic; optional **`hoverDescription`** with full `partId` + `partTitle` |
+
+**Title format (binding):**
+
+```text
+P{nn} — {partTitle}
+```
+
+- `{nn}` — zero-padded two-digit part index from `partId` (e.g. `1` → `01`;
+  `part-3` → `03`; when `partId` has no digits, use its first two alphanumeric
+  chars uppercased, zero-pad left to 2)
+- `{partTitle}` — master-plan part title; truncate **tail** only if the full
+  string exceeds **64** chars (keep `P{nn} — ` intact)
+- **Forbidden:** spawn **`name`** / lane **`title`** starting with `"Part Planner"`
+  or copied from skill frontmatter **`name`** alone
+
 **Skill stubs (author under `skills/` when implementing):**
 `master-plan` (optional if leader owns master plan inline), `part-planner`,
 `author`, `gap-analyzer`, `gap-closer`, `content-generator`. Sync:
@@ -235,9 +259,11 @@ table).
 **Procedure**
 
 1. Squad Leader spawns **`skills/part-planner/SKILL.md`** with part identity and
-   master-plan excerpt. Part plan shape is defined in that session (not fixed
+   master-plan excerpt. Set spawn **`name`** to **`P{nn} — {partTitle}`** per
+   **Part-planner lane title** above; **`description`**: one-line part scope
+   (≤512 chars). Part plan shape is defined in that session (not fixed
    globally). **Forbidden on the happy path:** Squad Leader spawning **author**
-   directly.
+   directly; spawn labels derived only from skill frontmatter **`name`**.
 2. Open **#external-wait** resume options before ending the turn (wait for
    part-planner terminal).
 3. **On the part-planner lane** (see `skills/part-planner/SKILL.md`): after the
