@@ -79,6 +79,12 @@ author full document prose here.
    global template.
 4. Draft the part plan under the dispatch bundle **`plans/`** directory. Include
    an **Unresolved Questions/Concerns** section (empty when none remain).
+   - **Relevant Links (post-write):** After each Write/StrReplace that **creates
+     or materially edits** the part plan, call MCP
+     **`mission_control_update_relevant_documents`** with the absolute
+     `partPlanPath` (`kind: plan`) on this lane — same turn preferred. **Skip**
+     read-only loads and unchanged already-registered paths. See
+     **`../README.md`** § *Relevant Links — post-write registration*.
 5. **Guided open-question resolution (binding):** Enumerate every open question,
    concern, ambiguity, or incompleteness that blocks a clean part plan. For
    **each** item, ask via **structured choice** (`mission_control_present_structured_choice`

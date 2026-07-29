@@ -68,6 +68,10 @@ implementation (nested spawn — mirror part-planner → author).
 3. Write **`reviewPlanPath`** under `operationsDocsDirectory` with one row per
    comment: stable id, location, comment text, proposed resolution, `ambiguous:
    true | false`.
+   - **Relevant Links (post-write):** After the review plan write, call MCP
+     **`mission_control_update_relevant_documents`** with the absolute
+     `reviewPlanPath` (`kind: plan`) on this lane — same turn preferred. See
+     **`../README.md`** § *Relevant Links — post-write registration*.
 4. Set `commentsFound: true | false`.
 5. **If `commentsFound: false`:** emit terminal result to Squad Leader
    (`continuationStatus: terminal`).

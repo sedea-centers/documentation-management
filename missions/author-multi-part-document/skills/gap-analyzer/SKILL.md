@@ -64,6 +64,10 @@ contradictions or misinterpretations. Produce a gap report; when gaps are found,
 3. Write a gap report under the dispatch bundle **`plans/`** (or ops docs when
    the parent instructs) with concrete findings and optional proposed closer
    actions.
+   - **Relevant Links (post-write):** After the gap report write, call MCP
+     **`mission_control_update_relevant_documents`** with the absolute
+     `gapReportPath` (`kind: plan`) on this lane — same turn preferred. See
+     **`../README.md`** § *Relevant Links — post-write registration*.
 4. Set `gapsFound: true | false`.
 5. **If `gapsFound: false`:** emit terminal result to Squad Leader
    (`continuationStatus: terminal`).

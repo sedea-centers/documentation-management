@@ -88,6 +88,13 @@ done — not the whole multi-part document.
       comments baked into answer boxes, meta asides, unfinished prose) — as a
       **draft** until the developer approves substance or explicitly skips to
       final-as-is.
+      - **Relevant Links (post-write):** After each Write/StrReplace that
+        **materially edits** the working document at `localPath` +
+        `relativeFilePath`, call MCP
+        **`mission_control_update_relevant_documents`** with the absolute
+        document path (`kind: other`; optional **`label`** with `partId`) — same
+        turn preferred. **Skip** unchanged already-registered paths. See
+        **`../README.md`** § *Relevant Links — post-write registration*.
    2. **Draft review USER_CHECKPOINT** — open structured choice after each draft
       write (and whenever content is still draft-quality). Options at minimum:
       **Approve draft → write final copy** · **Revise draft** · **Skip — treat
@@ -115,6 +122,11 @@ done — not the whole multi-part document.
 7. **Direct user SoT requests (binding):** When the user explicitly requests a
    SoT change during this part, append it to the **SoT changes follow-up
    document** under `operationsDocsDirectory` (create the file when missing).
+   - **Relevant Links (post-write):** After creating or materially editing the
+     SoT follow-up document, call MCP
+     **`mission_control_update_relevant_documents`** with its absolute path
+     (`kind: other`) — same turn preferred. See **`../README.md`** § *Relevant
+     Links — post-write registration*.
    Do **not** write under **`source-of-truth/`**.
 8. After the user confirms the part is complete (step 5 part-complete gate),
    **before** the terminal MCP result, run **SoT conversation review**:
@@ -134,6 +146,10 @@ done — not the whole multi-part document.
       section that includes: `sotPresent`, `sotConsulted`, candidate count (may
       be **0**), and a one-line rationale when count = 0. **Forbidden:** terminal
       result without this durable record when review ran.
+      - **Relevant Links (post-write):** After that write or update, call MCP
+        **`mission_control_update_relevant_documents`** with the SoT follow-up
+        absolute path when not already registered this session with no content
+        change — same turn preferred.
    6. **Zero-candidate USER_CHECKPOINT (binding):** When step 2 finds **no**
       candidates (including when `sotPresent: false`), open structured choice
       **before** `mission_control_send_agent_result`. Options at minimum:

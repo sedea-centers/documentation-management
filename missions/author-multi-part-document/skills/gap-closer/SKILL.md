@@ -61,6 +61,12 @@ the target document with user confirmation. Terminal result goes to the
    Follow center rule **20** § *Authored document output hygiene* — close gaps
    without naming **`source-of-truth`** / SoT or stating derivation from that
    tree in the document body.
+   - **Relevant Links (post-write):** After each Write/StrReplace that
+     **materially edits** the working document, call MCP
+     **`mission_control_update_relevant_documents`** with the absolute document
+     path (`kind: other`) — same turn preferred. **Skip** unchanged
+     already-registered paths. See **`../README.md`** § *Relevant Links —
+     post-write registration*.
 4. Confirm with the user which gaps are closed. Record `remainingGaps` for any
    deferred or disputed items.
 

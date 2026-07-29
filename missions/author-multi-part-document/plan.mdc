@@ -199,6 +199,12 @@ USER_CHECKPOINT — use template · supply structure outline · revise intake ·
 
 USER_CHECKPOINT — approve master plan · revise master plan · abort.
 
+**Relevant Links (post-write — binding):** After Write/StrReplace that creates or
+materially edits the approved master plan artifact, call MCP
+**`mission_control_update_relevant_documents`** with its absolute path
+(`kind: plan`) on this lane — same turn preferred. See §5b and
+[`skills/README.md`](skills/README.md) § *Relevant Links — post-write registration*.
+
 **Forbidden:** one-pass full-document authoring on this step (that is Author
 Simple Document).
 
@@ -250,6 +256,37 @@ was selected from §5 as the primary next action, return to §5 after §9.
 
 **Child lanes:** unchanged — Sync remains Squad Leader–owned (Squad operations
 table).
+
+### 5b. Relevant Links post-write registration (binding)
+
+Mission Control **Relevant Links** do **not** auto-update from Write/StrReplace.
+Every lane that creates or materially edits a file the developer should reopen
+must call MCP **`mission_control_update_relevant_documents`** on the **calling
+slot** in the **same turn** (or the next turn before StreamFinal).
+
+Normative platform contract:
+[`.sedea/centers/sedea/rules/9_display-metadata-authority.mdc`](.sedea/centers/sedea/rules/9_display-metadata-authority.mdc)
+§ *Relevant Links / documents*. Mission skill detail:
+[`skills/README.md`](skills/README.md) § *Relevant Links — post-write registration*.
+
+| Call | Skip |
+|------|------|
+| Approved **master plan** (Squad Leader §4), **part plans**, **gap reports**, **review plans** under dispatch **`plans/`** or **`operationsDocsDirectory`** | Read-only `Read` / Grep |
+| **SoT changes follow-up** docs and **conversation-review** evidence under **`operationsDocsDirectory`** | Paths already registered this session with no content change |
+| **Working document** at **`localPath` + `relativeFilePath`** when materially edited | Warm-up manifests; transient scratch; build artifacts |
+
+**Kind hints:** ops plans and reports → `plan` or `other`; working document →
+`other` (optional **`label`** with part id or basename).
+
+**Squad Leader §4 (binding):** After the approved master plan is written, register
+its absolute path via **`mission_control_update_relevant_documents`**.
+
+**Forbidden:** prose-only “add to Relevant Links”; registering every read path;
+using display-metadata MCP (`mission_control_update_lane_display` /
+`mission_control_update_dispatch_display`) for documents.
+
+Per-skill post-write hooks live in each **`SKILL.md`** under
+**`skills/`** — see the README table.
 
 ### 6. Part delivery loop (planner owns author)
 

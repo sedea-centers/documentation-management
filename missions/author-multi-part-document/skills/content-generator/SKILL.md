@@ -81,6 +81,12 @@ tree.
 1. Resolve characteristics per the binding above (structured choice when needed).
 2. Intake or confirm `generationBrief` for this pass.
 3. Generate and write content into the target document at the chosen placement.
+   - **Relevant Links (post-write):** After Write/StrReplace that **materially
+     edits** the working document, call MCP
+     **`mission_control_update_relevant_documents`** with the absolute document
+     path (`kind: other`) — same turn preferred. **Skip** unchanged
+     already-registered paths. See **`../README.md`** § *Relevant Links —
+     post-write registration*.
 4. Confirm with the user; set `contentWritten: true` and return the effective
    `contentCharacteristics` (and whether they changed this pass).
 

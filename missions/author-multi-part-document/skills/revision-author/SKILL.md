@@ -70,6 +70,13 @@ then apply each approved row to `localPath` + `relativeFilePath`. Mirror the
    material, run the **draft→final** structured-choice chain (mirror author step
    5): draft write → draft review gate → final copy → revision-complete gate.
    **Forbidden:** skipping draft review for large substantive rewrites.
+   - **Relevant Links (post-write):** After each Write/StrReplace that
+     **materially edits** the working document at `localPath` +
+     `relativeFilePath`, call MCP
+     **`mission_control_update_relevant_documents`** with the absolute document
+     path (`kind: other`) — same turn preferred. **Skip** unchanged
+     already-registered paths. See **`../README.md`** § *Relevant Links —
+     post-write registration*.
 6. **Revision-complete USER_CHECKPOINT** — after all approved rows are implemented
    (or explicitly deferred with rationale recorded). Options at minimum:
    **Confirm revisions complete** · **Revise** · **Defer remaining rows** · then
@@ -77,12 +84,22 @@ then apply each approved row to `localPath` + `relativeFilePath`. Mirror the
 7. **Direct user SoT requests (binding):** When the user explicitly requests a SoT
    change during this pass, append to the SoT changes follow-up document. Do **not**
    write under **`source-of-truth/`**.
+   - **Relevant Links (post-write):** After creating or materially editing the
+     SoT follow-up document, call MCP
+     **`mission_control_update_relevant_documents`** with its absolute path
+     (`kind: other`) — same turn preferred. See **`../README.md`** § *Relevant
+     Links — post-write registration*.
 8. After the user confirms revisions complete (step 6), **before** the terminal MCP
    result, run **SoT conversation review** (mirror author step 8):
    - Review this pass's conversation and authored delta against consulted SoT.
    - Enumerate candidate follow-ups where SoT content was altered in practice.
    - One structured-choice question per identified change (batched modal allowed).
    - Append approved items to the SoT changes follow-up document.
+   - **Relevant Links (post-write):** After conversation-review writes to the
+     SoT follow-up document, call MCP
+     **`mission_control_update_relevant_documents`** with its absolute path when
+     not already registered this session with no content change — same turn
+     preferred.
    - **Zero-candidate USER_CHECKPOINT** when no candidates — same contract as author
      step 8.6.
 9. Record `reviewComplete: true` only after step 6 confirmation and step 8
