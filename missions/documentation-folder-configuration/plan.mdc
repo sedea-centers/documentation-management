@@ -129,8 +129,8 @@ substantive free-form chat to **discuss or inquire** about the Google Drive fold
 before bind.
 
 **Unchanged:** SA share **#external-wait** gate (only when share not yet done);
-§4 local directory name confirm; Apply hosting edits; dry-run failure gates; §7
-full pull confirm.
+§4 local directory name confirm; §4 auto-advance hosting configuration; dry-run
+failure gates; §7 full pull confirm.
 
 2. Resolve **`remotePath`** for rclone from that URL/ID. Keep provider **`gdrive`**.
    **Forbidden:** other cloud providers in v1; inventing a Drive folder without
@@ -168,8 +168,12 @@ USER_CHECKPOINT — #external-wait — confirm Drive folder shared with SA email
   hosting **`.cursorignore`** force-include lines for that **`localPath`**;
   registry **`slug`** (and provisional or full registry row) under the **same**
   **`WORKTREE_ROOT`**.
-- **Next-step resolution:** Path created and Apply accepted (or edits already in
-  worktree) → §5.
+- **Next-step resolution:** Local directory name confirmed and hosting configuration
+  written (or edits already in worktree) → §5.
+
+**Non-technical users (binding):** Do not ask the user to approve individual
+configuration files (`.gitignore`, `.cursorignore`, registry YAML). After folder
+name approval, configure automatically.
 
 USER_CHECKPOINT — confirm or override the proposed local directory name.
 
@@ -183,10 +187,16 @@ USER_CHECKPOINT — confirm or override the proposed local directory name.
    (never invent a path outside the workspace without explicit user direction).
 4. Create the directory if missing.
 
-USER_CHECKPOINT — Apply hosting edits (`.gitignore` + `.cursorignore` + registry) · revise path · abort · More details for option _.
-
-5. On **Apply** — **auto-advance** (mission-owned git for this lane — **do not**
-   open rule **6** create-worktree or pipeline-depth AskQuestion):
+5. **Auto-advance — hosting configuration (binding):** When the local directory
+   name USER_CHECKPOINT resolves, **do not** open a separate Apply or
+   pipeline-depth modal. Local folder name approval **is** consent to create the
+   directory (if missing) and edit hosting-repo **`.gitignore`**,
+   **`.cursorignore`** (force-include negation lines), and
+   **`.sedea/documentation-management.yaml`** (provisional registry row) in the
+   **same** hosting **`WORKTREE_ROOT`**. Offer **revise path** only via free-form
+   chat or an explicit abort gate — not a second configuration approval modal.
+   Mission-owned git for this lane — **do not** open rule **6** create-worktree or
+   pipeline-depth AskQuestion:
    - If this pass has no hosting **`WORKTREE_ROOT`**, run center
      [**`worktree-setup.sh`**](.sedea/centers/sedea/skills/worktree-setup/SKILL.md)
      from **`HOSTING_ROOT`**, then MCP **`sedea_add_worktree_folder`** when hint
@@ -225,8 +235,8 @@ USER_CHECKPOINT — Apply hosting edits (`.gitignore` + `.cursorignore` + regist
 - **Intent:** Bind captured **`remotePath`** to the **existing** rclone remote and
   exit installation with a dry-run result.
 - **Inputs:** Provider + remote path from §3; rclone remote name from §2; hosting
-  **`localPath`** from §4; existing hosting **`WORKTREE_ROOT`** from §4 Apply when
-  tracked files are open.
+  **`localPath`** from §4; existing hosting **`WORKTREE_ROOT`** from §4
+  configuration when tracked files are open.
 - **Expected output:** Registry-ready **`remote`** + **`remotePath`**; **dry-run
   log** (command, exit code, pass/fail summary) as the **installation exit
   result**; registry row updated in the **same** **`WORKTREE_ROOT`** when fields
@@ -243,7 +253,7 @@ USER_CHECKPOINT — Apply hosting edits (`.gitignore` + `.cursorignore` + regist
 2. When **`remotePath`** (or other registry fields) finalize here and this pass
    already has a hosting **`WORKTREE_ROOT`** from §4, **auto-advance**
    **`StrReplace`** / write on **`.sedea/documentation-management.yaml`** in that
-   worktree — **do not** re-ask worktree or Apply consent.
+   worktree — **do not** re-ask worktree or configuration consent.
 3. **Forbidden:** printing SA JSON contents; interactive `rclone config`;
    browser OAuth / `reconnect`; inventing a second Drive remote for this folder
    when the Required Tools remote already exists; opening a **new** worktree
@@ -267,13 +277,13 @@ USER_CHECKPOINT — retry dry-run · fix path/share · abort after dry-run failu
 - **Intent:** Land hosting-repo tracked edits (**`.gitignore`**, **`.cursorignore`**,
    and **`.sedea/documentation-management.yaml`**) on **`main`** before full pull.
    Under **`trustLevel: checkpoint`**, prior **configuration** USER_CHECKPOINTs
-   (Drive folder, SA share, local name, **Apply** hosting edits) plus successful
-   bind/dry-run / correctly saved artifacts **are** ship consent **through merge** —
+   (Drive folder, SA share, local directory name) plus successful bind/dry-run /
+   correctly saved artifacts **are** ship consent **through merge** —
    the PR is only the vehicle to land the pre-approved configuration; there is no
    second product approval on the PR itself.
-- **Inputs:** Hosting **`WORKTREE_ROOT`** from §4 Apply (updated in §5 when needed);
-   prior configuration USER_CHECKPOINT approvals; §5 dry-run pass (or
-   skip-no-changes).
+- **Inputs:** Hosting **`WORKTREE_ROOT`** from §4 configuration (updated in §5
+   when needed); prior configuration USER_CHECKPOINT approvals; §5 dry-run pass
+   (or skip-no-changes).
 - **Expected output:** PR merged by agent **without** a separate merge modal on
    the Checkpoint happy path; worktree cleaned up; **`HOSTING_ROOT`** on updated
    **`main`**.
@@ -310,8 +320,8 @@ Otherwise promote **this pass’s** **`WORKTREE_ROOT`** only:
 **Forbidden:** full pull (§7) while this pass still has an unmerged hosting
 worktree PR for the configure edit set; separate worktrees or PRs for gitignore
 vs **`.cursorignore`** vs registry; removing worktrees you do not own; re-asking
-create-worktree, pipeline-depth, or merge after Apply on the Checkpoint happy
-path.
+create-worktree, pipeline-depth, or merge after local directory name approval on
+the Checkpoint happy path.
 
 USER_CHECKPOINT — retry ship · skip to full pull (document risk) · abort after ship failure.
 
@@ -345,15 +355,15 @@ USER_CHECKPOINT — retry sync · accept partial · abort after sync failure.
 
 Read the registry on the **main hosting clone** after §6 pull. If the row is
 missing or incomplete (unexpected), repair under a **new** hosting worktree only
-with a fresh Apply gate — do not silently edit **`HOSTING_ROOT`** checked-out
-**`main`**. Schema:
+with a fresh configuration edit pass — do not silently edit **`HOSTING_ROOT`**
+checked-out **`main`**. Schema:
 [`.sedea/centers/documentation-management/rules/00_documentation-management.mdc`](../../rules/00_documentation-management.mdc).
 
 Also confirm hosting-repo **`.cursorignore`** on **`HOSTING_ROOT`** contains both
 force-include negation lines (`!<relativeLocalPath>/` and `!<relativeLocalPath>/**`)
 for this folder’s repo-relative **`localPath`**. If either line is missing
-(unexpected), repair under the **same new** hosting worktree + Apply gate used for
-a registry repair — never a second, separate ship.
+(unexpected), repair under the **same new** hosting worktree + configuration edit
+pass used for a registry repair — never a second, separate ship.
 
 **Forbidden:** inventing a second registry path; committing documentation payloads;
 treating §8 as the primary authoring step for a tracked registry or **`.cursorignore`**
