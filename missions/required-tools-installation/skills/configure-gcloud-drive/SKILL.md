@@ -87,6 +87,26 @@ pretend the Unix script ran.
   the parent install / symlink repair flow.
 - Mission Control lane with structured choice and MCP result tools.
 
+## Checkpoint trust auto-confirm (binding)
+
+When dispatch **`trustLevel`** is **`checkpoint`** (this spawned lane inherits the
+parent dispatch trust level), a structured-choice **pick** at steps **3.4** or **4.3**
+**is** the consent for that path — **do not** open a redundant follow-up confirm
+modal for the same project id or service account id.
+
+| Pick at gate | Under checkpoint trust |
+|--------------|------------------------|
+| **Existing** project or SA from listed options | Proceed to the next binding step (**3.6** set project, **4** key create) |
+| **Create** option (org-prefixed project id or length-legal SA id in the label) | Run create immediately — no separate pre-create confirm |
+
+**Exception (binding):** Re-open a confirm USER_CHECKPOINT only when the user used
+**`more-details`**, **`have-question`**, **`introspect-incident`**, **`other`**, or
+substantive free-form chat to **discuss or inquire** about GCP projects or service
+accounts before the final pick — then confirm before create or set-project.
+
+**Unchanged:** Auth, org-prefix ambiguity, create **id collision** retry confirms,
+org-policy self-heal, rclone script failure, and other gates outside project/SA list picks.
+
 ## Agent shell bootstrap (binding — every turn that runs gcloud)
 
 Before any `gcloud` / org-policy / keys / Drive command in the **agent** shell:
@@ -222,12 +242,15 @@ symlink; declaring success from a full SDK path when bare **`gcloud`** is absent
    Present each listed project as its own option (id / name); include the
    create option (label = suggested id) and **More details for option _**.
    Do not require free-form id entry when the list is available.
-5. On **create**: confirm the id/name in structured choice **before**
-   `gcloud projects create`. Do not create silently. If create fails because
-   the id is **taken** / `ALREADY_EXISTS`, derive a new unique suffix (e.g.
-   `-centers`, short hash, or developer-picked slug under the same
-   **`<org-prefix>-`**), re-open confirm, and retry — do not stop on the first
-   collision alone.
+   - **Checkpoint trust:** per § **Checkpoint trust auto-confirm** — an existing
+     project pick proceeds to step **3.6**; a create-option pick runs
+     `gcloud projects create` without a second confirm modal.
+   - **Non-checkpoint trusts:** confirm the id/name in structured choice
+     **before** `gcloud projects create`. Do not create silently.
+5. On **create** failure because the id is **taken** / `ALREADY_EXISTS`, derive
+   a new unique suffix (e.g. `-centers`, short hash, or developer-picked slug
+   under the same **`<org-prefix>-`**), re-open confirm, and retry — do not stop
+   on the first collision alone.
 6. Set the active project for subsequent commands
    (`gcloud config set project <id>` or `--project` flags).
 
@@ -248,9 +271,12 @@ symlink; declaring success from a full SDK path when bare **`gcloud`** is absent
      **account id** is length-capped.
 3. USER_CHECKPOINT — select an **existing** SA **or** create with the
    **length-legal** id from step 2 (show the final id in the option label).
-4. On **create**: confirm the account id in structured choice before
-   `gcloud iam service-accounts create`.
-5. **Create JSON key** with self-healing (binding):
+   - **Checkpoint trust:** per § **Checkpoint trust auto-confirm** — an existing
+     SA pick proceeds to step **4**; a create-option pick runs
+     `gcloud iam service-accounts create` without a second confirm modal.
+   - **Non-checkpoint trusts:** confirm the account id in structured choice
+     before `gcloud iam service-accounts create`.
+4. **Create JSON key** with self-healing (binding):
 
 #### 4a. Key create + org-policy handler
 

@@ -165,7 +165,7 @@ USER_CHECKPOINT — retry dry-runs, accept partial, or abort after dry-run failu
 
 **Script:** [scripts/setup-rclone-drive-client-id.sh](scripts/setup-rclone-drive-client-id.sh) (Unix). Windows **`setup-rclone-drive-client-id.ps1`** is a follow-up PR — skill records `rcloneClientConfigured: false` on Windows rather than inventing a chat paste-secrets path.
 
-**Spawn:** Emit **`mission_control_spawn_agent`** with `skillPath` to that skill, `inputs` (`projectPreference`, `existingProjectId?`, `defaultNewProjectId`, `serviceAccountPreference`, `existingServiceAccountEmail?`, `defaultNewServiceAccountId`, `credentialsTargetPath`, `operationsDocsDirectory`, optional `rcloneRemote`), optional `warmUpRules` / `initiatingPrompt` (install/probe summary + naming defaults). Open **external-wait / next-step** structured choice before ending the turn while waiting for the child result.
+**Spawn:** Emit **`mission_control_spawn_agent`** with `skillPath` to that skill, `inputs` (`projectPreference`, `existingProjectId?`, `defaultNewProjectId`, `serviceAccountPreference`, `existingServiceAccountEmail?`, `defaultNewServiceAccountId`, `credentialsTargetPath`, `operationsDocsDirectory`, optional `rcloneRemote`), optional `warmUpRules` / `initiatingPrompt` (install/probe summary + naming defaults). Open **external-wait / next-step** structured choice before ending the turn while waiting for the child result. Child inherits dispatch **`trustLevel`**; when **`checkpoint`**, project and SA list picks auto-confirm per **`configure-gcloud-drive`** § *Checkpoint trust auto-confirm*.
 
 **Naming (binding — create paths only):**
 
