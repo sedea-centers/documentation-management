@@ -375,6 +375,64 @@ Run **`dryRuns`** with bare **`cli`** after install (Unix: after `~/bin`
 symlinks exist). Full install-path executable is allowed only for an explicit
 **`use-path`** override.
 
+## Document extraction during gathers (binding)
+
+During **gather** steps that read user-supplied documents (SoT **`documents`**
+intake and similar flows), agents must prefer **OS-native and already-present**
+extractors before any package install. This section defines **default extract
+paths** — it does **not** add rows to **Tool inventory** below (those tools use
+the install registry; extractors here are OS-builtin).
+
+### macOS default: PDF text extract
+
+On **macOS** (`uname -s` = `Darwin`), the **default** PDF **text extract**
+path is **JXA + PDFKit** via **`osascript -l JavaScript`** — not `textutil`,
+not ad-hoc **`pip install pypdf`**, not assumed **`pdftotext`**.
+
+| Priority | Method | When |
+|----------|--------|------|
+| 1 | Center script **`scripts/pdf-extract.jxa`** | Preferred — canonical wrapper; args: absolute PDF path, optional max page cap |
+| 2 | Inline JXA + PDFKit | Same semantics when the script path is unavailable |
+| 3 | `pdftotext` on PATH | Only after JXA returns empty **and** the user approves fallback at a gather USER_CHECKPOINT |
+| — | `textutil -convert txt` on `.pdf` | **Forbidden** — emits raw PDF bytes, not text |
+| — | `pip` / `brew` for PDF Python stacks | **Forbidden** on gather unless this section or an explicit developer request names the tool |
+
+**Vanilla Mac obligation:** On hosts **without** Homebrew, poppler, or Xcode
+CLT, JXA + PDFKit remains available via `/usr/bin/osascript` and
+PDFKit.framework — do not treat missing `pdftotext` as grounds for
+`pip install`.
+
+**Large / scanned PDFs:** Cap pages (script optional arg or inline
+`Math.min(n, cap)`). Empty extract on image-only PDFs → report at
+USER_CHECKPOINT; do not auto-`pip`.
+
+**Stub CLIs (binding):** Do **not** invoke `/usr/bin/python3` or
+`/usr/bin/swift` on hosts where they are Xcode CLT install stubs (install
+dialog / hang).
+
+### Other formats (macOS probe order)
+
+| Format | Default extract |
+|--------|-----------------|
+| `.txt`, `.md`, `.csv` | Read directly |
+| `.rtf`, `.html`, `.doc`, `.docx`, `.odt` | `textutil -convert txt -stdout FILE` |
+| `.xlsx` / `.pptx` | `unzip -p` on OOXML parts (lossy) — prefer registry tools if later added |
+| Images | `file`, `sips`, `qlmanage -t` (metadata/thumbnail — not document text) |
+
+### Package install boundary
+
+1. **Tool inventory** below is the **sole** install surface for **`rclone`**,
+   **`gcloud`**, Sedea extensions, etc. — route gaps via mission
+   **`install required tools`** (**detached dispatch**).
+2. **`pip` / `brew` / ad-hoc installs** during gather are **forbidden** unless
+   **this section** or an **explicit developer request** names the tool —
+   state why before any install attempt.
+3. Do **not** add **`pypdf`**, **`python-docx`**, or **`openpyxl`** to gather
+   flows by default.
+
+Mitigation for premature pip during SoT gather:
+[documentation-management#60](https://github.com/sedea-centers/documentation-management/issues/60).
+
 ## Agent obligations
 
 1. Treat this inventory as the **only** required-tools source for this center.

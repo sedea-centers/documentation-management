@@ -1,0 +1,47 @@
+#!/usr/bin/osascript -l JavaScript
+// Default macOS PDF text extract (JXA + PDFKit).
+// Usage: osascript pdf-extract.jxa -- /absolute/path/to/file.pdf [maxPages]
+
+function run(argv) {
+  if (!argv || argv.length < 1) {
+    throw new Error(
+      "Usage: osascript pdf-extract.jxa -- /path/to/file.pdf [maxPages]"
+    );
+  }
+
+  var path = argv[0];
+  var maxPages = null;
+  if (argv.length >= 2) {
+    var parsed = parseInt(argv[1], 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      maxPages = parsed;
+    }
+  }
+
+  ObjC.import("PDFKit");
+  ObjC.import("Foundation");
+
+  var url = $.NSURL.fileURLWithPath(path);
+  var doc = $.PDFDocument.alloc.initWithURL(url);
+  if (!doc) {
+    throw new Error("PDFDocument failed: " + path);
+  }
+
+  var pageCount = doc.pageCount;
+  var limit =
+    maxPages && maxPages > 0 ? Math.min(pageCount, maxPages) : pageCount;
+  var parts = [];
+
+  for (var i = 0; i < limit; i++) {
+    var page = doc.pageAtIndex(i);
+    var text =
+      page && page.string ? ObjC.unwrap(page.string) : "";
+    parts.push(text);
+  }
+
+  var joined = parts.join("\n\n");
+  var data = $.NSString.alloc.initWithString(joined).dataUsingEncoding(
+    $.NSUTF8StringEncoding
+  );
+  $.NSFileHandle.fileHandleWithStandardOutput.writeData(data);
+}

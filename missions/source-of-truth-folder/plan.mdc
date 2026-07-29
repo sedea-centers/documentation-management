@@ -116,6 +116,27 @@ USER_CHECKPOINT — pick intake mode (documents · brainstorm · existing agent 
 2. **`brainstorm`** — Ask structured questions; accumulate answers until the user confirms gathering is complete.
 3. **`existing-plan`** — Read the plan; extract SoT-relevant scope; note out-of-scope items.
 
+**Document extraction (binding — `documents` intake)**
+
+When **`documents`** intake includes `.pdf` or other non-plaintext files, apply
+**`rules/10_required-tools.mdc`** § *Document extraction during gathers* before
+drafting §5:
+
+1. Identify type with `file`.
+2. **PDF on macOS:** run center **`scripts/pdf-extract.jxa`** (or equivalent
+   JXA + PDFKit) — **default** text extract; do not use `textutil` on PDF.
+3. **Office / RTF / HTML:** `textutil -convert txt -stdout` before any Python
+   stack.
+4. Missing **registry** tool (`rclone`, …) → stop; tell the user to start
+   **`install required tools`** on a **new dispatch** — do not `pip install`
+   mid-gather.
+5. Empty PDF text (likely scanned/image-only) or extract failure → USER_CHECKPOINT
+   below; **forbidden:** silent `pip install pypdf` / `brew install poppler`
+   without developer pick.
+
+Cross-ref: [documentation-management#60](https://github.com/sedea-centers/documentation-management/issues/60)
+(premature pip during SoT gather).
+
 When **`source-of-truth/`** already exists, consult it as the sole default authority for current SoT state per rule **20** — do not treat other folder paths as authoritative unless the user explicitly expands scope.
 
 **Change log:** Do **not** consult **`source-of-truth/CHANGELOG.md`** as
