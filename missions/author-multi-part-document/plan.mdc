@@ -21,9 +21,11 @@ alwaysApply: false
    (not via Squad Leader rebroadcast). After authoring, the author reviews the
    part conversation for SoT alterations and collects per-change approvals into
    the SoT changes follow-up document. The structure of each part plan is
-   defined during that part’s planning session. The **SoT changes follow-up
-   document** (ops docs) records *proposed* SoT edits for a later **`refresh
-   source of truth`** dispatch. It is **not**
+   defined during that part’s planning session. Per-change approval on the
+   author (or revision-author) lane records approved rows in the **SoT changes
+   follow-up document** (ops docs). The **Squad Leader** applies those approved
+   rows to `<localPath>/source-of-truth/` immediately after the part-planner or
+   document-reviewer child terminal — without a second approval gate. It is **not**
    `<localPath>/source-of-truth/CHANGELOG.md` (audit of completed SoT writes).
    When consulting SoT while authoring a part, do **not** treat
    **`CHANGELOG.md`** as authoritative unless the user explicitly names it and
@@ -63,7 +65,7 @@ Sync and PDF conversion reuse Author Simple Document / Convert Document contract
 
 | Role | Lane | `execution` | Spawns / owns | Does not |
 |------|------|-------------|---------------|----------|
-| **Squad Leader / Master Plan agent** | Dispatch leader | — | part-planner, gap-analyzer, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter** | Spawn **author** on the happy path (part-planner owns that); spawn **gap-closer** on the happy path (gap-analyzer owns that); resolve dispatch from a child lane |
+| **Squad Leader / Master Plan agent** | Dispatch leader | — | part-planner, gap-analyzer, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter**; **§6a SoT auto-apply** after part/review child terminals | Spawn **author** on the happy path (part-planner owns that); spawn **gap-closer** on the happy path (gap-analyzer owns that); resolve dispatch from a child lane |
 | **Part planner** | Child | `spawned` | **author** (after part-plan approval); plan-revision notify to author | `mission_control_propose_dispatch_resolution`; requiring Squad Leader to re-spawn author for plan revisions |
 | **Author** | Child | `spawned` (by part-planner) | SoT conversation review + SoT follow-up collection | `mission_control_propose_dispatch_resolution`; spawning other parts |
 | **Gap analyzer** | Child | `spawned` | **gap-closer** (when `gapsFound: true`) | Spawn gap-closer on happy path; resolve dispatch |
@@ -325,8 +327,36 @@ Per-skill post-write hooks live in each **`SKILL.md`** under
    Squad Leader re-spawn. **Forbidden:** requiring Squad Leader to re-spawn
    author solely to deliver a plan revision.
 5. On author terminal (`partComplete: true`, deferred, or failure), part-planner
-   emits its own terminal result to Squad Leader. Leader updates the part ledger
-   and returns to §5.
+   emits its own terminal result to Squad Leader (merged outputs include SoT
+   follow-up fields from the author child). Leader runs **§6a SoT auto-apply**
+   when appended follow-ups are present, updates the part ledger, and returns
+   to §5.
+
+**§6a. Squad Leader auto-apply approved SoT follow-ups (binding)**
+
+After **part-planner** (§6 step 5) or **document-reviewer** (§7a step 8)
+terminal, before returning to §5:
+
+1. Read child `outputs` for `sotFollowUpPath`, `sotFollowUpStatus`,
+   `sotFollowUpCount`, and folder binding (`localPath`).
+2. When `sotFollowUpStatus: appended` and `sotFollowUpCount > 0`:
+   - Parse **only** rows approved on the author or revision-author lane from
+     the follow-up document.
+   - Apply each approved change to paths under `<localPath>/source-of-truth/`
+     per rule **20** — per-change structured choice on the child lane satisfies
+     write authority (delegated approval).
+   - Append matching entries to `<localPath>/source-of-truth/CHANGELOG.md`
+     (date, paths, summary, approval locus: author lane `partId` or
+     revision-author pass).
+   - Optionally mark applied rows in the follow-up document; register updated
+     SoT paths via **`mission_control_update_relevant_documents`** when material.
+3. **Auto-advance** to §5 on success — **forbidden:** leader USER_CHECKPOINT to
+   re-approve apply; deferring to a detached **`refresh source of truth`**
+   dispatch for rows already approved on the child lane; prose-only "should I
+   apply SoT?" handoff.
+4. When `none` / `no-sot` / `skipped` or count 0 → §5 directly.
+5. Apply failure (missing path, write error) → USER_CHECKPOINT (retry apply ·
+   skip apply · abort) — exception path only.
 
 **Part-planner open questions (binding — child lane):** Each open question,
 concern, ambiguity, or incompleteness on the **part-planner** lane is asked via
@@ -355,10 +385,12 @@ evidence under ops docs (including count = 0) and open a USER_CHECKPOINT before
 **`none` semantics:** reviewed with zero approved proposals — not skipped review.
 **Forbidden:** writing under **`source-of-truth/`** from this mission.
 
-**Follow-up vs change log:** Append approved proposals only to the ops
-**SoT changes follow-up** document. **Forbidden:** appending to or rewriting
-**`source-of-truth/CHANGELOG.md`** from this mission; treating that change log
-as default SoT while authoring.
+**Follow-up vs change log:** Author and revision-author lanes append approved
+proposals only to the ops **SoT changes follow-up** document; the **Squad
+Leader** applies them under **`source-of-truth/`** per **§6a** (including
+**`CHANGELOG.md`** audit entries). **Forbidden:** child lanes appending to or
+rewriting **`source-of-truth/CHANGELOG.md`**; treating that change log as default
+SoT while authoring.
 
 USER_CHECKPOINT — retry part-planner · skip/defer this part · abort after child failure.
 
@@ -469,9 +501,11 @@ Options: **Start document comment review** · **Skip — return to standing opti
    alterations and collect per-change approvals into the **SoT changes follow-up
    document** (same contract as `skills/author/SKILL.md` — **forbidden** writes
    under `source-of-truth/`).
-8. **On revision-author terminal:** document-reviewer merges outputs and emits
-   **one** terminal **`mission_control_send_agent_result`** to Squad Leader.
-9. **Squad Leader post-review USER_CHECKPOINT** — run gap analysis again (§7) ·
+8. **On revision-author terminal:** document-reviewer merges outputs (including
+   SoT follow-up fields from revision-author) and emits **one** terminal
+   **`mission_control_send_agent_result`** to Squad Leader.
+9. **Squad Leader:** run **§6a SoT auto-apply** when merged outputs include
+   appended follow-ups; then open **post-review USER_CHECKPOINT** — run gap analysis again (§7) ·
    continue next part (§6) · return to §5 standing options · run another comment
    review pass · pause. Include **`sync-documents`** per §5a.
 

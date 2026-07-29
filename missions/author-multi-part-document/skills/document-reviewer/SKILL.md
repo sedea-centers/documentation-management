@@ -86,7 +86,9 @@ implementation (nested spawn — mirror part-planner → author).
    Record the revision-author child slug. Set `continuationStatus: active`. Open
    **#external-wait** for the revision-author result (do **not** emit a terminal
    reviewer result yet).
-9. **On revision-author terminal:** merge revision outputs and emit **one**
+9. **On revision-author terminal:** merge revision outputs (including SoT
+   follow-up fields: `sotPresent`, `sotConsulted`, `sotFollowUpPath`,
+   `sotFollowUpStatus`, `sotFollowUpCount`) and emit **one**
    terminal **`mission_control_send_agent_result`** to Squad Leader.
 
 **Forbidden:** implementing revisions on this lane; dispatch resolution; emitting
@@ -96,7 +98,10 @@ spawned; requiring Squad Leader to spawn revision-author on the happy path.
 ## Completion (spawned)
 
 **outputs:** `reviewPlanPath`, `commentsFound`, `commentCount`, `revisionAuthorSpawned`,
-`revisionAuthorSlug`, `reviewComplete`, `relativeFilePath`, `continuationStatus`
+`revisionAuthorSlug`, `reviewComplete`, `relativeFilePath`, `sotPresent`,
+`sotConsulted`, `sotFollowUpPath`, `sotFollowUpStatus`
+(`none` | `appended` | `no-sot` | `skipped`), `sotFollowUpCount`,
+`continuationStatus`
 
 ### MCP result preflight (`mission_control_send_agent_result`)
 
@@ -104,7 +109,7 @@ spawned; requiring Squad Leader to spawn revision-author on the happy path.
 |------|--------|
 | R1 | Call **`mission_control_send_agent_result`** with **`status`**, **`summary`**, optional **`outputs`** / **`errors`** |
 | R2 | **Forbidden args absent** — no **`correlationId`**, **`dispatchId`**, **`slotId`**, or other host-resolved keys |
-| R3 | Populate **`outputs`** from the required field list above; set `revisionAuthorSpawned: true` and `revisionAuthorSlug` after spawn; keep `continuationStatus: active` until revision-author terminal (or skip/defer without revision-author) |
+| R3 | Populate **`outputs`** from the required field list above; set `revisionAuthorSpawned: true` and `revisionAuthorSlug` after spawn; forward revision-author SoT follow-up fields when present; keep `continuationStatus: active` until revision-author terminal (or skip/defer without revision-author) |
 | R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) |
 
 After revision-author spawn, **do** emit **`mission_control_spawn_agent`** for

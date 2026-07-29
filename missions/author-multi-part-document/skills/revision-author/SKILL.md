@@ -109,8 +109,9 @@ then apply each approved row to `localPath` + `relativeFilePath`. Mirror the
 create or reuse
 `{operationsDocsDirectory}/<document-slug>-sot-changes-follow-up.md`.
 
-**Forbidden:** dispatch resolution; writing under **`source-of-truth/`**; treating
-SoT follow-up approval as authorization to edit SoT in this mission.
+**Forbidden:** dispatch resolution; writing under **`source-of-truth/`** on this
+lane; treating SoT follow-up approval as authorization to edit SoT **here**
+(Squad Leader applies per **`plan.mdc`** §6a after document-reviewer terminal).
 
 ## Completion (spawned)
 

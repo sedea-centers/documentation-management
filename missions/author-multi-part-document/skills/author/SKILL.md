@@ -173,15 +173,16 @@ Each row should name locus, proposed SoT change, source (`user-direct` |
 `conversation-review`), and approval status.
 
 **Not the change log:** The follow-up file under **`operationsDocsDirectory`**
-is a proposal queue. In-folder **`CHANGELOG.md`** is written only when SoT
-content is approved and applied (**source-of-truth-folder** / rule **20**).
+is the proposal queue until the Squad Leader applies approved rows per
+**`plan.mdc`** §6a. In-folder **`CHANGELOG.md`** is appended when the Squad
+Leader applies those writes (rule **20**).
 
 **Forbidden:** authoring other parts in the same pass without a new spawn;
 calling `mission_control_propose_dispatch_resolution`; writing under
-**`source-of-truth/`**; treating SoT follow-up approval as authorization to edit
-SoT in this mission (refresh remains a detached **`refresh source of truth`**
-dispatch / approved SoT write gate); appending to **`source-of-truth/CHANGELOG.md`**;
-treating the change log as default SoT consult material; offering **Confirm part
+**`source-of-truth/`** on this lane; treating SoT follow-up approval as
+authorization to edit SoT **here** (Squad Leader applies per **`plan.mdc`** §6a
+after part-planner terminal); appending to **`source-of-truth/CHANGELOG.md`** on
+this lane; treating the change log as default SoT consult material; offering **Confirm part
 complete** on the draft-review modal (step 5) before finals or explicit
 skip-to-final.
 

@@ -116,8 +116,10 @@ author full document prose here.
    - **Forbidden:** requiring Squad Leader to re-spawn author solely to deliver a
      plan revision.
 9. On author **`mission_control_send_agent_result`** for this part (success,
-   partial, deferred, or failure), merge author outputs into the planner result
-   and complete this skill (`continuationStatus: terminal`).
+   partial, deferred, or failure), merge author outputs (including SoT follow-up
+   fields: `sotPresent`, `sotConsulted`, `sotFollowUpPath`, `sotFollowUpStatus`,
+   `sotFollowUpCount`) into the planner result and complete this skill
+   (`continuationStatus: terminal`).
 
 **Forbidden:** planning every remaining part in one pass; editing the target
 document body on this lane; calling `mission_control_propose_dispatch_resolution`;
@@ -129,6 +131,8 @@ without author).
 
 **outputs:** `partId`, `partPlanPath`, `partPlanApproved`, `unresolvedCount`,
 `authorSpawned`, `authorSlug`, `partComplete` (when author reported),
+`sotPresent`, `sotConsulted`, `sotFollowUpPath`, `sotFollowUpStatus`
+(`none` | `appended` | `no-sot` | `skipped`), `sotFollowUpCount`,
 `continuationStatus`
 
 ### MCP result preflight (`mission_control_send_agent_result`)
@@ -137,7 +141,7 @@ without author).
 |------|--------|
 | R1 | Call **`mission_control_send_agent_result`** with **`status`**, **`summary`**, optional **`outputs`** / **`errors`** |
 | R2 | **Forbidden args absent** — no **`correlationId`**, **`dispatchId`**, **`slotId`**, or other host-resolved keys |
-| R3 | Populate **`outputs`** from the required field list above; `partPlanApproved` only after user approval; `unresolvedCount` = remaining open items (0 when none); set `authorSpawned: true` and `authorSlug` after author spawn; keep `continuationStatus: active` until author terminal (or defer/abort without author) |
+| R3 | Populate **`outputs`** from the required field list above; `partPlanApproved` only after user approval; `unresolvedCount` = remaining open items (0 when none); set `authorSpawned: true` and `authorSlug` after author spawn; forward author SoT follow-up fields when present; keep `continuationStatus: active` until author terminal (or defer/abort without author) |
 | R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) — including milestone updates after author spawn when useful |
 
 After author spawn, **do** emit **`mission_control_spawn_agent`** for author on
