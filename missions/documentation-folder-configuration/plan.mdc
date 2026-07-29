@@ -109,12 +109,37 @@ USER_CHECKPOINT — collect GDrive folder URL or folder ID when not clear from t
 
 1. Ask for a Google Drive folder **shareable URL** or **folder ID** (Drive UI →
    open folder → copy link or id).
+
+#### Checkpoint trust auto-confirm — GDrive folder pick (binding)
+
+When dispatch **`trustLevel`** is **`checkpoint`**, a structured-choice **pick** at the
+**collect GDrive folder URL or folder ID** USER_CHECKPOINT **is** consent for that
+folder — **do not** open a redundant follow-up confirm modal for the same URL or
+folder ID before proceeding to **`remotePath`** resolution and SA share check.
+
+| Pick at gate | Under checkpoint trust |
+|--------------|------------------------|
+| Listed folder URL or folder ID option | Auto-advance — resolve **`remotePath`**, Drive display name (probe or derive from pick label), then SA share check |
+| Free-form URL or folder ID supplied via **`other`** / More-details follow-up | Treat the supplied value as the pick — still no second confirm unless the exception applies |
+
+**Exception (binding):** Re-open a confirm USER_CHECKPOINT only when the user used
+**`more-details`**, **`have-question`**, **`introspect-incident`**, **`other`**, or
+substantive free-form chat to **discuss or inquire** about the Google Drive folder
+(URL, ID, sharing, or correct target) **before** the final pick — then confirm
+before bind.
+
+**Unchanged:** SA share **#external-wait** gate (only when share not yet done);
+§4 local directory name confirm; Apply hosting edits; dry-run failure gates; §7
+full pull confirm.
+
 2. Resolve **`remotePath`** for rclone from that URL/ID. Keep provider **`gdrive`**.
    **Forbidden:** other cloud providers in v1; inventing a Drive folder without
    user input.
 3. Resolve the **Drive folder display name** (prefer non-destructive rclone /
-   `lsf` / `about` against `remote:remotePath`, else ask the user to confirm the
-   name).
+   `lsf` / `about` against `remote:remotePath`; when the name resolves from probe
+   after a checkpoint list-pick, **auto-advance** — **do not** open a separate
+   name-confirm modal under checkpoint trust; else ask the user to confirm the
+   name only when probe fails and no list label supplied the name).
 4. **SA share check:** Using the SA email from §2, verify the target folder
    (or Shared Drive) is shared with that email. Prefer a non-destructive rclone
    probe against `remote:remotePath` when that is a reliable signal; otherwise
