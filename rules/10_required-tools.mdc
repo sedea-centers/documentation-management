@@ -375,6 +375,78 @@ Run **`dryRuns`** with bare **`cli`** after install (Unix: after `~/bin`
 symlinks exist). Full install-path executable is allowed only for an explicit
 **`use-path`** override.
 
+### `node`
+
+| Field | Value |
+|-------|-------|
+| **id** | `node` |
+| **kind** | `cli` |
+| **cli** | `node` |
+| **minVersion** | `20.0.0` |
+| **docsUrl** | https://nodejs.org/en/download/ |
+| **installUrl** | https://nodejs.org/en/download/ |
+| **macosInstallPath** | `~/.local/share/fnm/aliases/default/bin/node` |
+| **linuxInstallPath** | `~/.local/share/fnm/aliases/default/bin/node` |
+| **windowsInstallPath** | `%ProgramFiles%\nodejs\node.exe` |
+
+**macOS methods (`macosMethods`):**
+
+| Method id | Notes |
+|-----------|--------|
+| `fnm-bootstrap` | **Sole** macOS method. **No Python.** Install [fnm](https://github.com/Schniz/fnm) when absent: `curl -fsSL https://fnm.vercel.app/install \| bash -s -- --install-dir "$HOME/.local/share/fnm" --skip-shell`. Ensure **`node`** and **`npx`** are on PATH for the agent shell (for example `eval "$(fnm env)"`). After consent: `fnm install 20` and `fnm default 20`. **Forbidden:** Homebrew as a substitute; **`pip`**; requiring Xcode CLT Python. |
+
+**Linux methods (`linuxMethods`):**
+
+| Method id | Notes |
+|-----------|--------|
+| `fnm-bootstrap` | **Sole** Linux method. Same fnm bootstrap and `fnm install 20` / `fnm default 20` as macOS. Ensure **`node`** and **`npx`** are on PATH (`eval "$(fnm env)"`). **Forbidden:** distro **`python3`** stacks for OOXML validation; ad-hoc **`pip`**. |
+
+**Windows methods (`windowsMethods`):**
+
+| Method id | Notes |
+|-----------|--------|
+| `nodejs-lts-msi` | **Sole** Windows method. Install Node.js **LTS** from **`installUrl`** so **`node.exe`** is at **`windowsInstallPath`** and **`npx`** is available on PATH. **Forbidden:** open-ended install-directory questions. |
+
+**dryRuns:**
+
+| # | `command` | `expect` |
+|---|-----------|----------|
+| 1 | `node --version` | Exit **0**; stdout includes a semver ≥ **`minVersion`** |
+| 2 | `npx --version` | Exit **0** |
+| 3 | `bash .sedea/centers/documentation-management/scripts/docx-ooxml-validate.sh --self-test` | Exit **0**; resolves from hosting workspace center checkout |
+
+Run dry-run **3** from the hosting workspace root when the center submodule is
+present. On a center worktree pass, substitute the active **`CENTER_WORKTREE_ROOT`**
+path: `bash "<CENTER_WORKTREE_ROOT>/scripts/docx-ooxml-validate.sh" --self-test`.
+
+## Office binary (`.docx`) validation (binding)
+
+Programmatic **writes** to **`.docx`** files (author / revision-author /
+file-synchronizer lanes) must not rely on **`unzip -t`** or **`xmllint`**
+alone — Word can reject packages that remain ZIP/XML-well-formed.
+
+**Canonical validator:** center script
+**`scripts/docx-ooxml-validate.sh`** (Node-first via **`npx`**
+**`@xarsh/ooxml-validator@0.2.0`**, plus a hygiene gate rejecting prefixed
+default xmlns on **`[Content_Types].xml`** and **`*.rels`**).
+
+| Phase | Agent obligation |
+|-------|------------------|
+| **Prerequisite** | **`node`** and **`npx`** on PATH — probe/install via **`node`** in **Tool inventory** and mission **`install required tools`**. **Forbidden:** Python OOXML stacks on end-user workstations. |
+| **Before outbound sync** | Run **`docx-ooxml-validate.sh`** on the absolute **`.docx`** path. **Fail closed** on non-zero exit — do not **`bisync`** / **`sync`**. |
+| **After material edit** | Same validation gate before any outbound push when the lane edited the **`.docx`** in-process. |
+
+**Invoke (from hosting workspace or center worktree):**
+
+```bash
+bash .sedea/centers/documentation-management/scripts/docx-ooxml-validate.sh "/absolute/path/to/file.docx"
+```
+
+Substitute **`CENTER_WORKTREE_ROOT/scripts/docx-ooxml-validate.sh`** when editing
+under an active center worktree.
+
+Mitigation context: [documentation-management#67](https://github.com/sedea-centers/documentation-management/issues/67).
+
 ## Document extraction during gathers (binding)
 
 During **gather** steps that read user-supplied documents (SoT **`documents`**
@@ -415,9 +487,14 @@ dialog / hang).
 | Format | Default extract |
 |--------|-----------------|
 | `.txt`, `.md`, `.csv` | Read directly |
-| `.rtf`, `.html`, `.doc`, `.docx`, `.odt` | `textutil -convert txt -stdout FILE` |
+| `.rtf`, `.html`, `.doc`, `.docx`, `.odt` | `textutil -convert txt -stdout FILE` (**read/gather only** — not a write-validation gate) |
 | `.xlsx` / `.pptx` | `unzip -p` on OOXML parts (lossy) — prefer registry tools if later added |
 | Images | `file`, `sips`, `qlmanage -t` (metadata/thumbnail — not document text) |
+
+**Programmatic `.docx` edits** (Write / StrReplace / OOXML rewrites on the working
+file) are **not** gather reads — apply **Office binary (`.docx`) validation**
+above before outbound sync. **`textutil`** and lossy unzip probes do **not**
+substitute for **`docx-ooxml-validate.sh`**.
 
 ### Package install boundary
 

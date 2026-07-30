@@ -33,6 +33,7 @@ timeoutMs: 3600000
 warmUpRules:
   - .sedea/centers/documentation-management/missions/author-simple-document/plan.mdc
   - .sedea/centers/documentation-management/rules/20_source-of-truth.mdc
+  - .sedea/centers/documentation-management/rules/10_required-tools.mdc
 ---
 
 # Author Simple Document Author
@@ -67,6 +68,24 @@ in Mission Control / ops docs — not inside the deliverable.
 
 Before marking the document complete, record whether SoT was present and whether
 it was consulted so the parent can run §6a.
+
+## `.docx` programmatic edit contract (binding)
+
+When **`relativeFilePath`** ends with **`.docx`** and this lane performs material
+**Write** / **StrReplace** / unzip-based OOXML edits on the working file:
+
+1. **Pre-edit backup:** `cp` the target to a timestamped **`*.bak-YYYYMMDDHHMMSS`**
+   beside the file before the first material edit in the pass.
+2. **OOXML-safe edits:** Prefer surgical edits inside **`word/document.xml`**
+   (and related body parts). **Forbidden:** rewriting **`[Content_Types].xml`**
+   or **`*.rels`** with prefixed default xmlns (**`ns0:`**, **`ns1:`**, etc.);
+   preserve Word-native package relationship parts.
+3. **Validate before sync:** Before outbound **`rclone bisync`** / **`sync`**, run
+   **`docx-ooxml-validate.sh`** per
+   **`rules/10_required-tools.mdc`** § *Office binary (`.docx`) validation*.
+   **Fail closed** on non-zero exit.
+4. **Missing `node` / `npx`:** Stop; tell the user to start **`install required
+   tools`** on center **`documentation-management`** in a **new dispatch**.
 
 ## Completion (spawned)
 

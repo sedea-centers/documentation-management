@@ -40,6 +40,7 @@ timeoutMs: 1800000
 warmUpRules:
   - .sedea/centers/documentation-management/rules/00_documentation-management.mdc
   - .sedea/centers/documentation-management/missions/author-simple-document/plan.mdc
+  - .sedea/centers/documentation-management/rules/10_required-tools.mdc
 ---
 
 # File Synchronizer
@@ -54,6 +55,14 @@ When changes are **semantic** (conflicting intent), USER_CHECKPOINT — explain
 and ask which resolution path prevails (`local` | `remote` | `merged` via More
 details). Write the final file to `localPath` + `relativeFilePath`, then run
 **`rclone sync`** (not bisync) to update the remote copy.
+
+### `.docx` validate-before-sync (binding)
+
+When **`relativeFilePath`** ends with **`.docx`**, run **`docx-ooxml-validate.sh`**
+per **`rules/10_required-tools.mdc`** § *Office binary (`.docx`) validation* on
+the absolute merged file path **before** outbound **`rclone sync`**. **Fail
+closed** on non-zero exit. **Missing `node` / `npx`:** stop and route to
+**`install required tools`** on a new dispatch — do not bisync/sync first.
 
 ### Drive format pairing on outbound `rclone sync` (binding)
 

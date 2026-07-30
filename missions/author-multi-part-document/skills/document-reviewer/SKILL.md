@@ -43,6 +43,7 @@ timeoutMs: 3600000
 warmUpRules:
   - .sedea/centers/documentation-management/missions/author-multi-part-document/plan.mdc
   - .sedea/centers/documentation-management/rules/20_source-of-truth.mdc
+  - .sedea/centers/documentation-management/rules/10_required-tools.mdc
 ---
 
 # Multi-Part Document Reviewer
@@ -90,6 +91,12 @@ implementation (nested spawn — mirror part-planner → author).
    follow-up fields: `sotPresent`, `sotConsulted`, `sotFollowUpPath`,
    `sotFollowUpStatus`, `sotFollowUpCount`) and emit **one**
    terminal **`mission_control_send_agent_result`** to Squad Leader.
+10. **`.docx` validate-before-sync (binding):** When **`relativeFilePath`**
+    ends with **`.docx`** and this pass will run outbound **`bisync`** / **`sync`**
+    on the working file, run **`docx-ooxml-validate.sh`** per
+    **`rules/10_required-tools.mdc`** § *Office binary (`.docx`) validation*
+    on the absolute document path **after** revision-author completes and
+    **before** outbound sync. **Fail closed** on non-zero exit.
 
 **Forbidden:** implementing revisions on this lane; dispatch resolution; emitting
 a **terminal** reviewer result before revision-author finishes when closer was
