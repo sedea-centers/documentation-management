@@ -51,6 +51,23 @@ Normative contract: [`.sedea/centers/sedea/docs/mission-three-lane-cadence.md`](
 
 **Planning constraints (binding when three-lane active):** one phase only · PR breakdown only (≤3 PRs) · complexity ≤12 · forbid `delivery-phases` / `phase-planner`.
 
+**Next stop after PR exists (Squad Leader — binding when three-lane active):** when an implement lane opens a hosting-repo PR on this mission's ship chain, open **#external-wait** structured choice **before ending the turn** — do **not** prose-only *tell me when you've checked GitHub*. Required options **in this order**:
+
+| Option id | Label |
+|-----------|-------|
+| `approve-merge-pr` | Approve and Merge PR |
+| `merged-pr-proceed` | PR merged — verify and proceed |
+| `start-pr-review` | Start inline PR review |
+| `check-pr-status` | Check PR merge status |
+| `defer` | Defer next ship step |
+| `more-details` | More details for option _ |
+
+**Supersession (binding):** [rule **6** § *PR approve-merge structured choice*](.sedea/centers/sedea/rules/6_git-commit-push-gate.mdc) **supersedes** abbreviated external-wait examples elsewhere in this plan when the PR is open and org policy allows agent merge.
+
+**After PR open — merge paths:** When agent merge is offered, **`approve-merge-pr`** (label **Approve and Merge PR**) is **option index 1** per [`.sedea/centers/sedea/rules/6_git-commit-push-gate.mdc`](.sedea/centers/sedea/rules/6_git-commit-push-gate.mdc) § *PR approve-merge structured choice*; **`merged-pr-proceed`** (when present) is **option index 2**. **Default without agent merge pick:** user merge on GitHub; lane verifies via **`merged-pr-proceed`**. On **`approve-merge-pr`**, run rule **6** § *Merge inspect procedure* before **`gh pr review --approve`** or **`gh pr merge`** — **forbidden** to merge without that same-turn pick or to copy **`promote-center-submodule-pin`** auto-merge.
+
+**Merge act (binding):** On **`approve-merge-pr`**, and only after that same-turn pick, run [rule **6** § *Merge inspect procedure*](.sedea/centers/sedea/rules/6_git-commit-push-gate.mdc) before mutating GitHub. On **`merged-pr-proceed`**, use **`gh pr view`** only to verify merge state — do **not** mutate GitHub.
+
 **Dispatch display refresh (Squad Leader).** When dispatch scope is readable on the leader lane (matched command phrase, resolved folder slug, or scope title), call MCP **`mission_control_update_dispatch_display`** with non-empty **`dispatchTitle`** (≤64 chars) and optional **`dispatchDescription`** / **`dispatchHoverDescription`** (≤512 chars). **Skip** when chrome already matches. **Forbidden:** **`mission_control_update_lane_display`** to relabel **child** slots from the leader lane; hand-editing **`dispatch-tab.v1.json`**. **Title content (binding):** topic/domain of the **whole dispatch** only — **not** live sync status. See [`.sedea/centers/sedea/rules/9_display-metadata-authority.mdc`](.sedea/centers/sedea/rules/9_display-metadata-authority.mdc) § *Dispatch title content*.
 
 ## Protocol
@@ -195,9 +212,28 @@ USER_CHECKPOINT — rclone sync now · skip sync · start hosting ship (when tra
 |--------|------|--------|
 | **rclone sync** | User confirms | Sync registered folder per center registry / rclone contract |
 | **Skip sync** | User defers remote | Record local SoT done; note sync remaining |
-| **Hosting ship** | This pass edited hosting-tracked files | Hosting-repo ship cadence: worktree (if needed) → commit/push/PR → inline **`pr-review`** until terminal → developer merge → post-merge cleanup |
+| **Hosting ship** | This pass edited hosting-tracked files | Hosting-repo ship cadence below — worktree (if needed) → commit/push/PR → inline **`pr-review`** until terminal → post-PR merge paths → post-merge cleanup |
 
-**Hosting-repo ship cadence (when applicable):** [`.sedea/centers/sedea/skills/worktree-setup/SKILL.md`](.sedea/centers/sedea/skills/worktree-setup/SKILL.md) → rule **6** pipeline → [`.sedea/centers/sedea/skills/pr-review/SKILL.md`](.sedea/centers/sedea/skills/pr-review/SKILL.md) → merge → [`.sedea/centers/sedea/skills/worktree-cleanup/SKILL.md`](.sedea/centers/sedea/skills/worktree-cleanup/SKILL.md).
+**Hosting-repo ship cadence (when applicable):** [`.sedea/centers/sedea/skills/worktree-setup/SKILL.md`](.sedea/centers/sedea/skills/worktree-setup/SKILL.md) → rule **6** pipeline → [`.sedea/centers/sedea/skills/pr-review/SKILL.md`](.sedea/centers/sedea/skills/pr-review/SKILL.md) → **Post-PR merge paths** (below) → [`.sedea/centers/sedea/skills/worktree-cleanup/SKILL.md`](.sedea/centers/sedea/skills/worktree-cleanup/SKILL.md).
+
+#### Post-PR merge paths (#external-wait) (binding)
+
+When the **Hosting ship** branch opens structured choice after the hosting PR exists, required options **in this order**:
+
+| Option id | Label |
+|-----------|-------|
+| `approve-merge-pr` | Approve and Merge PR |
+| `merged-pr-proceed` | PR merged — verify and proceed |
+| `start-pr-review` | Start inline PR review |
+| `check-pr-status` | Check PR merge status |
+| `defer` | Defer next ship step |
+| `more-details` | More details for option _ |
+
+**Supersession (binding):** [rule **6** § *PR approve-merge structured choice*](.sedea/centers/sedea/rules/6_git-commit-push-gate.mdc) **supersedes** abbreviated external-wait examples elsewhere in this plan when the PR is open and org policy allows agent merge.
+
+**After PR open — merge paths:** When agent merge is offered, **`approve-merge-pr`** (label **Approve and Merge PR**) is **option index 1** per [`.sedea/centers/sedea/rules/6_git-commit-push-gate.mdc`](.sedea/centers/sedea/rules/6_git-commit-push-gate.mdc) § *PR approve-merge structured choice*; **`merged-pr-proceed`** (when present) is **option index 2**. On **`approve-merge-pr`**, run rule **6** § *Merge inspect procedure* before **`gh pr review --approve`** or **`gh pr merge`**. On **`merged-pr-proceed`**, use **`gh pr view`** only to verify merge state — do **not** mutate GitHub.
+
+**Merge act (binding):** On **`approve-merge-pr`**, and only after that same-turn pick, run [rule **6** § *Merge inspect procedure*](.sedea/centers/sedea/rules/6_git-commit-push-gate.mdc) before mutating GitHub.
 
 SoT payload is **not** committed to hosting-repo git.
 
