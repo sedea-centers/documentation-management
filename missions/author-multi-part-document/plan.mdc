@@ -501,6 +501,19 @@ Options: **Start document comment review** · **Skip — return to standing opti
    alterations and collect per-change approvals into the **SoT changes follow-up
    document** (same contract as `skills/author/SKILL.md` — **forbidden** writes
    under `source-of-truth/`).
+
+**Revision-author SoT follow-up (binding — revision-author lane):** After the
+user confirms revisions complete, the revision-author reviews the revision
+conversation for SoT content that was altered in practice, then runs one
+structured-choice question per identified change and appends approved items to
+the **SoT changes follow-up document** (additive to direct user SoT requests).
+See `skills/revision-author/SKILL.md`. **Zero-candidate path:** write
+conversation-review evidence under ops docs (including count = 0) and open a
+USER_CHECKPOINT before `none` / `no-sot` terminal result — **forbidden:** silent
+agent-only short-circuit. **`none` semantics:** reviewed with zero approved
+proposals — not skipped review. **Forbidden:** writing under **`source-of-truth/`**
+from this mission.
+
 8. **On revision-author terminal:** document-reviewer merges outputs (including
    SoT follow-up fields from revision-author) and emits **one** terminal
    **`mission_control_send_agent_result`** to Squad Leader.

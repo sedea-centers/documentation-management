@@ -90,18 +90,39 @@ then apply each approved row to `localPath` + `relativeFilePath`. Mirror the
      (`kind: other`) — same turn preferred. See **`../README.md`** § *Relevant
      Links — post-write registration*.
 8. After the user confirms revisions complete (step 6), **before** the terminal MCP
-   result, run **SoT conversation review** (mirror author step 8):
-   - Review this pass's conversation and authored delta against consulted SoT.
-   - Enumerate candidate follow-ups where SoT content was altered in practice.
-   - One structured-choice question per identified change (batched modal allowed).
-   - Append approved items to the SoT changes follow-up document.
-   - **Relevant Links (post-write):** After conversation-review writes to the
-     SoT follow-up document, call MCP
-     **`mission_control_update_relevant_documents`** with its absolute path when
-     not already registered this session with no content change — same turn
-     preferred.
-   - **Zero-candidate USER_CHECKPOINT** when no candidates — same contract as author
-     step 8.6.
+   result, run **SoT conversation review** (mirror `skills/author/SKILL.md` step 8):
+   1. Review this pass's conversation and authored delta against consulted SoT.
+   2. Enumerate candidate follow-ups where SoT content was altered in practice
+      (or should be updated to match authored truth).
+   3. For **each** identified change: open structured choice with **one
+      `askQuestion.questions` entry per change** (same modal may batch). Options
+      at minimum: approve → append to SoT follow-up doc · skip · revise wording —
+      then the universal trailer.
+   4. Append **approved** items to the same SoT changes follow-up document used
+      for direct user SoT requests (step 7). Conversation-derived rows are
+      **additive**, not a replacement.
+   5. **Always record review outcome (binding):** Before setting
+      `sotFollowUpStatus` or emitting terminal MCP result, write or update the
+      SoT changes follow-up document with a **Conversation review —
+      {relativeFilePath}** section that includes: `sotPresent`, `sotConsulted`,
+      candidate count (may be **0**), and a one-line rationale when count = 0.
+      **Forbidden:** terminal result without this durable record when review ran.
+      - **Relevant Links (post-write):** After that write or update, call MCP
+        **`mission_control_update_relevant_documents`** with the SoT follow-up
+        absolute path when not already registered this session with no content
+        change — same turn preferred.
+   6. **Zero-candidate USER_CHECKPOINT (binding):** When step 2 finds **no**
+      candidates (including when `sotPresent: false`), open structured choice
+      **before** `mission_control_send_agent_result`. Options at minimum:
+      **Accept none — review complete, zero proposals** · **Nominate follow-up
+      loci** · **Re-diff / challenge review** · then the universal trailer. Set
+      `sotFollowUpStatus: none` or `no-sot` **only after** the developer picks
+      **Accept none** (or after nominate/re-diff resolves with zero approved
+      rows). **Forbidden:** agent-only short-circuit from “matches SoT” without
+      this gate.
+   7. **Status semantics:** `none` / `no-sot` means **review ran; zero approved
+      proposals** — not “review skipped”. Reflect that in `summary` and
+      `outputs`.
 9. Record `reviewComplete: true` only after step 6 confirmation and step 8
    completes (including zero-candidate gate when applicable).
 
@@ -127,7 +148,7 @@ lane; treating SoT follow-up approval as authorization to edit SoT **here**
 | R2 | **Forbidden args absent** — no **`correlationId`**, **`dispatchId`**, **`slotId`**, or other host-resolved keys |
 | R3 | Populate **`outputs`** from the required field list above; `reviewComplete` only after user confirmation and SoT conversation review completes per step 8 |
 | R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) |
-| R5 | SoT conversation review complete: durable review section written; zero-candidate USER_CHECKPOINT passed before terminal MCP |
+| R5 | SoT conversation review complete: durable **Conversation review — {relativeFilePath}** section written; zero-candidate USER_CHECKPOINT passed (or per-change gates completed) before terminal MCP |
 
 Stop after the MCP result call. Terminal delivers to the **document-reviewer**
 parent lane — not Squad Leader. Do not emit another **`mission_control_spawn_agent`**
