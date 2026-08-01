@@ -80,6 +80,13 @@ When **`relativeFilePath`** ends with **`.docx`** and this lane performs materia
 
 1. Verify `reviewPlanPath` exists and reflects an approved review plan.
 2. Read the target document; load approved rows from the review plan.
+   - **Relevant Links (pre-edit — binding):** Before the **first**
+     Write/StrReplace on `localPath` + `relativeFilePath` in this spawn
+     session, call MCP **`mission_control_update_relevant_documents`** with
+     the absolute working document path (`kind: other`) — same turn
+     preferred. **Forbidden:** material edit before this first registration
+     when the path is not yet registered this session. See **`../README.md`**
+     § *Relevant Links — registration*.
 3. Source of truth (binding): same as `skills/author/SKILL.md` step 3 — consult
    **`<localPath>/source-of-truth/`** when present; **forbidden** writes under it;
    do not treat **`CHANGELOG.md`** as authoritative unless the user explicitly
@@ -90,13 +97,13 @@ When **`relativeFilePath`** ends with **`.docx`** and this lane performs materia
    material, run the **draft→final** structured-choice chain (mirror author step
    5): draft write → draft review gate → final copy → revision-complete gate.
    **Forbidden:** skipping draft review for large substantive rewrites.
-   - **Relevant Links (post-write):** After each Write/StrReplace that
-     **materially edits** the working document at `localPath` +
-     `relativeFilePath`, call MCP
+   - **Relevant Links (after material edit):** After each subsequent
+     Write/StrReplace that **materially edits** the working document at
+     `localPath` + `relativeFilePath`, call MCP
      **`mission_control_update_relevant_documents`** with the absolute document
      path (`kind: other`) — same turn preferred. **Skip** unchanged
-     already-registered paths. See **`../README.md`** § *Relevant Links —
-     post-write registration*.
+     already-registered paths (step 2 pre-edit satisfies the first
+     registration). See **`../README.md`** § *Relevant Links — registration*.
 6. **Revision-complete USER_CHECKPOINT** — after all approved rows are implemented
    (or explicitly deferred with rationale recorded). Options at minimum:
    **Confirm revisions complete** · **Revise** · **Defer remaining rows** · then

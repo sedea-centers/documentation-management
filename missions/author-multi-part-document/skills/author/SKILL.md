@@ -87,6 +87,13 @@ When **`relativeFilePath`** ends with **`.docx`** and this lane performs materia
 
 1. Verify `partPlanPath` exists and reflects an approved part plan for `partId`.
 2. Read the target document; locate the insertion/update region for this part.
+   - **Relevant Links (pre-edit — binding):** Before the **first**
+     Write/StrReplace on `localPath` + `relativeFilePath` in this spawn
+     session, call MCP **`mission_control_update_relevant_documents`** with
+     the absolute working document path (`kind: other`; optional **`label`**
+     with `partId`) — same turn preferred. **Forbidden:** material edit
+     before this first registration when the path is not yet registered this
+     session. See **`../README.md`** § *Relevant Links — registration*.
 3. Source of truth (binding):
    - When **`<localPath>/source-of-truth/`** exists, consult it as default
      authoritative context (center rule **20**), **excluding `CHANGELOG.md`**.
@@ -108,13 +115,14 @@ When **`relativeFilePath`** ends with **`.docx`** and this lane performs materia
       comments baked into answer boxes, meta asides, unfinished prose) — as a
       **draft** until the developer approves substance or explicitly skips to
       final-as-is.
-      - **Relevant Links (post-write):** After each Write/StrReplace that
-        **materially edits** the working document at `localPath` +
-        `relativeFilePath`, call MCP
+      - **Relevant Links (after material edit):** After each subsequent
+        Write/StrReplace that **materially edits** the working document at
+        `localPath` + `relativeFilePath`, call MCP
         **`mission_control_update_relevant_documents`** with the absolute
-        document path (`kind: other`; optional **`label`** with `partId`) — same
-        turn preferred. **Skip** unchanged already-registered paths. See
-        **`../README.md`** § *Relevant Links — post-write registration*.
+        document path (`kind: other`; optional **`label`** with `partId`) —
+        same turn preferred. **Skip** unchanged already-registered paths (step
+        2 pre-edit satisfies the first registration). See **`../README.md`**
+        § *Relevant Links — registration*.
    2. **Draft review USER_CHECKPOINT** — open structured choice after each draft
       write (and whenever content is still draft-quality). Options at minimum:
       **Approve draft → write final copy** · **Revise draft** · **Skip — treat

@@ -3,13 +3,18 @@
 Spawn contracts for **author-multi-part-document** child lanes. Normative mission
 protocol: [`../plan.mdc`](../plan.mdc).
 
-## Relevant Links — post-write registration
+## Relevant Links — registration
 
 Mission Control **Relevant Links** refresh from warm-up, spawn `*Path` / `*Ref`
 inputs, terminal `outputs` keys ending in `Path` / `Ref`, and **explicit**
 mid-session registration. There is **no** host auto-sniff of Write/StrReplace.
 Skills that create or materially edit ops artifacts or the working document
 **must** register those paths on the calling lane.
+
+**Author lanes (binding):** **`author`** and **`revision-author`** register the
+working document via **`mission_control_update_relevant_documents`** **before**
+the first material edit in the spawn session (pre-edit), then again after
+subsequent material edits when content changes (skip unchanged paths).
 
 ### MCP tool
 
@@ -78,11 +83,11 @@ Platform authority:
 |-------|---------------------|
 | **master-plan** | `masterPlanPath` (`kind: plan`) |
 | **part-planner** | `partPlanPath` (`kind: plan`) |
-| **author** | working doc + SoT follow-up doc (`kind: other`) |
+| **author** | working doc **pre-edit** + after material edits; SoT follow-up on write (`kind: other`) |
 | **gap-analyzer** | `gapReportPath` (`kind: plan`) |
 | **gap-closer** | working doc when materially edited (`kind: other`) |
 | **document-reviewer** | `reviewPlanPath` (`kind: plan`) |
-| **revision-author** | working doc + SoT follow-up doc (`kind: other`) |
+| **revision-author** | working doc **pre-edit** + after material edits; SoT follow-up on write (`kind: other`) |
 | **content-generator** | working doc when content written (`kind: other`) |
 
 Master plan registration: **`master-plan/SKILL.md`** and **`plan.mdc`** §5b.

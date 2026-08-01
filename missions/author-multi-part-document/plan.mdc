@@ -390,6 +390,14 @@ confirm only after finals exist or the developer explicitly skips. **Forbidden:*
 jumping from first draft write to part-complete confirmation while content is
 still draft-quality.
 
+**Author Relevant Links pre-edit (binding — author lane):** After reading the
+target document and **before** the first Write/StrReplace on the working file,
+call **`mission_control_update_relevant_documents`** with the absolute document
+path (`kind: other`; optional **`label`**: `partId`) — same turn preferred.
+Re-register after subsequent material edits per `skills/author/SKILL.md` step 5.
+**Forbidden:** material edit before first registration when the path is not yet
+registered this session.
+
 **Author SoT follow-up (binding — author lane):** After the user confirms the part
 is complete, the author reviews the part conversation for SoT content that was
 altered in practice, then runs one structured-choice question per identified
@@ -517,6 +525,14 @@ Options: **Start document comment review** · **Skip — return to standing opti
    alterations and collect per-change approvals into the **SoT changes follow-up
    document** (same contract as `skills/author/SKILL.md` — **forbidden** writes
    under `source-of-truth/`).
+
+**Revision-author Relevant Links pre-edit (binding — revision-author lane):**
+After reading the target document and **before** the first Write/StrReplace on
+the working file, call **`mission_control_update_relevant_documents`** with the
+absolute document path (`kind: other`) — same turn preferred. Re-register after
+subsequent material edits per `skills/revision-author/SKILL.md` step 5.
+**Forbidden:** material edit before first registration when the path is not yet
+registered this session.
 
 **Revision-author SoT follow-up (binding — revision-author lane):** After the
 user confirms revisions complete, the revision-author reviews the revision
