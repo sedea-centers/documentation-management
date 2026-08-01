@@ -65,7 +65,8 @@ Sync and PDF conversion reuse Author Simple Document / Convert Document contract
 
 | Role | Lane | `execution` | Spawns / owns | Does not |
 |------|------|-------------|---------------|----------|
-| **Squad Leader / Master Plan agent** | Dispatch leader | — | part-planner, gap-analyzer, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter**; **§6a SoT auto-apply** after part/review child terminals | Spawn **author** on the happy path (part-planner owns that); spawn **gap-closer** on the happy path (gap-analyzer owns that); resolve dispatch from a child lane |
+| **Squad Leader** | Dispatch leader | — | `master-plan`, part-planner, gap-analyzer, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter**; **§6a SoT auto-apply** after part/review child terminals | Draft/approve master plan inline; spawn **author** on the happy path (part-planner owns that); spawn **gap-closer** on the happy path (gap-analyzer owns that); resolve dispatch from a child lane |
+| **Master plan agent** | Child | `spawned` | Draft + approve master plan artifact; Relevant Links for `masterPlanPath` | Spawn part-planner or author; `mission_control_propose_dispatch_resolution` |
 | **Part planner** | Child | `spawned` | **author** (after part-plan approval); plan-revision notify to author | `mission_control_propose_dispatch_resolution`; requiring Squad Leader to re-spawn author for plan revisions |
 | **Author** | Child | `spawned` (by part-planner) | SoT conversation review + SoT follow-up collection | `mission_control_propose_dispatch_resolution`; spawning other parts |
 | **Gap analyzer** | Child | `spawned` | **gap-closer** (when `gapsFound: true`) | Spawn gap-closer on happy path; resolve dispatch |
@@ -108,7 +109,7 @@ P{nn} — {partTitle}
   or copied from skill frontmatter **`name`** alone
 
 **Skill stubs (author under `skills/` when implementing):**
-`master-plan` (optional if leader owns master plan inline), `part-planner`,
+`master-plan` (spawned on happy path — §4), `part-planner`,
 `author`, `gap-analyzer`, `gap-closer`, `document-reviewer`, `revision-author`,
 `content-generator`. Sync:
 [../author-simple-document/skills/file-synchronizer/SKILL.md](../author-simple-document/skills/file-synchronizer/SKILL.md).
@@ -188,27 +189,41 @@ USER_CHECKPOINT — use template · supply structure outline · revise intake ·
 
 **Forbidden:** editing the selected template in place; treating the template path as the multi-part working document; skipping the new-filename proposal when `intakeMode` is `template`.
 
-### 4. Author and approve master plan
+### 4. Author and approve master plan (spawned master-plan lane)
 
-- **Type:** Branching logic (leader or spawned master-plan skill)
-- **Intent:** Produce a reviewable **master plan**: document overview, ordered
+- **Type:** Agent engagement and handover
+- **execution:** `spawned` (leader → master-plan)
+- **Intent:** After §3 intake, Squad Leader spawns **master-plan**; the child
+  produces a reviewable **master plan**: document overview, ordered
   parts/sections, and high-level content notes — not full part prose.
-- **Inputs:** Intake from §3; folder binding; optional prior master plan artifact.
-- **Expected output:** Approved master plan (path or in-dispatch artifact);
-  `parts[]` with stable part ids/titles; `continuationStatus` for the delivery loop.
-- **Next-step resolution:** Approved → §5 standing options / §6 part loop.
-  Rejected → revise master plan.
+- **Inputs:** Intake from §3 (`intakeMode`, `relativeFilePath`, optional
+  `templatePath` / structure outline); folder binding (`localPath`, `folderSlug`,
+  rclone fields); `operationsDocsDirectory`.
+- **Expected output:** Child terminal with `masterPlanPath`; `parts[]` with
+  stable `partId` / titles; `userApprovedMasterPlan: true`;
+  `continuationStatus: terminal`.
+- **Next-step resolution:** Child terminal → §5 standing options / §6 part loop.
+  Rejected or aborted on child lane → USER_CHECKPOINT on leader (retry · abort).
 
-USER_CHECKPOINT — approve master plan · revise master plan · abort.
+**Procedure (binding)**
 
-**Relevant Links (post-write — binding):** After Write/StrReplace that creates or
-materially edits the approved master plan artifact, call MCP
-**`mission_control_update_relevant_documents`** with its absolute path
-(`kind: plan`) on this lane — same turn preferred. See §5b and
-[`skills/README.md`](skills/README.md) § *Relevant Links — post-write registration*.
+1. Squad Leader emits **`mission_control_spawn_agent`** for
+   **`skills/master-plan/SKILL.md`** with §3 + folder binding inputs.
+   Set spawn **`name`** to **`Master plan`** (or a ≤64-char document title when
+   known); **`description`**: one-line scope (≤512 chars).
+2. Open **#external-wait** on the leader before ending the turn (wait for
+   master-plan terminal).
+3. **On the master-plan lane** (see `skills/master-plan/SKILL.md`): draft artifact
+   under dispatch **`plans/`**; resolve open questions via structured choice;
+   **USER_CHECKPOINT** — approve master plan · revise master plan · abort.
+4. On approval: register **`masterPlanPath`** via
+   **`mission_control_update_relevant_documents`**; emit terminal
+   **`mission_control_send_agent_result`**.
+5. Squad Leader records `masterPlanPath` and `parts[]`, then routes to §5.
 
-**Forbidden:** one-pass full-document authoring on this step (that is Author
-Simple Document).
+**Forbidden:** leader inline master-plan authoring; one-pass full-document
+authoring on this step (that is Author Simple Document); Squad Leader
+USER_CHECKPOINT to re-approve a plan already approved on the master-plan lane.
 
 ### 5. Standing options (Squad Leader — always while active)
 
@@ -244,7 +259,7 @@ dispatch **must** include **Sync documents** until dispatch resolution.
 | **Label** | Sync documents |
 | **Placement** | After mission-specific options; **before** the universal modal trailer (`more-details` … `other`) per rule **2** |
 
-**Applies to:** §5 standing gate; intake and master-plan gates (§§3–4);
+**Applies to:** §5 standing gate; §3 intake gate on the leader lane;
 **#external-wait** resume modals while child lanes run; gap / content-generator /
 PDF / sync failure gates on the **leader** lane — any Squad Leader gate after
 folder bind.
@@ -273,15 +288,16 @@ Normative platform contract:
 
 | Call | Skip |
 |------|------|
-| Approved **master plan** (Squad Leader §4), **part plans**, **gap reports**, **review plans** under dispatch **`plans/`** or **`operationsDocsDirectory`** | Read-only `Read` / Grep |
+| Approved **master plan** (**master-plan** skill §4), **part plans**, **gap reports**, **review plans** under dispatch **`plans/`** or **`operationsDocsDirectory`** | Read-only `Read` / Grep |
 | **SoT changes follow-up** docs and **conversation-review** evidence under **`operationsDocsDirectory`** | Paths already registered this session with no content change |
 | **Working document** at **`localPath` + `relativeFilePath`** when materially edited | Warm-up manifests; transient scratch; build artifacts |
 
 **Kind hints:** ops plans and reports → `plan` or `other`; working document →
 `other` (optional **`label`** with part id or basename).
 
-**Squad Leader §4 (binding):** After the approved master plan is written, register
-its absolute path via **`mission_control_update_relevant_documents`**.
+**Master-plan skill §4 (binding):** After the approved master plan is written on
+the **master-plan** child lane, that lane registers its absolute path via
+**`mission_control_update_relevant_documents`** — not the Squad Leader.
 
 **Forbidden:** prose-only “add to Relevant Links”; registering every read path;
 using display-metadata MCP (`mission_control_update_lane_display` /

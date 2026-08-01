@@ -76,6 +76,7 @@ Platform authority:
 
 | Skill | Register after write |
 |-------|---------------------|
+| **master-plan** | `masterPlanPath` (`kind: plan`) |
 | **part-planner** | `partPlanPath` (`kind: plan`) |
 | **author** | working doc + SoT follow-up doc (`kind: other`) |
 | **gap-analyzer** | `gapReportPath` (`kind: plan`) |
@@ -84,4 +85,4 @@ Platform authority:
 | **revision-author** | working doc + SoT follow-up doc (`kind: other`) |
 | **content-generator** | working doc when content written (`kind: other`) |
 
-Squad Leader master plan registration: **`plan.mdc`** §4 and §5b.
+Master plan registration: **`master-plan/SKILL.md`** and **`plan.mdc`** §5b.
