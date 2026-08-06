@@ -103,6 +103,30 @@ USER_CHECKPOINT — pick registered folder slug when the opening message does no
 - Record whether **`source-of-truth/`** is present (informs `author` vs `refresh` expectations).
 - Re-run **Dispatch display refresh** when the folder slug improves the title.
 
+### 2a. Always-on Sync GDrive folder on Squad Leader structured choice (binding)
+
+After §2 folder bind succeeds, **every** Squad Leader
+**`mission_control_present_structured_choice`** / **AskQuestion** modal on this
+dispatch **must** include **Sync GDrive folder** until dispatch resolution.
+
+| Field | Value |
+|-------|-------|
+| **Option id** | `sync-gdrive-folder` |
+| **Label** | Sync GDrive folder |
+| **Placement** | After mission-specific options; **before** the universal modal trailer per rule **2** |
+
+**Applies to:** §3 intake gate; §4 gather checkpoints; §5 SoT plan approval;
+§7 sync/ship gate; §8 resolution gate; **#external-wait** resume modals on the
+**leader** lane — any Squad Leader gate after §2 folder bind.
+
+**Forbidden:** omitting `sync-gdrive-folder` from any Squad Leader modal after
+§2 folder bind; treating sync as available only at §7 after a write pass.
+
+**On select `sync-gdrive-folder`:** run §7 **rclone sync** branch (registered
+folder per center registry / rclone contract). On success, **re-open the same
+gate** that was active when sync started. User may sync **any number of times**
+during the dispatch.
+
 ### 3. Pick intake mode
 
 - **Type:** Branching logic
@@ -207,6 +231,10 @@ Present in one turn: delta + full plan in **`displayMarkdown`**, then structured
 - **Next-step resolution:** Complete → §8.
 
 USER_CHECKPOINT — rclone sync now · skip sync · start hosting ship (when tracked files changed) · More details for option _.
+
+**§2a cross-ref (binding):** When sync is invoked via **`sync-gdrive-folder`**
+from any earlier gate, run the **rclone sync** branch here, then re-open that
+gate — not only at end-of-write-pass.
 
 | Branch | When | Action |
 |--------|------|--------|
