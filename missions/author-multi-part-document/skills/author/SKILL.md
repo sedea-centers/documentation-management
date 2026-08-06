@@ -2,8 +2,8 @@
 name: Multi-Part Document Author
 designation:
   allowed: >-
-    Render an approved part plan into the target document; run draft→final then
-    part-complete review gates; consult folder source-of-truth when present;
+    Render an approved part plan into the target document as final-quality prose;
+    run part-complete review gates; consult folder source-of-truth when present;
     apply plan-revision notifies from part-planner; review the part conversation
     for SoT alterations, record durable review evidence (including zero
     candidates), and collect approved SoT follow-ups
@@ -53,9 +53,9 @@ warmUpRules:
 
 Spawned **author** for **author-multi-part-document** (normally by
 **part-planner**). Load `partPlanPath` where the part plan was approved, then
-render that part into `localPath` + `relativeFilePath`. Use the **draft→final →
-part-complete** review chain (step 5) until the user confirms **this part** is
-done — not the whole multi-part document.
+render that part into `localPath` + `relativeFilePath` as **final-quality**
+prose, then run the **part-complete** review gate (step 5) until the user
+confirms **this part** is done — not the whole multi-part document.
 
 ## Inputs
 
@@ -105,48 +105,32 @@ When **`relativeFilePath`** ends with **`.docx`** and this lane performs materia
    document output hygiene*. Consult SoT for facts; **forbidden** in the target
    document body: naming **`source-of-truth`** / SoT, or stating that content
    came from that tree.
-5. **Draft→final → part-complete review (binding):** Apply the part plan into
-   the document, then run this two-phase review before part-complete
-   confirmation. Drafts may include reasoning or meta asides for developer
-   review; finals must obey step 4 hygiene (no SoT naming / provenance prose in
-   the document body).
-   1. Write (or revise) the part region. Treat the first substantive write for
-      this part — and any later write that is still draft-quality (reasoning /
-      comments baked into answer boxes, meta asides, unfinished prose) — as a
-      **draft** until the developer approves substance or explicitly skips to
-      final-as-is.
-      - **Relevant Links (after material edit):** After each subsequent
-        Write/StrReplace that **materially edits** the working document at
-        `localPath` + `relativeFilePath`, call MCP
-        **`mission_control_update_relevant_documents`** with the absolute
-        document path (`kind: other`; optional **`label`** with `partId`) —
-        same turn preferred. **Skip** unchanged already-registered paths (step
-        2 pre-edit satisfies the first registration). See **`../README.md`**
-        § *Relevant Links — registration*.
-   2. **Draft review USER_CHECKPOINT** — open structured choice after each draft
-      write (and whenever content is still draft-quality). Options at minimum:
-      **Approve draft → write final copy** · **Revise draft** · **Skip — treat
-      current text as final** · then the universal trailer.
-      **Forbidden on this modal:** offering **Confirm part complete** (or any
-      part-complete confirm label).
-   3. On **Approve draft → write final copy**: rewrite the part region as final
-      prose (no reasoning/meta asides left in the document body); then open the
-      part-complete gate in substep 5.
-   4. On **Skip — treat current text as final**: proceed to the part-complete
-      gate without a second write.
-   5. On **Revise draft**: apply feedback, rewrite the draft, and re-open the
-      draft review gate (substep 2) — do not open part-complete yet.
-   6. **Part-complete USER_CHECKPOINT** — only after finals exist (substep 3) or
-      explicit skip (substep 4). Options at minimum: **Confirm part complete** ·
-      **Revise** · **Defer** · then the universal trailer.
-   7. Loop draft→final (substeps 1–6) for further sections of this part as
-      needed until the user confirms part complete or defers.
+5. **Final-write → part-complete review (binding):** Apply the approved part plan
+   into the document as **final-quality** prose (rule **20** hygiene — no
+   draft-quality meta/reasoning in the document body), then run the part-complete
+   gate.
+   1. Write (or revise) the part region as finals on the first substantive write
+      for this part.
+      - **Relevant Links (after material edit):** After each Write/StrReplace that
+        **materially edits** the working document at `localPath` +
+        `relativeFilePath`, call MCP **`mission_control_update_relevant_documents`**
+        with the absolute document path (`kind: other`; optional **`label`** with
+        `partId`) — same turn preferred. **Skip** unchanged already-registered
+        paths (step 2 pre-edit satisfies the first registration). See
+        **`../README.md`** § *Relevant Links — registration*.
+   2. **Part-complete USER_CHECKPOINT** — after finals exist. Options at minimum:
+      **Confirm part complete** · **Revise** · **Defer** · then the universal
+      trailer.
+   3. On **Revise**: apply feedback, rewrite finals, and re-open the
+      part-complete gate (substep 2) — do not skip review.
+   4. Loop substeps 1–3 for further sections of this part as needed until the
+      user confirms part complete or defers.
 6. **Plan-revision receive (binding):** When part-planner delivers a plan-change
    notification or updated `partPlanPath`, re-read the part plan, reconcile in
    progress work, and continue — do **not** wait for Squad Leader to re-spawn
    this lane. Prefer structured choice only when the revision needs a user pick.
-   After reconciling, if the part region is again draft-quality, re-enter step 5
-   draft review before offering part-complete.
+   After reconciling, rewrite affected regions as finals and re-open the
+   part-complete gate before terminal.
 7. **Direct user SoT requests (binding):** When the user explicitly requests a
    SoT change during this part, append it to the **SoT changes follow-up
    document** under `operationsDocsDirectory` (create the file when missing).
@@ -210,9 +194,9 @@ calling `mission_control_propose_dispatch_resolution`; writing under
 **`source-of-truth/`** on this lane; treating SoT follow-up approval as
 authorization to edit SoT **here** (Squad Leader applies per **`plan.mdc`** §6a
 after part-planner terminal); appending to **`source-of-truth/CHANGELOG.md`** on
-this lane; treating the change log as default SoT consult material; offering **Confirm part
-complete** on the draft-review modal (step 5) before finals or explicit
-skip-to-final.
+this lane; treating the change log as default SoT consult material; separate
+draft-review modal; *Approve draft → write final copy*; *Skip — treat current
+text as final*; offering **Confirm part complete** before finals exist.
 
 ## Completion (spawned)
 

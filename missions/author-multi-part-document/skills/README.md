@@ -3,6 +3,12 @@
 Spawn contracts for **author-multi-part-document** child lanes. Normative mission
 protocol: [`../plan.mdc`](../plan.mdc).
 
+**Spawn ownership (binding):** **Master-plan** spawns **part-planner** on the
+happy path; **part-planner** spawns **author**; Squad Leader does **not** spawn
+part-planner or author directly. **Authoring:** **author** and **revision-author**
+write final-quality prose on first substantive write, then user review gates
+(part-complete / revision-complete) — no draft→final chain.
+
 ## Relevant Links — registration
 
 Mission Control **Relevant Links** refresh from warm-up, spawn `*Path` / `*Ref`
@@ -81,7 +87,7 @@ Platform authority:
 
 | Skill | Register after write |
 |-------|---------------------|
-| **master-plan** | `masterPlanPath` (`kind: plan`) |
+| **master-plan** | `masterPlanPath` (`kind: plan`); spawns **part-planner** per §6 |
 | **part-planner** | `partPlanPath` (`kind: plan`) |
 | **author** | working doc **pre-edit** + after material edits; SoT follow-up on write (`kind: other`) |
 | **gap-analyzer** | `gapReportPath` (`kind: plan`) |

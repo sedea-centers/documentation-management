@@ -4,14 +4,16 @@ designation:
   allowed: >-
     Draft and approve a master plan for a multi-part document from §3 intake;
     resolve open questions via structured choice; write master plan artifact
-    under dispatch plans/; register Relevant Links
+    under dispatch plans/; register Relevant Links; spawn part-planner for
+    each part-delivery request while parts remain
   forbidden: >-
-    Dispatch resolution; one-pass full-document authoring; spawning part-planner
-    or author; editing part prose on this lane
+    Dispatch resolution; one-pass full-document authoring; spawning author;
+    editing part prose on this lane
 description: >-
   Spawned master-plan agent for author-multi-part-document. Produce a reviewable
-  master plan (overview, ordered parts, high-level notes) after §3 intake; return
-  approved artifact and parts[] to Squad Leader.
+  master plan (overview, ordered parts, high-level notes) after §3 intake;
+  orchestrate part-planner spawns for part delivery; return approved artifact
+  and parts[] to Squad Leader.
 inputs:
   intakeMode:
     type: string
@@ -94,19 +96,32 @@ content notes — not full part prose.
    Approve until all items are cleared.
 7. On approval, set `userApprovedMasterPlan: true`. Register **`masterPlanPath`**
    via **`mission_control_update_relevant_documents`** when not already registered
-   this session. Emit terminal **`mission_control_send_agent_result`** with
-   `masterPlanPath`, `parts[]`, and `continuationStatus: terminal`.
+   this session. Emit **milestone** **`mission_control_send_agent_result`** with
+   `masterPlanPath`, `parts[]`, and `continuationStatus: active` (not terminal
+   while parts remain).
+8. **Part delivery orchestration (binding):** When Squad Leader or user requests
+   the next part (`partId`, `partTitle`, master-plan excerpt), spawn
+   **`skills/part-planner/SKILL.md`** with binding inputs. Set spawn **`name`**
+   to **`P{nn} — {partTitle}`** per **`plan.mdc`** § *Part-planner lane title*.
+   Open **#external-wait** before ending the turn (wait for part-planner terminal).
+9. On part-planner terminal, merge outputs (including SoT follow-up fields from
+   the author child via part-planner), update the part ledger, and re-open a
+   master-plan gate: spawn next part · pause · terminal when all parts complete
+   or user abandons.
+10. Emit **terminal** **`mission_control_send_agent_result`** only when all
+    planned parts are complete/deferred or the user abandons part delivery
+    (`continuationStatus: terminal`).
 
 **Forbidden:** one-pass full-document authoring (Author Simple Document scope);
-spawning **part-planner** or **author**; calling
-`mission_control_propose_dispatch_resolution`; prose-only open-question
-collection at the approval gate.
+spawning **author** directly; calling `mission_control_propose_dispatch_resolution`;
+prose-only open-question collection at the approval gate; terminal result
+immediately after master plan approval while parts remain incomplete.
 
 ## Completion (spawned)
 
 **outputs:** `masterPlanPath`, `parts[]` (each with `partId`, `partTitle`),
 `userApprovedMasterPlan`, `unresolvedCount`, `intakeMode`, `relativeFilePath`,
-`continuationStatus`
+`partsComplete[]`, `continuationStatus`
 
 ### MCP result preflight (`mission_control_send_agent_result`)
 
@@ -114,7 +129,7 @@ collection at the approval gate.
 |------|--------|
 | R1 | Call **`mission_control_send_agent_result`** with **`status`**, **`summary`**, optional **`outputs`** / **`errors`** |
 | R2 | **Forbidden args absent** — no **`correlationId`**, **`dispatchId`**, **`slotId`**, or other host-resolved keys |
-| R3 | Populate **`outputs`** from the required field list above; `userApprovedMasterPlan` only after user approval; `unresolvedCount` = remaining open items (0 when none); `continuationStatus: terminal` on happy-path completion |
+| R3 | Populate **`outputs`** from the required field list above; `userApprovedMasterPlan` only after user approval; `unresolvedCount` = remaining open items (0 when none); `continuationStatus: active` after master plan approval; terminal only when part delivery completes or is abandoned |
 | R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) |
 
 ## Completion (inline)

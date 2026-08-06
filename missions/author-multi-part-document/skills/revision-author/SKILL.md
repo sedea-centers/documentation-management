@@ -2,16 +2,17 @@
 name: Multi-Part Document Revision Author
 designation:
   allowed: >-
-    Apply an approved review plan to the target document; run draft→final review
-    gates for material edits; consult folder source-of-truth when present; review
-    the revision conversation for SoT alterations and collect approved follow-ups
+    Apply an approved review plan to the target document as final-quality prose;
+    run revision-complete review gates; consult folder source-of-truth when
+    present; review the revision conversation for SoT alterations and collect
+    approved follow-ups
   forbidden: >-
     Dispatch resolution; edits without approved reviewPlanPath; writes under
     source-of-truth/; planning other parts or review passes; spawning siblings
 description: >-
   Spawned revision author for author-multi-part-document (spawned by
-  document-reviewer). Implement approved review-plan rows, handle draft→final
-  review when needed, and collect SoT follow-ups after revisions complete.
+  document-reviewer). Implement approved review-plan rows as final-quality
+  prose, then run revision-complete review and collect SoT follow-ups.
 inputs:
   reviewPlanPath:
     type: string
@@ -47,8 +48,9 @@ warmUpRules:
 
 Spawned **revision-author** for **author-multi-part-document** (normally by
 **document-reviewer**). Load `reviewPlanPath` where the review plan was approved,
-then apply each approved row to `localPath` + `relativeFilePath`. Mirror the
-**author** lane draft→final and SoT conversation-review contracts.
+then apply each approved row to `localPath` + `relativeFilePath` as
+**final-quality** prose. Mirror the **author** lane final-write and SoT
+conversation-review contracts.
 
 ## Inputs
 
@@ -93,21 +95,19 @@ When **`relativeFilePath`** ends with **`.docx`** and this lane performs materia
    names it.
 4. Authored output hygiene (binding): Follow center rule **20** § *Authored
    document output hygiene*.
-5. **Implement review-plan rows:** Apply each approved resolution. When edits are
-   material, run the **draft→final** structured-choice chain (mirror author step
-   5): draft write → draft review gate → final copy → revision-complete gate.
-   **Forbidden:** skipping draft review for large substantive rewrites.
-   - **Relevant Links (after material edit):** After each subsequent
-     Write/StrReplace that **materially edits** the working document at
-     `localPath` + `relativeFilePath`, call MCP
-     **`mission_control_update_relevant_documents`** with the absolute document
-     path (`kind: other`) — same turn preferred. **Skip** unchanged
-     already-registered paths (step 2 pre-edit satisfies the first
-     registration). See **`../README.md`** § *Relevant Links — registration*.
+5. **Final-write → revision-complete review (binding):** Apply each approved
+   review-plan row as **final-quality** prose (rule **20** hygiene — no
+   draft-quality meta/reasoning in the document body).
+   - **Relevant Links (after material edit):** After each Write/StrReplace that
+     **materially edits** the working document at `localPath` +
+     `relativeFilePath`, call MCP **`mission_control_update_relevant_documents`**
+     with the absolute document path (`kind: other`) — same turn preferred.
+     **Skip** unchanged already-registered paths (step 2 pre-edit satisfies the
+     first registration). See **`../README.md`** § *Relevant Links — registration*.
 6. **Revision-complete USER_CHECKPOINT** — after all approved rows are implemented
    (or explicitly deferred with rationale recorded). Options at minimum:
    **Confirm revisions complete** · **Revise** · **Defer remaining rows** · then
-   the universal trailer.
+   the universal trailer. On **Revise**, rewrite finals and re-open this gate.
 7. **Direct user SoT requests (binding):** When the user explicitly requests a SoT
    change during this pass, append to the SoT changes follow-up document. Do **not**
    write under **`source-of-truth/`**.
@@ -159,7 +159,9 @@ create or reuse
 
 **Forbidden:** dispatch resolution; writing under **`source-of-truth/`** on this
 lane; treating SoT follow-up approval as authorization to edit SoT **here**
-(Squad Leader applies per **`plan.mdc`** §6a after document-reviewer terminal).
+(Squad Leader applies per **`plan.mdc`** §6a after document-reviewer terminal);
+separate draft-review modal; *Approve draft → write final copy*; *Skip — treat
+current text as final*; mandatory draft pass for large edits.
 
 ## Completion (spawned)
 
