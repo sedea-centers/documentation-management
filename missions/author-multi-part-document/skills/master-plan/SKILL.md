@@ -73,8 +73,21 @@ content notes — not full part prose.
    **Forbidden:** leader-lane MCP to relabel this child slot (rule **9**).
 3. Derive document overview and an ordered **`parts[]`** list with stable
    `partId` values and human titles from intake (`templatePath` structure or
-   `structureOutline`). Part count and ordering are session-defined from intake —
-   not full part prose.
+   `structureOutline`). Apply **group-only word-budget sizing** (binding):
+   - Derive initial outline units (sections / paragraphs) from intake.
+   - **Group only — never split.** Merge **adjacent** units into one part until
+     the applicable budget is met. **Forbidden:** splitting one logical outline
+     unit across multiple parts to hit the budget.
+   - **Prose budget:** target **350 words** per part when the part is mainly
+     prose with section titles (~one average page).
+   - **Filler-heavy budget:** target **250 words** per part when the part
+     includes questionnaires, answer instructions, tables with margins, or
+     similar filler-heavy blocks — count those blocks toward the lower target.
+   - **Classification:** set **`contentClass`** on each part row to `prose` or
+     `filler-heavy`; record **`estimatedWordCount`** (intake-based estimate).
+   - **Ordering preserved:** merged parts keep document order; use a combined
+     title or a concise synthesized title.
+   Part count and ordering are session-defined from intake — not full part prose.
 4. Draft the master plan artifact under the dispatch bundle **`plans/`**
    directory. Include an **Unresolved Questions/Concerns** section (empty when
    none remain).
@@ -144,9 +157,9 @@ notifications without revising **`masterPlanPath`** when material.
 
 ## Completion (spawned)
 
-**outputs:** `masterPlanPath`, `parts[]` (each with `partId`, `partTitle`),
-`userApprovedMasterPlan`, `unresolvedCount`, `intakeMode`, `relativeFilePath`,
-`partsComplete[]`, `continuationStatus`
+**outputs:** `masterPlanPath`, `parts[]` (each with `partId`, `partTitle`,
+`estimatedWordCount`, `contentClass`), `userApprovedMasterPlan`, `unresolvedCount`,
+`intakeMode`, `relativeFilePath`, `partsComplete[]`, `continuationStatus`
 
 ### MCP result preflight (`mission_control_send_agent_result`)
 

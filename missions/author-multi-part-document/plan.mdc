@@ -15,8 +15,10 @@ alwaysApply: false
 1. Intake a multi-part document (template **or** given structure) under a folder
    registered in **`.sedea/documentation-management.yaml`**.
 2. Produce an approved **master plan** — overview of document sections and part
-   delivery order. Unlike **Author Simple Document**, do **not** plan and render
-   the entire document in one pass.
+   delivery order. Master-plan **`parts[]`** sizing uses **group-only word budgets**
+   (350 prose / 250 filler-heavy words per part — merge adjacent units, never
+   split). Unlike **Author Simple Document**, do **not** plan and render the
+   entire document in one pass.
 3. Deliver each part via a **part-planner** child lane **spawned by
    master-plan** (not Squad Leader) that **spawns** the **author** child for
    that part. Plan revisions flow **planner → author** (not via Squad Leader
@@ -211,7 +213,8 @@ USER_CHECKPOINT — use template · supply structure outline · revise intake ·
   `templatePath` / structure outline); folder binding (`localPath`, `folderSlug`,
   rclone fields); `operationsDocsDirectory`.
 - **Expected output:** Child milestone with `masterPlanPath`; `parts[]` with
-  stable `partId` / titles; `userApprovedMasterPlan: true`;
+  stable `partId` / titles, **`estimatedWordCount`**, and **`contentClass`**
+  (`prose` | `filler-heavy`); `userApprovedMasterPlan: true`;
   `continuationStatus: active` (master-plan lane stays orchestrator until parts
   complete or user abandons).
 - **Next-step resolution:** Child milestone after approval → §5 standing options.
@@ -227,8 +230,10 @@ USER_CHECKPOINT — use template · supply structure outline · revise intake ·
 2. Open **#external-wait** on the leader before ending the turn (wait for
    master-plan terminal).
 3. **On the master-plan lane** (see `skills/master-plan/SKILL.md`): draft artifact
-   under dispatch **`plans/`**; resolve open questions via structured choice;
-   **USER_CHECKPOINT** — approve master plan · revise master plan · abort.
+   under dispatch **`plans/`**; apply group-only word-budget part sizing (350
+   prose / 250 filler-heavy — merge adjacent units, never split); resolve open
+   questions via structured choice; **USER_CHECKPOINT** — approve master plan ·
+   revise master plan · abort.
 4. On approval: register **`masterPlanPath`** via
    **`mission_control_update_relevant_documents`**; emit **milestone**
    **`mission_control_send_agent_result`** with `continuationStatus: active`
