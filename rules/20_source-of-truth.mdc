@@ -159,6 +159,24 @@ or clearly chronological sections.
 8. Never use the change log as default SoT context unless the user explicitly
    names it and how to use it.
 
+## Binary sidecar files (binding)
+
+When a **binary file** (image, diagram, PDF, or similar non-plaintext payload)
+lives under **`source-of-truth/`**, agents **must** be able to understand it
+from searchable text without processing the binary payload.
+
+| Property | Rule |
+|----------|------|
+| **When** | A binary file is kept under **`source-of-truth/`** |
+| **Sidecar path** | `<same-dir>/<binary-basename>.sidecar.md` |
+| **Purpose** | Searchable text summary so agents need not process binary payloads |
+| **Minimum content** | **Content summary** · **Target audience** · **Key messages** (markdown headings) |
+| **Read authority** | Sidecars are SoT text — consult alongside other SoT files per § Read authority |
+| **Write authority** | Same approval gates as the paired binary |
+
+**Forbidden:** orphan binaries in SoT without a current sidecar; sidecars outside
+**`source-of-truth/`** unless explicitly approved for **this** folder.
+
 ## Related
 
 - Foundation rule — `rules/00_documentation-management.mdc` (folder registry,

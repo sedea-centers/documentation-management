@@ -200,6 +200,24 @@ Present in one turn: delta + full plan in **`displayMarkdown`**, then structured
 
 **Forbidden:** writing SoT files before this approval; unilateral “keep SoT in sync.”
 
+**Binary sidecar planning (binding)**
+
+When the approved SoT change plan includes **binary files** kept under
+**`source-of-truth/`** (images, diagrams, PDFs, and similar non-plaintext
+payloads):
+
+1. For **each** binary path, the plan **must** list a paired **sidecar** markdown
+   path.
+2. **Naming:** `<binary-basename>.sidecar.md` in the **same directory** as the
+   binary (for example `diagrams/architecture.png` →
+   `diagrams/architecture.sidecar.md`).
+3. **Sidecar minimum fields** (markdown headings): **Content summary**, **Target
+   audience**, **Key messages**.
+4. Sidecars are **create** or **update** rows in the plan — same approval gate as
+   the binary.
+5. **Forbidden:** placing binaries in SoT without a planned sidecar when the
+   binary cannot be read as plain text during gather.
+
 ### 6. Write source-of-truth
 
 - **Type:** Simple skill execution
@@ -221,6 +239,21 @@ Present in one turn: delta + full plan in **`displayMarkdown`**, then structured
 - **Forbidden:** treating the write pass complete without the change-log
   append when SoT content paths changed; consulting **`CHANGELOG.md`** as
   default SoT on later gathers in this or other missions.
+
+**Binary sidecar writes (binding)**
+
+When applying an approved plan that includes binary SoT paths:
+
+1. Write or update each approved binary path **and** its paired
+   **`<basename>.sidecar.md`** in the same pass.
+2. Populate sidecar fields from gather notes, user input, or document extraction
+   — **forbidden:** empty placeholder sidecars.
+3. Treat sidecars as **searchable SoT text** for agent read authority (rule
+   **20**); binaries remain the canonical payload.
+4. Include **both** binary and sidecar paths in **`CHANGELOG.md`** entries for
+   the write pass.
+5. On **refresh** when a binary is replaced in place, update the paired sidecar
+   to match.
 
 ### 7. Sync and optional hosting-repo ship
 
