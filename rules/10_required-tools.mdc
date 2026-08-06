@@ -103,11 +103,38 @@ Resolve the installed Sedea application's extension-management CLI:
 |----|------------------|
 | macOS | Explicit user `use-path`; otherwise `/Applications/Sedea.app/Contents/Resources/app/bin/code` |
 | Linux | Explicit user `use-path`; otherwise `sedea` on PATH |
-| Windows | Explicit user `use-path`; otherwise `sedea` on PATH |
+| Windows | Explicit user `use-path`; otherwise **`invoke-sedea-cli.ps1`** (below) — default install root `$env:LOCALAPPDATA\Programs\Sedea` |
 
 The macOS launcher filename is inherited from VS Code packaging; invoking that
 path still targets **Sedea** and its extension directory. Do **not** substitute a
 different editor's `code` command from PATH.
+
+**Windows CLI invoke (binding):** Stock
+`%LOCALAPPDATA%\Programs\Sedea\bin\sedea.cmd` fails on current Windows Sedea
+builds with `ERR_UNSUPPORTED_ESM_URL_SCHEME` (drive-letter path passed to
+Electron `--import`). **Forbidden** until the product ships a fixed shim: bare
+`sedea` / `sedea.cmd` for probe, install, or dry-run. Use the mission helper
+[`missions/required-tools-installation/scripts/invoke-sedea-cli.ps1`](../missions/required-tools-installation/scripts/invoke-sedea-cli.ps1)
+from the center checkout (or the equivalent inline recipe):
+
+```powershell
+$root = "$env:LOCALAPPDATA\Programs\Sedea"   # or user use-path install root
+$exe = Join-Path $root 'Sedea.exe'
+$nlsUrl = ([Uri](Join-Path $root 'resources\app\out\nls.messages.js')).AbsoluteUri
+$cliJs = Join-Path $root 'resources\app\out\cli.js'
+$env:ELECTRON_RUN_AS_NODE = '1'
+& $exe --import $nlsUrl $cliJs @Args   # e.g. --list-extensions --show-versions
+```
+
+Helper usage (center-relative path; pass remaining argv through):
+
+```powershell
+& "<center>/missions/required-tools-installation/scripts/invoke-sedea-cli.ps1" `
+  --list-extensions --show-versions
+```
+
+On Windows, **`<sedea-cli>`** in probe / install / dry-run tables means this
+helper (or the inline recipe), not `sedea.cmd`.
 
 **Probe:** run `"<sedea-cli>" --list-extensions --show-versions`. Match
 **`extensionId`** case-insensitively and parse `<extensionId>@<version>`.
@@ -199,7 +226,7 @@ to mission **configure-gcloud-drive**.
 
 | Registry fields | Sole method id | Notes |
 |-----------------|----------------|-------|
-| `macosMethods`, `linuxMethods`, `windowsMethods` | `sedea-cli-install-vsix` | Resolve the Sedea CLI per **Sedea extensions**. After consent, **download the pinned Open VSX VSIX** then install that path (bypasses broken gallery `.sigzip` for `4.1.7` — [sedea-ai/community#9](https://github.com/sedea-ai/community/issues/9)). **Pinned assets:** VSIX `https://open-vsx.org/api/cweijan/vscode-office/4.1.7/file/cweijan.vscode-office-4.1.7.vsix`. **Agent-executable (Unix):** `VSIX_URL="https://open-vsx.org/api/cweijan/vscode-office/4.1.7/file/cweijan.vscode-office-4.1.7.vsix"`; `VSIX_PATH="${TMPDIR:-/tmp}/cweijan.vscode-office-4.1.7.vsix"`; `curl -fsSL -o "$VSIX_PATH" "$VSIX_URL"`; `"<sedea-cli>" --install-extension "$VSIX_PATH" --force`. **Windows (PowerShell):** download the same URL to `$env:TEMP\cweijan.vscode-office-4.1.7.vsix`, then `"<sedea-cli>" --install-extension <that-path> --force`. **Acceptance:** extension listed via `--list-extensions` (id + version ≥ **`minVersion`**) — **not** gallery signature verify success. **Forbidden:** gallery id `cweijan.vscode-office` while Open VSX ships empty `.signature.p7s` for the release; adding the extension to Sedea's built-in bundle; using another editor's profile. When Open VSX republishes a valid signature, gallery id may return; keep VSIX as a durable empty-sig fallback. |
+| `macosMethods`, `linuxMethods`, `windowsMethods` | `sedea-cli-install-vsix` | Resolve the Sedea CLI per **Sedea extensions**. After consent, **download the pinned Open VSX VSIX** then install that path (bypasses broken gallery `.sigzip` for `4.1.7` — [sedea-ai/community#9](https://github.com/sedea-ai/community/issues/9)). **Pinned assets:** VSIX `https://open-vsx.org/api/cweijan/vscode-office/4.1.7/file/cweijan.vscode-office-4.1.7.vsix`. **Agent-executable (Unix):** `VSIX_URL="https://open-vsx.org/api/cweijan/vscode-office/4.1.7/file/cweijan.vscode-office-4.1.7.vsix"`; `VSIX_PATH="${TMPDIR:-/tmp}/cweijan.vscode-office-4.1.7.vsix"`; `curl -fsSL -o "$VSIX_PATH" "$VSIX_URL"`; `"<sedea-cli>" --install-extension "$VSIX_PATH" --force`. **Windows (PowerShell):** download the same URL to `$env:TEMP\cweijan.vscode-office-4.1.7.vsix`, then install via **`invoke-sedea-cli.ps1`** (or the Windows `file://` `--import` recipe under **Sedea extensions**) — **not** bare `sedea.cmd`: `Invoke-WebRequest -Uri "https://open-vsx.org/api/cweijan/vscode-office/4.1.7/file/cweijan.vscode-office-4.1.7.vsix" -OutFile "$env:TEMP\cweijan.vscode-office-4.1.7.vsix" -UseBasicParsing`; `& "<center>/missions/required-tools-installation/scripts/invoke-sedea-cli.ps1" --install-extension "$env:TEMP\cweijan.vscode-office-4.1.7.vsix" --force`. **Acceptance:** extension listed via `--list-extensions` (id + version ≥ **`minVersion`**) — **not** gallery signature verify success. **Forbidden:** gallery id `cweijan.vscode-office` while Open VSX ships empty `.signature.p7s` for the release; adding the extension to Sedea's built-in bundle; using another editor's profile; Windows bare `sedea.cmd` while the ESM `--import` shim is broken. When Open VSX republishes a valid signature, gallery id may return; keep VSIX as a durable empty-sig fallback. |
 
 **dryRuns:**
 
