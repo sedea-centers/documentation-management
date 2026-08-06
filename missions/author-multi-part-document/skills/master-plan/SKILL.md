@@ -4,16 +4,18 @@ designation:
   allowed: >-
     Draft and approve a master plan for a multi-part document from §3 intake;
     resolve open questions via structured choice; write master plan artifact
-    under dispatch plans/; register Relevant Links; spawn part-planner for
-    each part-delivery request while parts remain
+    under dispatch plans/; register Relevant Links; spawn part-planner,
+    gap-analyzer, and document-reviewer per plan.mdc §6 / §7 / §7a; revise
+    master plan when plan-affecting child outputs or notifications arrive
   forbidden: >-
-    Dispatch resolution; one-pass full-document authoring; spawning author;
-    editing part prose on this lane
+    Dispatch resolution; one-pass full-document authoring; spawning author or
+    gap-closer; editing part prose on this lane
 description: >-
   Spawned master-plan agent for author-multi-part-document. Produce a reviewable
   master plan (overview, ordered parts, high-level notes) after §3 intake;
-  orchestrate part-planner spawns for part delivery; return approved artifact
-  and parts[] to Squad Leader.
+  orchestrate part-planner, gap-analyzer, and document-reviewer spawns; maintain
+  master plan when downstream work affects parts; return approved artifact and
+  parts[] to Squad Leader.
 inputs:
   intakeMode:
     type: string
@@ -104,18 +106,41 @@ content notes — not full part prose.
    **`skills/part-planner/SKILL.md`** with binding inputs. Set spawn **`name`**
    to **`P{nn} — {partTitle}`** per **`plan.mdc`** § *Part-planner lane title*.
    Open **#external-wait** before ending the turn (wait for part-planner terminal).
-9. On part-planner terminal, merge outputs (including SoT follow-up fields from
-   the author child via part-planner), update the part ledger, and re-open a
-   master-plan gate: spawn next part · pause · terminal when all parts complete
-   or user abandons.
-10. Emit **terminal** **`mission_control_send_agent_result`** only when all
+9. **Gap-analysis orchestration (binding):** When Squad Leader or user requests
+   gap analysis (handoff with authored-part refs and folder binding), spawn
+   **`skills/gap-analyzer/SKILL.md`**. Open **#external-wait** before ending the
+   turn (wait for gap-analyzer terminal). On terminal, merge gap outputs; when
+   material to part order, scope, or high-level notes, patch **`masterPlanPath`**
+   and re-register via **`mission_control_update_relevant_documents`**.
+10. **Document-review orchestration (binding):** When Squad Leader opt-in routes
+    document comment review (handoff with folder binding, document path, ops docs
+    root, optional gap-report pointer), spawn
+    **`skills/document-reviewer/SKILL.md`**. Open **#external-wait** before ending
+    the turn (wait for document-reviewer terminal). On terminal, merge review
+    outputs; when material, patch **`masterPlanPath`** and re-register Relevant
+    Links.
+11. **Plan-revision ingest (binding):** When **`mission_control_notify_child_lanes`**
+    delivers `changeType: plan-revision` or child terminal **`outputs`** include
+    **`affectedPlanPaths`** intersecting **`masterPlanPath`**, read the cited
+    plans, revise the master plan artifact (parts order/titles/notes), register
+    updated path, and emit **milestone** **`mission_control_send_agent_result`**
+    with `continuationStatus: active` — not terminal while the dispatch remains
+    active.
+12. On part-planner, gap-analyzer, or document-reviewer terminal, merge outputs
+    (including SoT follow-up fields from nested children where applicable),
+    update the part ledger when applicable, and re-open a master-plan gate:
+    spawn next part · request gap analysis · document comment review · pause ·
+    terminal when all parts complete or user abandons.
+13. Emit **terminal** **`mission_control_send_agent_result`** only when all
     planned parts are complete/deferred or the user abandons part delivery
     (`continuationStatus: terminal`).
 
 **Forbidden:** one-pass full-document authoring (Author Simple Document scope);
-spawning **author** directly; calling `mission_control_propose_dispatch_resolution`;
-prose-only open-question collection at the approval gate; terminal result
-immediately after master plan approval while parts remain incomplete.
+spawning **author** or **gap-closer** directly; calling
+`mission_control_propose_dispatch_resolution`; prose-only open-question collection
+at the approval gate; terminal result immediately after master plan approval while
+parts remain incomplete; ignoring plan-affecting child terminals or plan-revision
+notifications without revising **`masterPlanPath`** when material.
 
 ## Completion (spawned)
 

@@ -3,10 +3,13 @@
 Spawn contracts for **author-multi-part-document** child lanes. Normative mission
 protocol: [`../plan.mdc`](../plan.mdc).
 
-**Spawn ownership (binding):** **Master-plan** spawns **part-planner** on the
-happy path; **part-planner** spawns **author**; Squad Leader does **not** spawn
-part-planner or author directly. **Authoring:** **author** and **revision-author**
-write final-quality prose on first substantive write, then user review gates
+**Spawn ownership (binding):** **Master-plan** spawns **part-planner**,
+**gap-analyzer**, and **document-reviewer** on the happy path; **part-planner**
+spawns **author**; **gap-analyzer** spawns **gap-closer**; **document-reviewer**
+spawns **revision-author**; Squad Leader **notifies master-plan** for part
+delivery, gap analysis, and document comment review — and does **not** spawn
+those skills directly. **Authoring:** **author** and **revision-author** write
+final-quality prose on first substantive write, then user review gates
 (part-complete / revision-complete) — no draft→final chain.
 
 ## Relevant Links — registration
@@ -87,7 +90,7 @@ Platform authority:
 
 | Skill | Register after write |
 |-------|---------------------|
-| **master-plan** | `masterPlanPath` (`kind: plan`); spawns **part-planner** per §6 |
+| **master-plan** | `masterPlanPath` (`kind: plan`); spawns **part-planner**, **gap-analyzer**, **document-reviewer** per §6 / §7 / §7a; revises master plan on plan-affecting child outputs |
 | **part-planner** | `partPlanPath` (`kind: plan`) |
 | **author** | working doc **pre-edit** + after material edits; SoT follow-up on write (`kind: other`) |
 | **gap-analyzer** | `gapReportPath` (`kind: plan`) |

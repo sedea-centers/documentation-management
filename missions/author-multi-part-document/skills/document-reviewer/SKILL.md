@@ -5,7 +5,7 @@ designation:
     Sync the remote document; inventory review comments; write and approve a
     review plan; resolve ambiguities via structured choice; spawn revision-author
     after plan approval; aggregate revision outputs into one terminal result to
-    Squad Leader
+    master-plan
   forbidden: >-
     Dispatch resolution; implementing document revisions on this lane; spawning
     revision-author before review-plan approval on the happy path; requiring
@@ -74,7 +74,7 @@ implementation (nested spawn — mirror part-planner → author).
      `reviewPlanPath` (`kind: plan`) on this lane — same turn preferred. See
      **`../README.md`** § *Relevant Links — post-write registration*.
 4. Set `commentsFound: true | false`.
-5. **If `commentsFound: false`:** emit terminal result to Squad Leader
+5. **If `commentsFound: false`:** emit terminal result to **master-plan**
    (`continuationStatus: terminal`).
 6. **If `commentsFound: true`:** For each ambiguous row, open structured choice
    (one `askQuestion.questions` entry per item; same modal may batch). **Forbidden:**
@@ -90,7 +90,7 @@ implementation (nested spawn — mirror part-planner → author).
 9. **On revision-author terminal:** merge revision outputs (including SoT
    follow-up fields: `sotPresent`, `sotConsulted`, `sotFollowUpPath`,
    `sotFollowUpStatus`, `sotFollowUpCount`) and emit **one**
-   terminal **`mission_control_send_agent_result`** to Squad Leader.
+   terminal **`mission_control_send_agent_result`** to **master-plan**.
 10. **`.docx` validate-before-sync (binding):** When **`relativeFilePath`**
     ends with **`.docx`** and this pass will run outbound **`bisync`** / **`sync`**
     on the working file, run **`docx-ooxml-validate.sh`** per
@@ -126,8 +126,8 @@ step 9 (or step 5 when no comments).
 ### Host protocol line
 
 Nested spawn: document-reviewer owns **`mission_control_spawn_agent`** for
-revision-author and waits for the child terminal before reporting to Squad Leader.
-revision-author terminal delivers to **this** lane, not Squad Leader.
+revision-author and waits for the child terminal before reporting to **master-plan**.
+revision-author terminal delivers to **this** lane, not master-plan.
 
 ## Completion (inline)
 

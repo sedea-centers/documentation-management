@@ -4,7 +4,7 @@ designation:
   allowed: >-
     Compare authored parts for contradictions or misinterpretations; write a
     gap report; spawn gap-closer when gaps are found; aggregate closer outputs
-    into one terminal result to Squad Leader
+    into one terminal result to master-plan
   forbidden: >-
     Dispatch resolution; silently editing the document to close gaps; emitting
     terminal result before gap-closer finishes when closer was spawned; requiring
@@ -69,7 +69,7 @@ contradictions or misinterpretations. Produce a gap report; when gaps are found,
      `gapReportPath` (`kind: plan`) on this lane — same turn preferred. See
      **`../README.md`** § *Relevant Links — post-write registration*.
 4. Set `gapsFound: true | false`.
-5. **If `gapsFound: false`:** emit terminal result to Squad Leader
+5. **If `gapsFound: false`:** emit terminal result to **master-plan**
    (`continuationStatus: terminal`).
 6. **If `gapsFound: true`:** USER_CHECKPOINT — spawn gap-closer with full report
    · spawn subset of proposed closer actions · skip closer (report only).
@@ -81,7 +81,7 @@ contradictions or misinterpretations. Produce a gap report; when gaps are found,
    result yet).
 8. **On gap-closer terminal:** merge closer outputs (`gapsClosed`,
    `remainingGaps`) and emit **one** terminal
-   **`mission_control_send_agent_result`** to Squad Leader.
+   **`mission_control_send_agent_result`** to **master-plan**.
 
 **Forbidden:** editing the target document to “fix” gaps here; dispatch
 resolution; emitting a **terminal** analyzer result before gap-closer has
@@ -110,8 +110,8 @@ gap-closer on this lane. Emit the **terminal** analyzer result only after step 8
 ### Host protocol line
 
 Nested spawn: gap-analyzer owns **`mission_control_spawn_agent`** for
-gap-closer and waits for the child terminal before reporting to Squad Leader.
-gap-closer terminal delivers to **this** lane, not Squad Leader.
+gap-closer and waits for the child terminal before reporting to **master-plan**.
+gap-closer terminal delivers to **this** lane, not master-plan.
 
 ## Completion (inline)
 

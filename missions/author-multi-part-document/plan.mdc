@@ -1,7 +1,8 @@
 ---
 description: >-
   Multi-part document authoring — master plan, per-part planner/author lanes,
-  optional gap analysis (gap-analyzer spawns gap-closer; repeatable runs), Generate Content, sync anytime, and
+  optional gap analysis (master-plan spawns gap-analyzer; gap-analyzer spawns
+  gap-closer; repeatable runs), Generate Content, sync anytime, and
   Squad Leader–initiated PDF export. Extends Author Simple Document with
   part-based delivery over hours to weeks.
 alwaysApply: false
@@ -31,11 +32,12 @@ alwaysApply: false
    When consulting SoT while authoring a part, do **not** treat
    **`CHANGELOG.md`** as authoritative unless the user explicitly names it and
    explains how to use it (rule **20** § *Change log*).
-4. Between parts, when the user requests it, spawn a **gap-analyzer** to detect
-   contradictions or misinterpretations across authored parts; when gaps are
-   found, the **gap-analyzer** spawns **gap-closer** on its lane (nested spawn).
-   After each analyzer/closer cycle, the Squad Leader offers **another gap
-   analysis run** — multiple passes often surface different issues.
+4. Between parts, when the user requests it, **master-plan** (not Squad Leader)
+   spawns a **gap-analyzer** to detect contradictions or misinterpretations across
+   authored parts; when gaps are found, the **gap-analyzer** spawns **gap-closer**
+   on its lane (nested spawn). After each analyzer/closer cycle, the Squad Leader
+   offers **another gap analysis run** (routed to master-plan) — multiple passes
+   often surface different issues.
 5. Keep Squad Leader / master-plan standing options available for the whole
    active dispatch: **Generate Content**, **Sync documents**, **Export PDF**,
    continue part delivery, request gap analysis, and finish/approve content.
@@ -53,10 +55,18 @@ alwaysApply: false
    **`mission_control_propose_dispatch_resolution`** when the pass is complete,
    partial, or abandoned.
 9. **Document comment review (optional):** After gap analysis (or on demand from
-   §5), when the user opts in, sync the remote document, inventory review
-   comments, approve a review plan, implement revisions via a **revision-author**
-   child lane, collect SoT follow-ups, and offer return to **gap analysis** or
-   standing options.
+   §5), when the user opts in on the Squad Leader lane, **master-plan** (not Squad
+   Leader) spawns **document-reviewer** to sync the remote document, inventory
+   review comments, approve a review plan, implement revisions via a
+   **revision-author** child lane, collect SoT follow-ups, and offer return to
+   **gap analysis** or standing options.
+10. **Master-plan plan hygiene (binding):** While the dispatch is active,
+   **master-plan** maintains the approved **master plan** artifact when
+   downstream work (part-planner terminals, gap analysis/closer cycles,
+   document-reviewer/revision-author cycles) materially affects part order,
+   scope, or high-level notes — via child terminals and
+   **`mission_control_notify_child_lanes`** when plan-change notification is
+   enabled.
 
 ## Squad operations (multi-part document delivery)
 
@@ -66,13 +76,13 @@ Sync and PDF conversion reuse Author Simple Document / Convert Document contract
 
 | Role | Lane | `execution` | Spawns / owns | Does not |
 |------|------|-------------|---------------|----------|
-| **Squad Leader** | Dispatch leader | — | `master-plan`, gap-analyzer, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter**; **§6a SoT auto-apply** after part/review child terminals; notify **master-plan** for next-part delivery | Draft/approve master plan inline; spawn **part-planner** or **author** on the happy path; spawn **gap-closer** on the happy path (gap-analyzer owns that); resolve dispatch from a child lane |
-| **Master plan agent** | Child | `spawned` | Draft + approve master plan artifact; Relevant Links for `masterPlanPath`; **spawn part-planner** for each part-delivery request | Spawn **author**; `mission_control_propose_dispatch_resolution` |
+| **Squad Leader** | Dispatch leader | — | `master-plan`, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter**; **§6a SoT auto-apply** after part/review child terminals; **notify master-plan** for next-part delivery, gap analysis, and document comment review | Draft/approve master plan inline; spawn **part-planner**, **author**, **gap-analyzer**, or **document-reviewer** on the happy path; spawn **gap-closer** on the happy path (gap-analyzer owns that); resolve dispatch from a child lane |
+| **Master plan agent** | Child | `spawned` | Draft + approve master plan artifact; Relevant Links for `masterPlanPath`; **spawn part-planner**, **gap-analyzer**, and **document-reviewer** per §6 / §7 / §7a; **revise master plan** when plan-affecting child outputs or notifications arrive | Spawn **author** or **gap-closer**; `mission_control_propose_dispatch_resolution` |
 | **Part planner** | Child | `spawned` | **author** (after part-plan approval); plan-revision notify to author | `mission_control_propose_dispatch_resolution`; requiring Squad Leader to re-spawn author for plan revisions |
 | **Author** | Child | `spawned` (by part-planner) | SoT conversation review + SoT follow-up collection | `mission_control_propose_dispatch_resolution`; spawning other parts |
-| **Gap analyzer** | Child | `spawned` | **gap-closer** (when `gapsFound: true`) | Spawn gap-closer on happy path; resolve dispatch |
+| **Gap analyzer** | Child | `spawned` (by master-plan) | **gap-closer** (when `gapsFound: true`) | Spawn gap-closer on happy path; resolve dispatch |
 | **Gap closer** | Child | `spawned` (by gap-analyzer) | — | `mission_control_propose_dispatch_resolution`; terminal to gap-analyzer parent only |
-| **Document reviewer** | Child | `spawned` | **revision-author** (after review-plan approval); sync via §9 rules | Resolve dispatch; spawn revision-author before plan approval on happy path |
+| **Document reviewer** | Child | `spawned` (by master-plan) | **revision-author** (after review-plan approval); sync via §9 rules | Resolve dispatch; spawn revision-author before plan approval on happy path |
 | **Revision author** | Child | `spawned` (by document-reviewer) | SoT conversation review + follow-up collection | `mission_control_propose_dispatch_resolution`; spawning other parts/review passes |
 | **Content generator** | Child | `spawned` | — | `mission_control_propose_dispatch_resolution` |
 | **File synchronizer** | Child | `spawned` | — | Same conflict contract as Author Simple Document |
@@ -243,9 +253,9 @@ USER_CHECKPOINT — start/continue next part · request gap analysis · handle d
 
 | Option | Next |
 |--------|------|
-| **Start / continue next part** | §6 (master-plan orchestration — notify or hand off to master-plan lane) |
-| **Request gap analysis** | §7 |
-| **Handle document review comments** | §7a (leader opt-in gate) |
+| **Start / continue next part** | §6 (notify or hand off to master-plan lane) |
+| **Request gap analysis** | §7 (notify master-plan — master-plan spawns gap-analyzer) |
+| **Handle document review comments** | §7a (leader opt-in gate → notify master-plan) |
 | **Generate Content** | §8 |
 | **`sync-documents`** — Sync documents | §9 |
 | **Export PDF** | §10 (Squad Leader only) |
@@ -438,12 +448,12 @@ USER_CHECKPOINT — retry part-planner · skip/defer this part · abort after ch
 
 ### 7. Gap analysis with nested gap-closer (repeatable between parts)
 
-- **Type:** Agent engagement and handover (nested: leader → gap-analyzer → gap-closer)
-- **execution:** `spawned` (nested on gap-analyzer lane)
+- **Type:** Agent engagement and handover (nested: master-plan → gap-analyzer → gap-closer)
+- **execution:** `spawned` (nested on gap-analyzer lane; master-plan owns top spawn)
 - **Intent:** Identify contradictions or misinterpretations between newly authored
   parts and previously authored parts; when gaps exist, close them on the
   gap-analyzer lane without Squad Leader re-spawn; then offer another analysis
-  pass from the leader.
+  pass from the leader (routed to master-plan).
 - **Inputs:** Paths/excerpts of authored parts; master plan; user focus hints;
   folder binding (`localPath`, `relativeFilePath`); `operationsDocsDirectory`.
 - **Expected output:** Gap report; `gapsFound: true | false`; when closer runs,
@@ -451,27 +461,36 @@ USER_CHECKPOINT — retry part-planner · skip/defer this part · abort after ch
 - **Next-step resolution:** Analyzer terminal → post-gap gate (below). Post-gap
   gate → §7 again (repeat analysis) or §5.
 
-**Target skill (Squad Leader spawn):** `skills/gap-analyzer/SKILL.md`
+**Target skill (master-plan spawn):** `skills/gap-analyzer/SKILL.md`
 
 **Procedure (binding)**
 
-1. **Squad Leader** spawns **`skills/gap-analyzer/SKILL.md`** with authored-part
-   refs and folder binding. Open **#external-wait** before ending the turn.
-2. **On the gap-analyzer lane:** write the gap report; set `gapsFound`.
-3. **If `gapsFound: false`:** emit analyzer terminal result → Squad Leader
-   post-gap gate.
-4. **If `gapsFound: true`:** USER_CHECKPOINT on the gap-analyzer lane — spawn
+1. **Squad Leader** routes §5 *Request gap analysis* to the **master-plan** lane —
+   prefer **`mission_control_notify_child_lanes`** with gap-analysis intent and
+   authored-part refs when plan-change notification is enabled; otherwise
+   equivalent handoff on the master-plan child lane. **Forbidden on the happy
+   path:** Squad Leader spawning **gap-analyzer** directly.
+2. **Master-plan** spawns **`skills/gap-analyzer/SKILL.md`** with authored-part
+   refs and folder binding. Open **#external-wait** before ending the turn (wait
+   for gap-analyzer terminal).
+3. **On the gap-analyzer lane:** write the gap report; set `gapsFound`.
+4. **If `gapsFound: false`:** emit analyzer terminal result → master-plan merges
+   outputs (revise master plan when plan-affecting — see **Master-plan plan hygiene**
+   objective §10) → master-plan notifies Squad Leader → post-gap gate.
+5. **If `gapsFound: true`:** USER_CHECKPOINT on the gap-analyzer lane — spawn
    gap-closer with full report · spawn subset of proposed closer actions · skip
    closer (report only). **Forbidden:** Squad Leader spawning **gap-closer** on
    the happy path.
-5. **On gap-analyzer lane after closer pick:** when the user chooses closer spawn,
+6. **On gap-analyzer lane after closer pick:** when the user chooses closer spawn,
    emit **`mission_control_spawn_agent`** for **`skills/gap-closer/SKILL.md`**
    with `gapReportPath`, `localPath`, `relativeFilePath`, `operationsDocsDirectory`,
    and optional `closerActions`. Keep **`continuationStatus: active`** until
    gap-closer terminal (mirror part-planner → author).
-6. **On gap-closer terminal:** gap-analyzer merges closer outputs and emits **one**
-   terminal **`mission_control_send_agent_result`** to Squad Leader.
-7. **Squad Leader post-gap USER_CHECKPOINT** — run gap analysis again · start
+7. **On gap-closer terminal:** gap-analyzer merges closer outputs and emits **one**
+   terminal **`mission_control_send_agent_result`** to **master-plan**. Master-plan
+   merges gap outputs, revises **`masterPlanPath`** when material, and notifies
+   Squad Leader.
+8. **Squad Leader post-gap USER_CHECKPOINT** — run gap analysis again · start
    document comment review (§7a) · continue part delivery (§6) · return to §5
    standing options · pause. Include **`sync-documents`** per §5a.
 
@@ -484,9 +503,9 @@ explicitly stops requesting analysis.
 
 ### 7a. Document comment review (optional — after gap analysis or on demand)
 
-- **Type:** Agent engagement and handover (nested: leader → document-reviewer →
+- **Type:** Agent engagement and handover (nested: master-plan → document-reviewer →
   revision-author)
-- **execution:** `spawned` (nested on document-reviewer lane)
+- **execution:** `spawned` (nested on document-reviewer lane; master-plan owns top spawn)
 - **Intent:** After authoring and gap analysis (or when the user requests from §5),
   offer to handle **review comments** embedded in the remote document. Sync from
   remote, inventory comments, produce an approved **review plan**, implement
@@ -513,31 +532,38 @@ Options: **Start document comment review** · **Skip — return to standing opti
 
 **Forbidden:** auto-starting review without user opt-in after gap analysis.
 
-**Target skill (Squad Leader spawn):** `skills/document-reviewer/SKILL.md`
+**Target skill (master-plan spawn):** `skills/document-reviewer/SKILL.md`
 
 **Procedure (binding)**
 
-1. **Squad Leader** spawns **`skills/document-reviewer/SKILL.md`** with folder
-   binding, document path, ops docs root, and optional gap-report pointer. Open
-   **#external-wait** before ending the turn.
-2. **On document-reviewer lane — sync & inventory:** Run inbound sync (same bisync
+1. **Squad Leader** opens the opt-in gate above. On **Start document comment
+   review**, route to the **master-plan** lane — prefer
+   **`mission_control_notify_child_lanes`** with document-review intent, folder
+   binding, document path, ops docs root, and optional gap-report pointer when
+   plan-change notification is enabled; otherwise equivalent handoff on the
+   master-plan child lane. **Forbidden on the happy path:** Squad Leader spawning
+   **document-reviewer** directly.
+2. **Master-plan** spawns **`skills/document-reviewer/SKILL.md`** with the same
+   binding inputs. Open **#external-wait** before ending the turn (wait for
+   document-reviewer terminal).
+3. **On document-reviewer lane — sync & inventory:** Run inbound sync (same bisync
    / file-synchronizer contract as §9). Read the working document and flag **all
    review comments** (inline comments, suggestions, tracked-changes metadata —
    format-specific extraction per skill). Write **`reviewPlanPath`** under
    `operationsDocsDirectory` with one row per comment: id, location, comment
    text, proposed resolution, ambiguity flag.
-3. **If `commentsFound: false`:** emit reviewer terminal (`commentsFound: false`)
-   → Squad Leader post-review gate.
-4. **If `commentsFound: true`:** For each row marked **ambiguous**, open
+4. **If `commentsFound: false`:** emit reviewer terminal (`commentsFound: false`)
+   → master-plan merges outputs → Squad Leader post-review gate.
+5. **If `commentsFound: true`:** For each row marked **ambiguous**, open
    structured choice on the document-reviewer lane (one question per item or
    batched modal — mirror part-planner open-questions binding).
-5. **USER_CHECKPOINT (document-reviewer)** — approve review plan · revise plan ·
+6. **USER_CHECKPOINT (document-reviewer)** — approve review plan · revise plan ·
    skip implementation (report only).
-6. **On approve:** document-reviewer spawns **`skills/revision-author/SKILL.md`**
+7. **On approve:** document-reviewer spawns **`skills/revision-author/SKILL.md`**
    with `reviewPlanPath`, folder binding, `operationsDocsDirectory`, optional
    `sotFollowUpPath`. Keep **`continuationStatus: active`** until
    revision-author terminal (mirror part-planner → author).
-7. **On revision-author lane:** Implement each approved review-plan row in the
+8. **On revision-author lane:** Implement each approved review-plan row in the
    target document as **final-quality** prose immediately (see
    **Revision-author final-write review** binding in §6); after revisions,
    review conversation for SoT
@@ -565,10 +591,12 @@ agent-only short-circuit. **`none` semantics:** reviewed with zero approved
 proposals — not skipped review. **Forbidden:** writing under **`source-of-truth/`**
 from this mission.
 
-8. **On revision-author terminal:** document-reviewer merges outputs (including
+9. **On revision-author terminal:** document-reviewer merges outputs (including
    SoT follow-up fields from revision-author) and emits **one** terminal
-   **`mission_control_send_agent_result`** to Squad Leader.
-9. **Squad Leader:** run **§6a SoT auto-apply** when merged outputs include
+   **`mission_control_send_agent_result`** to **master-plan**. Master-plan merges
+   review outputs, revises **`masterPlanPath`** when material, and notifies Squad
+   Leader.
+10. **Squad Leader:** run **§6a SoT auto-apply** when merged outputs include
    appended follow-ups; then open **post-review USER_CHECKPOINT** — run gap analysis again (§7) ·
    continue next part (§6) · return to §5 standing options · run another comment
    review pass · pause. Include **`sync-documents`** per §5a.
