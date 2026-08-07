@@ -237,7 +237,11 @@ USER_CHECKPOINT — use template · supply structure outline · revise intake ·
 4. On approval: register **`masterPlanPath`** via
    **`mission_control_update_relevant_documents`**; emit **milestone**
    **`mission_control_send_agent_result`** with `continuationStatus: active`
-   (not terminal while parts remain).
+   (not terminal while parts remain). **Forbidden:** master-plan lane
+   **`mission_control_refocus_parent_lane`** before terminal completion; refocus on
+   the same turn as post-approval milestone delivery; refocus parent and spawn
+   part-planner on the same turn (part delivery follows §6 after Squad Leader §5
+   handoff on a **later** master-plan turn).
 5. Squad Leader records `masterPlanPath` and `parts[]`, then routes to §5.
    Master-plan lane remains active for part-planner orchestration (§6).
 

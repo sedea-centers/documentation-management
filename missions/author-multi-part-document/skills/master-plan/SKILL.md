@@ -114,6 +114,27 @@ content notes — not full part prose.
    this session. Emit **milestone** **`mission_control_send_agent_result`** with
    `masterPlanPath`, `parts[]`, and `continuationStatus: active` (not terminal
    while parts remain).
+
+   **MCP parent refocus (binding):** See [`.sedea/centers/sedea/skills/README.md`](../../../../sedea/skills/README.md)
+   § *Optional parent refocus*. Long-running orchestration — **do not refocus** while
+   **`continuationStatus: active`**.
+
+   | When | **`mission_control_refocus_parent_lane`** |
+   |------|-------------------------------------------|
+   | Milestone after master plan approval (this step, `continuationStatus: active`) | **Forbidden** |
+   | Any orchestration turn while parts remain (steps 8–12) | **Forbidden** |
+   | Terminal result only (step 13 — all parts complete/deferred/abandoned) | **Optional** — after any open gate closes, **immediately before** terminal **`mission_control_send_agent_result`** |
+
+   **Turn ordering after master plan approval (binding):**
+   1. Register **`masterPlanPath`** via Relevant Links.
+   2. Emit **milestone** **`mission_control_send_agent_result`** with
+      `continuationStatus: active`.
+   3. **Forbidden:** **`mission_control_refocus_parent_lane`** on the milestone turn.
+   4. **Forbidden:** refocus parent **and** spawn part-planner on the **same** turn.
+   5. Part-planner spawn (step 8) runs on a **later** turn — after Squad Leader §5
+      *Start / continue next part* handoff (notify or equivalent), not bundled with
+      milestone delivery.
+
 8. **Part delivery orchestration (binding):** When Squad Leader or user requests
    the next part (`partId`, `partTitle`, master-plan excerpt), spawn
    **`skills/part-planner/SKILL.md`** with binding inputs. Set spawn **`name`**
@@ -153,7 +174,10 @@ spawning **author** or **gap-closer** directly; calling
 `mission_control_propose_dispatch_resolution`; prose-only open-question collection
 at the approval gate; terminal result immediately after master plan approval while
 parts remain incomplete; ignoring plan-affecting child terminals or plan-revision
-notifications without revising **`masterPlanPath`** when material.
+notifications without revising **`masterPlanPath`** when material;
+**`mission_control_refocus_parent_lane`** before terminal completion (steps 7–12);
+refocus parent on the same turn as post-approval milestone delivery; refocus parent
+and spawn part-planner on the same turn.
 
 ## Completion (spawned)
 
