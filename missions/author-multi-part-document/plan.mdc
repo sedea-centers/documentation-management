@@ -720,6 +720,13 @@ Open **#external-wait** while the child runs.
   when sync started from §5 standing options, return to §5. Conflict → spawn
   file-synchronizer, then re-open that same gate. Hard error → USER_CHECKPOINT.
 
+**Pending markup outbound gate (binding):** Before outbound **`rclone bisync`**
+on **`.docx`** working copies, apply the same gate as Author Simple Document §7
+— run **`scripts/docx-outbound-sync-gate.mjs`** per rule **10** § *Outbound sync
+pending-markup gate* with upstream **`markupPending`** when known; **fail closed**
+when pending markup remains. Pass **`markupPending`** into spawned
+**file-synchronizer** when applicable.
+
 Follow Author Simple Document protocol sections for inbound/outbound bisync,
 Drive format pairing, and
 [../author-simple-document/skills/file-synchronizer/SKILL.md](../author-simple-document/skills/file-synchronizer/SKILL.md).

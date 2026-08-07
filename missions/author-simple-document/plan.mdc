@@ -294,6 +294,16 @@ treating **`CHANGELOG.md`** as default SoT for deviation compare.
 - **Expected output:** Bisync success, or conflict artifacts requiring §4a.
 - **Next-step resolution:** Bisync clean → §8. Conflict → §4a then §8. Hard error → USER_CHECKPOINT below.
 
+**Pending markup outbound gate (binding — before outbound bisync):** When
+**`relativeFilePath`** ends with **`.docx`**, run
+**`scripts/docx-outbound-sync-gate.mjs`** per rule **10** § *Outbound sync
+pending-markup gate* **before** **`rclone bisync`**. Pass **`--markup-pending
+true|false`** when the active author lane reported **`markupPending`**; when
+omitted, the script falls back to **`list-pending`**. **Fail closed** on
+non-zero exit — do not push while pending markup exists. Non-**`.docx`** targets
+skip this gate. Mission Control approval copy for pending mode lives in PR 4;
+this step enforces the boolean/file gate only.
+
 Run **`rclone bisync`** with the same remote binding as §4. When the remote is
 "dirty" (both sides changed since last bisync), treat as §4a conflict — spawn
 **file-synchronizer** rather than overwriting silently.

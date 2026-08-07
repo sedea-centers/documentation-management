@@ -501,6 +501,33 @@ override optional). After every markup mutation, run **`docx-ooxml-validate.sh`*
 (fail closed). **`list-pending`** and **`accept-all`** are the **binding interface**
 for author / sync / reviewer skills — do not substitute ad-hoc XML for those operations.
 
+## Outbound sync pending-markup gate (binding)
+
+**Canonical gate helper:** center script **`scripts/docx-outbound-sync-gate.mjs`**
+(Node-only). Applies to **outbound** **`rclone bisync`** / **`sync`** paths only
+(inbound §4 pull is **not** gated by pending markup).
+
+| Input | Behavior |
+|-------|----------|
+| **`--markup-pending true`** | **Block** sync (exit 1) — trust upstream author skill output |
+| **`--markup-pending false`** | **Allow** sync (exit 0) — pending cleared per upstream lane |
+| **Omitted** | Run **`list-pending`** on the absolute **`.docx`** path; block when `pending: true` |
+
+**Invoke (from hosting workspace or center worktree):**
+
+```bash
+node .sedea/centers/documentation-management/scripts/docx-outbound-sync-gate.mjs \
+  --markup-pending true "/absolute/path/to/file.docx"
+node .sedea/centers/documentation-management/scripts/docx-outbound-sync-gate.mjs \
+  "/absolute/path/to/file.docx"
+node .sedea/centers/documentation-management/scripts/docx-outbound-sync-gate.mjs --self-test
+```
+
+Substitute **`CENTER_WORKTREE_ROOT/scripts/docx-outbound-sync-gate.mjs`** when editing
+under an active center worktree. **Fail closed** on exit **1** — do not run outbound
+**`bisync`** / **`sync`**. Binding surfaces: Author Simple Document §7, Author
+Multi-Part §9, and **`file-synchronizer`** outbound **`rclone sync`**.
+
 Mitigation context: doc authoring track-changes PRD (dispatch `f6020f03-9121-413c-b6e4-d1e881fae704`).
 
 ## Document extraction during gathers (binding)

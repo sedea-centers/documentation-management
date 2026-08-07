@@ -36,6 +36,13 @@ inputs:
     type: string
     description: Absolute path to .conflict2 side file
     required: false
+  markupPending:
+    type: boolean
+    description: >-
+      When true, outbound sync is blocked until pending markup clears. When false,
+      sync may proceed. When omitted on .docx targets, the gate falls back to
+      docx-markup.mjs list-pending on the local file.
+    required: false
 timeoutMs: 1800000
 warmUpRules:
   - .sedea/centers/documentation-management/rules/00_documentation-management.mdc
@@ -55,6 +62,29 @@ When changes are **semantic** (conflicting intent), USER_CHECKPOINT — explain
 and ask which resolution path prevails (`local` | `remote` | `merged` via More
 details). Write the final file to `localPath` + `relativeFilePath`, then run
 **`rclone sync`** (not bisync) to update the remote copy.
+
+### Pending markup outbound gate (binding)
+
+Before any outbound **`rclone sync`** (including post-conflict sync on this
+skill), enforce the PRD hard gate: **no outbound push while pending markup
+exists**.
+
+When **`relativeFilePath`** ends with **`.docx`**:
+
+1. Resolve the absolute local file path: **`localPath` + `relativeFilePath`**.
+2. Run **`scripts/docx-outbound-sync-gate.mjs`** (from center repo root, or
+   **`CENTER_WORKTREE_ROOT/scripts/docx-outbound-sync-gate.mjs`**) via **`node`**:
+   - Pass **`--markup-pending true`** or **`--markup-pending false`** when spawn
+     **`inputs.markupPending`** is known from the upstream author lane.
+   - When **`markupPending`** is omitted, invoke with the absolute **`.docx`**
+     path only — the script falls back to **`list-pending`**.
+3. **Fail closed** on non-zero exit — do **not** run **`rclone sync`**. Report
+   that outbound sync is blocked until pending markup clears (Word accept or
+   Mission Control **`accept-all`** on a later pass — PR 4 mission gates).
+4. **Exit 0** only when the gate allows sync — then continue to validate-before-sync
+   and Drive format pairing below.
+
+Non-**`.docx`** targets skip this gate.
 
 ### `.docx` validate-before-sync (binding)
 
