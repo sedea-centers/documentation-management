@@ -69,6 +69,11 @@ alwaysApply: false
    scope, or high-level notes — via child terminals and
    **`mission_control_notify_child_lanes`** when plan-change notification is
    enabled.
+11. **Brainstorming intake (optional):** Before master planning, the Squad Leader
+    may spawn **document-brainstorm** so the **user** can explore folder docs,
+    source-of-truth, and intent in a dedicated child lane. An approved brainstorm
+    report pre-seeds §4 **master-plan** intake (objectives, scope, documents to
+    change) without a second leader approval gate before master-plan spawn.
 
 ## Squad operations (multi-part document delivery)
 
@@ -78,7 +83,8 @@ Sync and PDF conversion reuse Author Simple Document / Convert Document contract
 
 | Role | Lane | `execution` | Spawns / owns | Does not |
 |------|------|-------------|---------------|----------|
-| **Squad Leader** | Dispatch leader | — | `master-plan`, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter**; **§6a SoT auto-apply** after part/review child terminals; **notify master-plan** for next-part delivery, gap analysis, and document comment review | Draft/approve master plan inline; spawn **part-planner**, **author**, **gap-analyzer**, or **document-reviewer** on the happy path; spawn **gap-closer** on the happy path (gap-analyzer owns that); resolve dispatch from a child lane |
+| **Squad Leader** | Dispatch leader | — | **`document-brainstorm`**, **`master-plan`**, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter**; **§6a SoT auto-apply** after part/review child terminals; **notify master-plan** for next-part delivery, gap analysis, and document comment review | Draft/approve master plan inline; spawn **part-planner**, **author**, **gap-analyzer**, or **document-reviewer** on the happy path; spawn **gap-closer** on the happy path (gap-analyzer owns that); resolve dispatch from a child lane |
+| **Document brainstorm agent** | Child | `spawned` | Scan registered folder docs + SoT; Q&A loop with **user**; write brainstorm report under ops docs | Spawn **master-plan** or other part lanes; `mission_control_propose_dispatch_resolution` |
 | **Master plan agent** | Child | `spawned` | Draft + approve master plan artifact; Relevant Links for `masterPlanPath`; **spawn part-planner**, **gap-analyzer**, and **document-reviewer** per §6 / §7 / §7a; **revise master plan** when plan-affecting child outputs or notifications arrive | Spawn **author** or **gap-closer**; `mission_control_propose_dispatch_resolution` |
 | **Part planner** | Child | `spawned` | **author** (after part-plan approval); plan-revision notify to author | `mission_control_propose_dispatch_resolution`; requiring Squad Leader to re-spawn author for plan revisions |
 | **Author** | Child | `spawned` (by part-planner) | SoT conversation review + SoT follow-up collection | `mission_control_propose_dispatch_resolution`; spawning other parts |
@@ -122,7 +128,7 @@ P{nn} — {partTitle}
   or copied from skill frontmatter **`name`** alone
 
 **Skill stubs (author under `skills/` when implementing):**
-`master-plan` (spawned on happy path — §4), `part-planner`,
+`document-brainstorm` (spawned on happy path — §2.5), `master-plan` (spawned on happy path — §4), `part-planner`,
 `author`, `gap-analyzer`, `gap-closer`, `document-reviewer`, `revision-author`,
 `content-generator`. Sync:
 [../author-simple-document/skills/file-synchronizer/SKILL.md](../author-simple-document/skills/file-synchronizer/SKILL.md).
@@ -171,25 +177,79 @@ and
 
 USER_CHECKPOINT — pick registered folder slug · provide relative file path · start Required Tools Installation in a new dispatch · abort.
 
+### 2.5 Brainstorming intake (optional — `brainstorm-first`)
+
+- **Type:** Agent engagement and handover
+- **execution:** `spawned`
+- **Intent:** Free-form exploration of folder documents and source-of-truth until
+  the **user** is ready to start multi-part authoring; produce an approved
+  brainstorm report for **master-plan** intake.
+- **Trigger:** User selects **`brainstorm-first`** at §3 (or opening message
+  states brainstorm-first after §2 folder bind).
+- **Target agent role:** Document brainstorm agent
+- **Assigned skill:** [`skills/document-brainstorm/SKILL.md`](skills/document-brainstorm/SKILL.md)
+- **Checkpoint child UX:** Report completion USER_CHECKPOINT lives on the child
+  skill — see **`document-brainstorm/SKILL.md`** § *Report completion gate*; this
+  §2.5 **#external-wait** covers leader spawn-and-wait only.
+- **Inputs:** Folder binding from §2 (`folderSlug`, `localPath`, rclone fields);
+  `operationsDocsDirectory`; optional `brainstormTopic`, `brainstormPrompt`,
+  `openingSeeds` from user message.
+- **Expected output:** Child terminal with `outputs.brainstormReportPath`,
+  `outputs.userApprovedReport`, `outputs.objectives[]`,
+  `outputs.documentsToChange[]`, `outputs.downstreamHandoffSummary`, or
+  `outputs.abandonMission: true`.
+- **Next-step resolution:**
+  - `userApprovedReport: true` + `continuationStatus: terminal` → compile §4
+    **master-plan** spawn inputs from report (`intakeMode: structure-given` or
+    derived template hints, `relativeFilePath` when known, structure outline +
+    objectives from report; `brainstormReportPath` / `brainstormReportRef`) →
+    **auto-chain §4** on the same leader turn (**forbidden:** repeat §3
+    USER_CHECKPOINT before master-plan spawn).
+  - `abandonMission: true` → §11 dispatch resolution **`abandoned`**.
+  - Otherwise → USER_CHECKPOINT gate below.
+
+USER_CHECKPOINT — pick next step when brainstorm child reports failure or partial.
+
+**Procedure (binding)**
+
+1. **Spawn turn:** Emit exactly one **`mission_control_spawn_agent`** for
+   **`document-brainstorm`** with §2 folder binding + optional topic/prompt
+   seeds — **alone** per rule **4** spawn-turn sequencing.
+2. **Next turn:** After host-visible spawn confirmation, open **#external-wait**
+   structured choice before StreamFinal.
+3. On terminal **`userApprovedReport: true`**, record `brainstormReportPath` /
+   `brainstormReportRef` on the leader ledger and emit §4 **master-plan** spawn
+   (spawn turn alone) without re-collecting §3 template/structure on the leader
+   lane.
+4. On **`abandonMission: true`**, propose dispatch resolution — do not spawn §4.
+
+**Checkpoint auto-chain (binding):** Under **`trustLevel: checkpoint`**, approved
+brainstorm report → §4 master-plan spawn is **happy-path auto-advance** on the
+leader lane — **forbidden:** USER_CHECKPOINT to re-approve starting master-plan
+when report outputs include `userApprovedReport: true`.
+
 ### 3. Intake — template or structure
 
 - **Type:** Branching logic
 - **Intent:** Collect how the multi-part document is shaped before master planning.
 - **Inputs:** Folder binding from §2; optional template path; optional structure
   outline from the user.
-- **Expected output:** `intakeMode` = `template` | `structure-given`; when
-  `template`: `templatePath` (read-only source) + `relativeFilePath` (new working
-  document under `localPath`); when `structure-given`: approved structure outline;
-  optional existing document to extend (non-template path only).
-- **Next-step resolution:** Intake approved with a writable working document → §4.
-  Incomplete → re-ask.
+- **Expected output:** `intakeMode` = `template` | `structure-given` |
+  `brainstorm-first`; when `template`: `templatePath` (read-only source) +
+  `relativeFilePath` (new working document under `localPath`); when
+  `structure-given`: approved structure outline; optional existing document to
+  extend (non-template path only); when `brainstorm-first`: route to §2.5 until
+  brainstorm completes or abandons.
+- **Next-step resolution:** **`brainstorm-first`** → §2.5. Other modes: intake
+  approved with a writable working document → §4. Incomplete → re-ask.
 
-USER_CHECKPOINT — use template · supply structure outline · revise intake · abort.
+USER_CHECKPOINT — brainstorm first · use template · supply structure outline · revise intake · abort.
 
 **Modes (binding):**
 
 | Mode | Outcome |
 |------|---------|
+| **Brainstorm first** | Squad Leader spawns **document-brainstorm** (§2.5). After approved report, auto-chain §4 **master-plan** with report-derived intake — skip template/structure collection on the leader lane until brainstorm completes or abandons. |
 | **Use template** | User supplies `templatePath`. Agent **duplicates** the template into a **new** working document under `localPath` (propose a new filename; confirm or revise before write). Master plan and all later edits target **only** the new file. |
 | **Structure given** | User supplies section/part structure; master plan uses that outline on a new or existing **non-template** working file. |
 
@@ -206,12 +266,14 @@ USER_CHECKPOINT — use template · supply structure outline · revise intake ·
 
 - **Type:** Agent engagement and handover
 - **execution:** `spawned` (leader → master-plan)
-- **Intent:** After §3 intake, Squad Leader spawns **master-plan**; the child
-  produces a reviewable **master plan**: document overview, ordered
-  parts/sections, and high-level content notes — not full part prose.
+- **Intent:** After §3 intake (or §2.5 auto-chain), Squad Leader spawns
+  **master-plan**; the child produces a reviewable **master plan**: document
+  overview, ordered parts/sections, and high-level content notes — not full part
+  prose.
 - **Inputs:** Intake from §3 (`intakeMode`, `relativeFilePath`, optional
-  `templatePath` / structure outline); folder binding (`localPath`, `folderSlug`,
-  rclone fields); `operationsDocsDirectory`.
+  `templatePath` / structure outline) or §2.5 terminal (`brainstormReportPath`,
+  `brainstormReportRef`, `structureOutline` / objectives from report); folder
+  binding (`localPath`, `folderSlug`, rclone fields); `operationsDocsDirectory`.
 - **Expected output:** Child milestone with `masterPlanPath`; `parts[]` with
   stable `partId` / titles, **`estimatedWordCount`**, and **`contentClass`**
   (`prose` | `filler-heavy`); `userApprovedMasterPlan: true`;
@@ -301,7 +363,7 @@ table).
 ### 5b. Relevant Links post-write registration (binding)
 
 Mission Control **Relevant Links** do **not** auto-update from Write/StrReplace.
-Every lane that creates or materially edits a file the developer should reopen
+Every lane that creates or materially edits a file the user should reopen
 must call MCP **`mission_control_update_relevant_documents`** on the **calling
 slot** in the **same turn** (or the next turn before StreamFinal).
 

@@ -3,7 +3,8 @@
 Spawn contracts for **author-multi-part-document** child lanes. Normative mission
 protocol: [`../plan.mdc`](../plan.mdc).
 
-**Spawn ownership (binding):** **Master-plan** spawns **part-planner**,
+**Spawn ownership (binding):** Squad Leader spawns **`document-brainstorm`** (§2.5)
+and **`master-plan`** (§4). **Master-plan** spawns **part-planner**,
 **gap-analyzer**, and **document-reviewer** on the happy path; **part-planner**
 spawns **author**; **gap-analyzer** spawns **gap-closer**; **document-reviewer**
 spawns **revision-author**; Squad Leader **notifies master-plan** for part
@@ -42,7 +43,7 @@ normalizes, dedupes, persists, and patches the panel.
 ### When to call (binding)
 
 After **Write**, **StrReplace**, or equivalent that **creates or materially edits**
-a workspace file the developer should open from Relevant Links, call
+a workspace file the user should open from Relevant Links, call
 **`mission_control_update_relevant_documents`** on the **same turn** (or the next
 turn before StreamFinal) with those absolute paths.
 
@@ -90,6 +91,7 @@ Platform authority:
 
 | Skill | Register after write |
 |-------|---------------------|
+| **document-brainstorm** | `brainstormReportPath` (`kind: other`) |
 | **master-plan** | `masterPlanPath` (`kind: plan`); spawns **part-planner**, **gap-analyzer**, **document-reviewer** per §6 / §7 / §7a; revises master plan on plan-affecting child outputs |
 | **part-planner** | `partPlanPath` (`kind: plan`) |
 | **author** | working doc **pre-edit** + after material edits; SoT follow-up on write (`kind: other`) |
