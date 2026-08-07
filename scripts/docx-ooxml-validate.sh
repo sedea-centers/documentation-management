@@ -22,15 +22,16 @@ hygiene_check() {
   local docx="$1"
   local tmp
   tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' RETURN
 
   if ! unzip -qq -o "$docx" -d "$tmp" >/dev/null 2>&1; then
+    rm -rf "$tmp"
     echo "docx-ooxml-validate: not a readable ZIP/docx package: $docx" >&2
     return 1
   fi
 
   local ct="$tmp/[Content_Types].xml"
   if [[ -f "$ct" ]] && grep -qE 'xmlns:ns[0-9]+=|<ns[0-9]+:' "$ct"; then
+    rm -rf "$tmp"
     echo "docx-ooxml-validate: prefixed default xmlns on [Content_Types].xml (Word-hostile)." >&2
     return 1
   fi
@@ -38,10 +39,13 @@ hygiene_check() {
   local rel
   while IFS= read -r -d '' rel; do
     if grep -qE 'xmlns:ns[0-9]+=|<ns[0-9]+:' "$rel"; then
+      rm -rf "$tmp"
       echo "docx-ooxml-validate: prefixed default xmlns on ${rel#$tmp/} (Word-hostile)." >&2
       return 1
     fi
   done < <(find "$tmp" -name '*.rels' -print0)
+
+  rm -rf "$tmp"
 }
 
 run_ooxml_validator() {
@@ -58,9 +62,11 @@ run_ooxml_validator() {
 
 self_test() {
   require_node
-  local tmp docx
+  local tmp docx script_dir markup
   tmp="$(mktemp -d)"
   docx="$tmp/minimal.docx"
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  markup="$script_dir/docx-markup.mjs"
   # Minimal OOXML package Word accepts (empty document).
   mkdir -p "$tmp/_rels" "$tmp/word/_rels"
   cat >"$tmp/[Content_Types].xml" <<'EOF'
@@ -90,6 +96,34 @@ EOF
   (cd "$tmp" && zip -qr "$docx" '[Content_Types].xml' _rels word)
   hygiene_check "$docx"
   run_ooxml_validator "$docx"
+
+  if [[ ! -f "$markup" ]]; then
+    echo "docx-ooxml-validate: missing docx-markup.mjs beside validator" >&2
+    return 1
+  fi
+
+  local track_docx="$tmp/track-change.docx"
+  local red_docx="$tmp/red-run.docx"
+  cp "$docx" "$track_docx"
+  cp "$docx" "$red_docx"
+
+  node "$markup" mark-insert "$track_docx" --text " pending insert"
+  hygiene_check "$track_docx"
+  run_ooxml_validator "$track_docx"
+
+  node "$markup" mark-delete "$track_docx" --text "validate"
+  hygiene_check "$track_docx"
+  run_ooxml_validator "$track_docx"
+
+  node "$markup" mark-red "$red_docx" --text "validate"
+  hygiene_check "$red_docx"
+  run_ooxml_validator "$red_docx"
+
+  node "$markup" list-pending "$track_docx" >/dev/null
+  node "$markup" accept-all "$track_docx"
+  hygiene_check "$track_docx"
+  run_ooxml_validator "$track_docx"
+
   rm -rf "$tmp"
   echo "docx-ooxml-validate: self-test passed"
 }

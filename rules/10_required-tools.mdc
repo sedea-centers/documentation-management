@@ -472,7 +472,36 @@ bash .sedea/centers/documentation-management/scripts/docx-ooxml-validate.sh "/ab
 Substitute **`CENTER_WORKTREE_ROOT/scripts/docx-ooxml-validate.sh`** when editing
 under an active center worktree.
 
-Mitigation context: [documentation-management#67](https://github.com/sedea-centers/documentation-management/issues/67).
+## Pending OOXML markup script (binding)
+
+**Canonical markup helper:** center script **`scripts/docx-markup.mjs`** (Node-only).
+**Forbidden:** Python OOXML stacks for pending markup.
+
+| Subcommand | Purpose |
+|------------|---------|
+| **`mark-insert`** | Wrap new text in `w:ins` with `w:author` / `w:date` |
+| **`mark-delete`** | Wrap removed text in `w:del` |
+| **`mark-red`** | Apply `w:color FF0000` to the run containing `--text` |
+| **`list-pending`** | JSON report: `insCount`, `delCount`, `redRunCount`, `pending` |
+| **`accept-all`** | Flatten track changes; strip red color |
+
+**Invoke (from hosting workspace or center worktree):**
+
+```bash
+node .sedea/centers/documentation-management/scripts/docx-markup.mjs list-pending "/absolute/path/to/file.docx"
+node .sedea/centers/documentation-management/scripts/docx-markup.mjs mark-insert "/absolute/path/to/file.docx" --text "new prose"
+node .sedea/centers/documentation-management/scripts/docx-markup.mjs mark-delete "/absolute/path/to/file.docx" --text "text to remove"
+node .sedea/centers/documentation-management/scripts/docx-markup.mjs mark-red "/absolute/path/to/file.docx" --text "text to highlight"
+node .sedea/centers/documentation-management/scripts/docx-markup.mjs accept-all "/absolute/path/to/file.docx"
+```
+
+Substitute **`CENTER_WORKTREE_ROOT/scripts/docx-markup.mjs`** when editing under an
+active center worktree. Default **`w:author`**: **`Sedea Author Agent`** (`--author`
+override optional). After every markup mutation, run **`docx-ooxml-validate.sh`**
+(fail closed). **`list-pending`** and **`accept-all`** are the **binding interface**
+for author / sync / reviewer skills — do not substitute ad-hoc XML for those operations.
+
+Mitigation context: doc authoring track-changes PRD (dispatch `f6020f03-9121-413c-b6e4-d1e881fae704`).
 
 ## Document extraction during gathers (binding)
 
