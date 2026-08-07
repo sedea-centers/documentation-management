@@ -46,9 +46,11 @@ warmUpRules:
 # Author Simple Document Author
 
 Spawned author for **author-simple-document**. Load `planPath` and the document at
-`localPath` + `relativeFilePath`. Render **Proposed Changes** into the file.
-Interact with the user until they confirm the document is done. Do not edit
-without a plan where `planApproved` was true.
+`localPath` + `relativeFilePath`. Render **Proposed Changes** into the file —
+when **`markupMode: final`** (default), as final-quality prose; when
+**`markupMode: pending`** on **`.docx`**, as pending markup per § *Pending markup
+mode* (not final unmarked prose). Interact with the user until they confirm the
+document is done. Do not edit without a plan where `planApproved` was true.
 
 ## Source of truth (binding)
 
