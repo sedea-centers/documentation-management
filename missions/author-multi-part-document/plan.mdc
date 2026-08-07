@@ -716,13 +716,46 @@ Open **#external-wait** while the child runs.
 - **Inputs:** Folder binding; `relativeFilePath`; Drive format pairing rules from
   Author Simple Document.
 - **Expected output:** Clean bisync, or conflict resolved via file-synchronizer.
-- **Next-step resolution:** Success → re-open the gate that invoked sync (§5a);
-  when sync started from §5 standing options, return to §5. Conflict → spawn
-  file-synchronizer, then re-open that same gate. Hard error → USER_CHECKPOINT.
+- **Next-step resolution:** When **`markupMode: pending`** on a **`.docx`**
+  working copy and pending markup remains → pending-markup approval
+  USER_CHECKPOINT below (before script gate). When approval clears or mode is
+  not pending → script gate then bisync. Success → re-open the gate that
+  invoked sync (§5a); when sync started from §5 standing options, return to §5.
+  Conflict → spawn file-synchronizer, then re-open that same gate. Hard error →
+  USER_CHECKPOINT.
 
-**Pending markup outbound gate (binding):** Before outbound **`rclone bisync`**
-on **`.docx`** working copies, apply the same gate as Author Simple Document §7
-— run **`scripts/docx-outbound-sync-gate.mjs`** per rule **10** § *Outbound sync
+**Pending markup approval gate (binding — `markupMode: pending` only):**
+Before outbound **`rclone bisync`** on **`.docx`** working copies, when the
+latest **author** or **revision-author** child for this document used
+**`markupMode: pending`** and **`outputs.markupPending: true`** (or
+**`list-pending`** reports pending when the flag is absent), open structured
+choice on the **Squad Leader** lane **before** the script gate and bisync.
+**Skip** when **`markupMode: final`**, the target is not **`.docx`**, or
+**`list-pending`** on the absolute local **`.docx`** already reports no pending
+markup (Word accept path — set **`markupPending: false`** and auto-advance).
+
+Resolve absolute docx path: **`localPath` + `relativeFilePath`**. Invoke
+**`scripts/docx-markup.mjs list-pending`** per rule **10** § *Pending OOXML
+markup script* when the gate opens. Timing mirrors §7a document-review opt-in —
+this gate runs on every outbound sync attempt while pending markup remains.
+
+USER_CHECKPOINT — approve pending markup before outbound sync.
+
+| Option id | Label | Agent action |
+|-----------|-------|--------------|
+| `word-accept-done` | Accepted in Word — re-check and continue | Re-run **`list-pending`**. When empty: set **`markupPending: false`**, run **`docx-ooxml-validate.sh`**, then continue to the script gate + bisync. When still pending: re-open this gate with recap |
+| `accept-all-pending` | Accept all pending markup (Mission Control) | Run **`docx-markup.mjs accept-all`**, **`docx-ooxml-validate.sh`**, re-run **`list-pending`** (must be empty), set **`markupPending: false`**, then script gate + bisync |
+| `revise-document` | Revise document before sync | Route to §6 part delivery or §7a document review as appropriate — **forbidden** outbound bisync |
+| `defer-sync` | Defer outbound sync | Re-open the gate that invoked sync (§5a) without bisync |
+
+**Forbidden:** outbound **`rclone bisync`** while **`markupMode: pending`** and
+pending markup remain without a named approval pick; calling **`accept-all`**
+without **`accept-all-pending`** pick; treating Word accept as satisfied without
+re-running **`list-pending`**.
+
+**Pending markup outbound gate (binding — after approval when applicable):**
+Before outbound **`rclone bisync`** on **`.docx`** working copies, run
+**`scripts/docx-outbound-sync-gate.mjs`** per rule **10** § *Outbound sync
 pending-markup gate* with upstream **`markupPending`** when known; **fail closed**
 when pending markup remains. Pass **`markupPending`** into spawned
 **file-synchronizer** when applicable.

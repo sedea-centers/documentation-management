@@ -292,17 +292,48 @@ treating **`CHANGELOG.md`** as default SoT for deviation compare.
 - **Intent:** Push the authored local file to the configured remote after edits.
 - **Inputs:** Same folder binding and `relativeFilePath` as §4.
 - **Expected output:** Bisync success, or conflict artifacts requiring §4a.
-- **Next-step resolution:** Bisync clean → §8. Conflict → §4a then §8. Hard error → USER_CHECKPOINT below.
+- **Next-step resolution:** When **`markupMode: pending`** on a **`.docx`**
+  target and pending markup remains → pending-markup approval USER_CHECKPOINT
+  below (before script gate). When approval clears or mode is not pending →
+  script gate then bisync. Bisync clean → §8. Conflict → §4a then §8. Hard
+  error → USER_CHECKPOINT below.
 
-**Pending markup outbound gate (binding — before outbound bisync):** When
-**`relativeFilePath`** ends with **`.docx`**, run
+**Pending markup approval gate (binding — `markupMode: pending` only):** When
+the §6 author child used **`markupMode: pending`** on a **`.docx`**
+**`relativeFilePath`** and **`outputs.markupPending: true`** (or
+**`list-pending`** reports pending when the flag is absent), open structured
+choice **before** the script gate and **`rclone bisync`**. **Skip** when
+**`markupMode: final`** (default), the target is not **`.docx`**, or
+**`list-pending`** on the absolute local **`.docx`** already reports no pending
+markup (Word accept path — set **`markupPending: false`** and auto-advance to
+the script gate).
+
+Resolve absolute docx path: **`localPath` + `relativeFilePath`**. Invoke
+**`scripts/docx-markup.mjs list-pending`** per rule **10** § *Pending OOXML
+markup script* when the gate opens.
+
+USER_CHECKPOINT — approve pending markup before outbound sync.
+
+| Option id | Label | Agent action |
+|-----------|-------|--------------|
+| `word-accept-done` | Accepted in Word — re-check and continue | Re-run **`list-pending`**. When empty: set **`markupPending: false`**, run **`docx-ooxml-validate.sh`**, then continue to the script gate + bisync. When still pending: re-open this gate with recap |
+| `accept-all-pending` | Accept all pending markup (Mission Control) | Run **`docx-markup.mjs accept-all`**, **`docx-ooxml-validate.sh`**, re-run **`list-pending`** (must be empty), set **`markupPending: false`**, then script gate + bisync |
+| `revise-document` | Revise document before sync | Return to §6 (or §5 when plan revision needed) — **forbidden** outbound bisync |
+| `defer-sync` | Defer outbound sync | Stop at §7; re-open this gate on resume |
+
+**Forbidden:** running outbound **`rclone bisync`** while **`markupMode:
+pending`** and pending markup remain without a named approval pick on this
+gate; calling **`accept-all`** without **`accept-all-pending`** pick; treating
+Word accept as satisfied without re-running **`list-pending`**.
+
+**Pending markup outbound gate (binding — after approval when applicable):**
+When **`relativeFilePath`** ends with **`.docx`**, run
 **`scripts/docx-outbound-sync-gate.mjs`** per rule **10** § *Outbound sync
 pending-markup gate* **before** **`rclone bisync`**. Pass **`--markup-pending
 true|false`** when the active author lane reported **`markupPending`**; when
 omitted, the script falls back to **`list-pending`**. **Fail closed** on
 non-zero exit — do not push while pending markup exists. Non-**`.docx`** targets
-skip this gate. Mission Control approval copy for pending mode lives in PR 4;
-this step enforces the boolean/file gate only.
+skip this gate.
 
 Run **`rclone bisync`** with the same remote binding as §4. When the remote is
 "dirty" (both sides changed since last bisync), treat as §4a conflict — spawn
