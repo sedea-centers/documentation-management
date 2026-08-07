@@ -29,6 +29,13 @@ inputs:
     type: string
     description: Absolute ops docs write root from Mission Control
     required: true
+  markupMode:
+    type: string
+    description: >-
+      `.docx` authoring mode — `pending` leaves track-change markup via
+      docx-markup.mjs; `final` writes final-quality prose directly (default).
+    required: false
+    default: final
 timeoutMs: 3600000
 warmUpRules:
   - .sedea/centers/documentation-management/missions/author-simple-document/plan.mdc
@@ -87,10 +94,43 @@ When **`relativeFilePath`** ends with **`.docx`** and this lane performs materia
 4. **Missing `node` / `npx`:** Stop; tell the user to start **`install required
    tools`** on center **`documentation-management`** in a **new dispatch**.
 
+## Pending markup mode (binding)
+
+Resolve **`markupMode`** from spawn **`inputs`** — **`final`** when omitted or
+unrecognized. Echo resolved mode in terminal **`outputs.markupMode`**.
+
+| Mode | `.docx` substantive edits |
+|------|---------------------------|
+| **`final`** (default) | Write final-quality prose directly per § *`.docx` programmatic edit contract* above |
+| **`pending`** | Apply pending markup via **`docx-markup.mjs`** per rule **10** § *Pending OOXML markup script* — **forbidden** committing final unmarked prose on the first substantive edit |
+
+When **`markupMode: pending`** and **`relativeFilePath`** ends with **`.docx`**:
+
+1. **Helper:** Invoke **`scripts/docx-markup.mjs`** (from center repo root, or
+   **`CENTER_WORKTREE_ROOT/scripts/docx-markup.mjs`** under an active center
+   worktree) via **`node`** — subcommands **`mark-insert`**, **`mark-delete`**,
+   **`mark-red`** per edit shape; **`list-pending`** and **`accept-all`** are the
+   binding inventory / flatten interface — do not substitute ad-hoc XML for those.
+2. **`w:author`:** Default **`Sedea Author Agent`** (script default); pass
+   **`--author`** only when dispatch explicitly overrides attribution.
+3. **`w:trackRevisions`:** The script enables **`w:trackRevisions`** in
+   **`word/settings.xml`** when absent — do not strip settings the script adds.
+4. **Validate:** Run **`docx-ooxml-validate.sh`** after every markup mutation
+   (fail closed) before setting **`markupPending`** or handing off to sync.
+5. **`markupPending` output:** After substantive pending edits, run
+   **`list-pending`**; set **`outputs.markupPending: true`** when JSON reports
+   pending markup (`pending: true`). Set **`markupPending: false`** when
+   **`list-pending`** reports no pending markup at terminal. Non-**`.docx`**
+   targets omit **`markupPending`** or set **`false`**.
+
+**Out of scope on this skill:** Outbound **`rclone`** sync, **`accept-all`**, and
+parent-mission pending-markup USER_CHECKPOINT gates (PR 4) — this skill only
+authors markup and reports **`markupPending`** honestly.
+
 ## Completion (spawned)
 
-**outputs:** `documentComplete`, `relativeFilePath`, `revisionCount`, `sotPresent`,
-`sotConsulted`, `continuationStatus`
+**outputs:** `documentComplete`, `relativeFilePath`, `revisionCount`, `markupMode`,
+`markupPending`, `sotPresent`, `sotConsulted`, `continuationStatus`
 
 ### MCP result preflight (`mission_control_send_agent_result`)
 
@@ -98,7 +138,7 @@ When **`relativeFilePath`** ends with **`.docx`** and this lane performs materia
 |------|--------|
 | R1 | Call **`mission_control_send_agent_result`** with **`status`**, **`summary`**, optional **`outputs`** / **`errors`** |
 | R2 | **Forbidden args absent** — no **`correlationId`**, **`dispatchId`**, **`slotId`**, or other host-resolved keys |
-| R3 | Populate **`outputs`** from the required field list above; `documentComplete` only after user confirmation; set `sotPresent` / `sotConsulted` honestly |
+| R3 | Populate **`outputs`** from the required field list above; `documentComplete` only after user confirmation; set `markupMode` / `markupPending` per § *Pending markup mode*; set `sotPresent` / `sotConsulted` honestly |
 | R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) |
 
 Stop after the MCP result call. Do not emit another **`mission_control_spawn_agent`** on this lane.

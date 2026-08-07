@@ -42,6 +42,13 @@ inputs:
       operationsDocsDirectory; when omitted, create or reuse the default
       `<slug-or-doc>-sot-changes-follow-up.md` in that directory
     required: false
+  markupMode:
+    type: string
+    description: >-
+      `.docx` authoring mode — `pending` leaves track-change markup via
+      docx-markup.mjs; `final` writes final-quality prose directly (default).
+    required: false
+    default: final
 timeoutMs: 3600000
 warmUpRules:
   - .sedea/centers/documentation-management/missions/author-multi-part-document/plan.mdc
@@ -83,6 +90,35 @@ When **`relativeFilePath`** ends with **`.docx`** and this lane performs materia
 4. **Missing `node` / `npx`:** Stop; tell the user to start **`install required
    tools`** on center **`documentation-management`** in a **new dispatch**.
 
+## Pending markup mode (binding)
+
+Resolve **`markupMode`** from spawn **`inputs`** — **`final`** when omitted or
+unrecognized. Echo resolved mode in terminal **`outputs.markupMode`**.
+
+| Mode | `.docx` substantive edits |
+|------|---------------------------|
+| **`final`** (default) | Write final-quality prose per step **5** below |
+| **`pending`** | Apply pending markup via **`docx-markup.mjs`** per rule **10** § *Pending OOXML markup script* — **forbidden** committing final unmarked prose on the first substantive edit for this part |
+
+When **`markupMode: pending`** and **`relativeFilePath`** ends with **`.docx`**:
+
+1. **Helper:** Invoke **`scripts/docx-markup.mjs`** (center repo root or
+   **`CENTER_WORKTREE_ROOT/scripts/docx-markup.mjs`**) via **`node`** —
+   **`mark-insert`**, **`mark-delete`**, **`mark-red`** per edit shape;
+   **`list-pending`** / **`accept-all`** are binding — no ad-hoc substitutes.
+2. **`w:author`:** Default **`Sedea Author Agent`**; **`--author`** only when
+   dispatch explicitly overrides.
+3. **`w:trackRevisions`:** Script enables **`w:trackRevisions`** in settings when
+   absent — preserve script-added settings.
+4. **Validate:** **`docx-ooxml-validate.sh`** after every markup mutation (fail
+   closed).
+5. **`markupPending` output:** After substantive pending edits, run
+   **`list-pending`**; set **`outputs.markupPending: true`** when JSON reports
+   pending markup. Set **`false`** when no pending markup at terminal.
+
+**Out of scope on this skill:** Outbound sync, **`accept-all`**, and parent
+mission pending-markup USER_CHECKPOINT (PR 4) — report **`markupPending`** only.
+
 ## Steps
 
 1. Verify `partPlanPath` exists and reflects an approved part plan for `partId`.
@@ -106,11 +142,11 @@ When **`relativeFilePath`** ends with **`.docx`** and this lane performs materia
    document body: naming **`source-of-truth`** / SoT, or stating that content
    came from that tree.
 5. **Final-write → part-complete review (binding):** Apply the approved part plan
-   into the document as **final-quality** prose (rule **20** hygiene — no
-   draft-quality meta/reasoning in the document body), then run the part-complete
-   gate.
-   1. Write (or revise) the part region as finals on the first substantive write
-      for this part.
+   into the document — when **`markupMode: final`** (default), as **final-quality**
+   prose (rule **20** hygiene); when **`markupMode: pending`** on **`.docx`**, as
+   pending markup per § *Pending markup mode* — then run the part-complete gate.
+   1. Write (or revise) the part region — finals when **`final`**, pending markup
+      when **`pending`** — on the first substantive write for this part.
       - **Relevant Links (after material edit):** After each Write/StrReplace that
         **materially edits** the working document at `localPath` +
         `relativeFilePath`, call MCP **`mission_control_update_relevant_documents`**
@@ -200,9 +236,9 @@ text as final*; offering **Confirm part complete** before finals exist.
 
 ## Completion (spawned)
 
-**outputs:** `partId`, `partComplete`, `relativeFilePath`, `sotPresent`,
-`sotConsulted`, `sotFollowUpPath`, `sotFollowUpStatus` (`none` | `appended` |
-`no-sot` | `skipped`), `sotFollowUpCount`, `continuationStatus`
+**outputs:** `partId`, `partComplete`, `relativeFilePath`, `markupMode`,
+`markupPending`, `sotPresent`, `sotConsulted`, `sotFollowUpPath`, `sotFollowUpStatus`
+(`none` | `appended` | `no-sot` | `skipped`), `sotFollowUpCount`, `continuationStatus`
 
 ### MCP result preflight (`mission_control_send_agent_result`)
 
@@ -210,7 +246,7 @@ text as final*; offering **Confirm part complete** before finals exist.
 |------|--------|
 | R1 | Call **`mission_control_send_agent_result`** with **`status`**, **`summary`**, optional **`outputs`** / **`errors`** |
 | R2 | **Forbidden args absent** — no **`correlationId`**, **`dispatchId`**, **`slotId`**, or other host-resolved keys |
-| R3 | Populate **`outputs`** from the required field list above; `partComplete` only after user confirmation and SoT conversation review completes per step 8 |
+| R3 | Populate **`outputs`** from the required field list above; `partComplete` only after user confirmation and SoT conversation review completes per step 8; set `markupMode` / `markupPending` per § *Pending markup mode* |
 | R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) |
 | R5 | SoT conversation review complete: durable **Conversation review — {partId}** section written; zero-candidate USER_CHECKPOINT passed (or per-change gates completed) before terminal MCP |
 
