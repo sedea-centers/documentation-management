@@ -302,7 +302,8 @@ treating **`CHANGELOG.md`** as default SoT for deviation compare.
 the §6 author child used **`markupMode: pending`** on a **`.docx`**
 **`relativeFilePath`** and **`outputs.markupPending: true`** (or
 **`list-pending`** reports pending when the flag is absent), open structured
-choice **before** the script gate and **`rclone bisync`**. **Skip** when
+choice on **this mission dispatch lane** **before** the script gate and
+**`rclone bisync`**. **Skip** when
 **`markupMode: final`** (default), the target is not **`.docx`**, or
 **`list-pending`** on the absolute local **`.docx`** already reports no pending
 markup (Word accept path — set **`markupPending: false`** and auto-advance to
