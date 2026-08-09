@@ -72,7 +72,7 @@ Resolve absolute document path: **`localPath` + `relativeFilePath`**.
 | Timing | When | Purpose |
 |--------|------|---------|
 | **Inbound** | Immediately after step **1** inbound sync succeeds | Inventory agent-created pending markup on the synced working copy |
-| **Outbound** | After step **9** (revision-author terminal) and before step **10** validate-before-sync / outbound **`bisync`** | Re-inventory pending markup on the post-revision working copy |
+| **Outbound** | During step **9** (revision-author terminal) and before step **10** validate-before-sync / outbound **`bisync`** | Re-inventory pending markup on the post-revision working copy |
 
 Parse JSON stdout: `insCount`, `delCount`, `redRunCount`, `pending`. Set
 **`outputs.markupPendingFound: true`** when **`pending: true`** on either pass;
