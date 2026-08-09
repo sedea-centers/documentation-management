@@ -627,7 +627,7 @@ Mitigation for premature pip during SoT gather:
   `missions/required-tools-installation/` (command phrase **`install required tools`**);
   probe → install/upgrade consent → dry-run; spawned **configure-gcloud-drive** after
   **`gcloud`** is in scope (includes Internal Desktop OAuth `client_id` → rclone via
-  `missions/required-tools-installation/scripts/setup-rclone-drive-client-id.sh`;
-  Windows `.ps1` follow-up).
+  `missions/required-tools-installation/scripts/setup-rclone-drive-client-id.sh`
+  or Windows `.ps1`).
 - Foundation rule — `rules/00_documentation-management.mdc` (rclone as primary sync tool;
   folder registry **`remotePath`** semantics).

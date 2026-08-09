@@ -74,9 +74,8 @@ rclone config — never into chat), and verify.
 
 **Script (Unix):** [../scripts/setup-rclone-drive-client-id.sh](../scripts/setup-rclone-drive-client-id.sh)
 — invoked from this skill after SA + Drive access are ready.
-**Windows:** `setup-rclone-drive-client-id.ps1` is a **follow-up PR** — on
-Windows, record `rcloneClientConfigured: false` with a clear gap and do not
-pretend the Unix script ran.
+**Script (Windows):** [../scripts/setup-rclone-drive-client-id.ps1](../scripts/setup-rclone-drive-client-id.ps1)
+— same argv contract; invoke via PowerShell after SA + Drive access are ready.
 
 ## Preconditions
 
@@ -145,7 +144,7 @@ probe bare gcloud on PATH
          if still failing: external-wait with exact admin commands (last resort)
   → enable drive.googleapis.com if needed
   → Drive share: automate when possible; else external-wait
-  → provision Desktop client_id via setup-rclone-drive-client-id.sh
+  → provision Desktop client_id via setup-rclone-drive-client-id.sh|.ps1
        (IAP / live API — never clientauthconfig; never interactive rclone config create)
   → verify (parse dump in-process; no secret logs)
   → send_agent_result
@@ -363,23 +362,32 @@ provisioning using authenticated **gcloud** + the SA JSON from step 4.
 
 1. Active `gcloud` user account (step 1).
 2. SA JSON exists at `credentialsTargetPath` and Drive access from step 6 is applied.
-3. Unix (macOS/Linux) for the shipped script. On **Windows**, skip script
-   execution, set `rcloneClientConfigured: false`, document that
-   `setup-rclone-drive-client-id.ps1` is a follow-up PR, and continue to verify
-   SA-only outcomes — **do not** invent a console paste-secrets path in chat.
+3. Shipped platform script present — Unix `.sh` or Windows `.ps1` under
+   `missions/required-tools-installation/scripts/`. **Forbidden:** inventing a
+   console paste-secrets path in chat when the script fails.
 
-**Unix procedure:**
+**Procedure (Unix or Windows):**
 
-1. Resolve script path relative to this skill:
-   `missions/required-tools-installation/scripts/setup-rclone-drive-client-id.sh`
-   under the active center worktree or primary center checkout.
+1. Resolve script path relative to this skill under the active center worktree
+   or primary center checkout:
+   - **Unix (macOS/Linux):** `setup-rclone-drive-client-id.sh`
+   - **Windows:** `setup-rclone-drive-client-id.ps1`
 2. Run with **Agent shell bootstrap** already applied (example — substitute
    resolved paths; never log secrets):
 
 ```bash
-bash "<script>" \
+# Unix
+bash "<script.sh>" \
   --project-id "<projectId>" \
   --credentials-path "<credentialsTargetPath>" \
+  --rclone-remote "<rcloneRemote>"
+```
+
+```powershell
+# Windows — prefer powershell.exe; pass bash-style flags (script merges Remaining)
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "<script.ps1>" `
+  --project-id "<projectId>" `
+  --credentials-path "<credentialsTargetPath>" `
   --rclone-remote "<rcloneRemote>"
 ```
 
@@ -388,14 +396,15 @@ bash "<script>" \
 4. Script writes `client_id` / `client_secret` **directly into rclone config**
    (non-interactive `rclone.conf` write — **forbidden** to run interactive
    `rclone config create` in the agent shell) and a local `oauth-client.json`
-   under `~/.config/sedea/documentation-management/` (mode 600).
+   under `~/.config/sedea/documentation-management/` (Unix mode 600; Windows
+   best-effort ACL tighten).
 5. **Forbidden:** calling `clientauthconfig.googleapis.com` brands/clients
    APIs (HTTP 404); printing `client_secret`, oauth JSON, `secret:` lines, or
    rclone config dump into chat, `displayMarkdown`, or ops docs; asking the
    user to paste secrets from chat into rclone.
-6. Script is bash 3.2-safe (macOS `/bin/bash`). Prefer the shipped script over
-   ad-hoc `gcloud components install alpha` (Google's bundled alpha-component
-   installer often fails in agent shells).
+6. Unix script is bash 3.2-safe (macOS `/bin/bash`). Prefer the shipped script
+   over ad-hoc `gcloud components install alpha` (Google's bundled
+   alpha-component installer often fails in agent shells).
 7. **Transitional:** IAP OAuth Admin APIs power brand/client create today and
    carry deprecation warnings — if they hard-fail, stop and document Console
    Desktop-client external-wait; do not reintroduce clientauthconfig.

@@ -30,7 +30,8 @@ alwaysApply: false
    authenticate (user terminal), configure a GCP project and service account,
    enable Drive API, apply rclone Drive access, provision an **Internal**
    Desktop OAuth `client_id` into rclone config via
-   **`scripts/setup-rclone-drive-client-id.sh`** (Windows script follow-up),
+   **`scripts/setup-rclone-drive-client-id.sh`** (Unix) or
+   **`scripts/setup-rclone-drive-client-id.ps1`** (Windows),
    and verify — **never** print OAuth secrets into chat.
 6. Close the dispatch with an explicit Squad Leader resolution proposal when the
    install/verify (and gcloud configure when applicable) pass is complete or
@@ -163,7 +164,7 @@ USER_CHECKPOINT — retry dry-runs, accept partial, or abort after dry-run failu
 
 **Target skill:** [skills/configure-gcloud-drive/SKILL.md](skills/configure-gcloud-drive/SKILL.md)
 
-**Script:** [scripts/setup-rclone-drive-client-id.sh](scripts/setup-rclone-drive-client-id.sh) (Unix). Windows **`setup-rclone-drive-client-id.ps1`** is a follow-up PR — skill records `rcloneClientConfigured: false` on Windows rather than inventing a chat paste-secrets path.
+**Script:** [scripts/setup-rclone-drive-client-id.sh](scripts/setup-rclone-drive-client-id.sh) (Unix) or [scripts/setup-rclone-drive-client-id.ps1](scripts/setup-rclone-drive-client-id.ps1) (Windows) — same argv; skill invokes the platform script so `rcloneClientConfigured` can become true when preconditions are met (still **forbidden** to invent a chat paste-secrets path).
 
 **Spawn:** Emit **`mission_control_spawn_agent`** with `skillPath` to that skill, `inputs` (`projectPreference`, `existingProjectId?`, `defaultNewProjectId`, `serviceAccountPreference`, `existingServiceAccountEmail?`, `defaultNewServiceAccountId`, `credentialsTargetPath`, `operationsDocsDirectory`, optional `rcloneRemote`), optional `warmUpRules` / `initiatingPrompt` (install/probe summary + naming defaults). Open **external-wait / next-step** structured choice before ending the turn while waiting for the child result. Child inherits dispatch **`trustLevel`**; when **`checkpoint`**, project and SA list picks auto-confirm per **`configure-gcloud-drive`** § *Checkpoint trust auto-confirm*.
 
@@ -191,8 +192,8 @@ Call **`mission_control_propose_dispatch_resolution`** per
 
 | Status | When |
 |--------|------|
-| **`resolved`** | All required tools **ok** (or installed/upgraded), dry-runs passed, and gcloud configure succeeded when in scope (including rclone `client_id` write on Unix when configure ran) |
-| **`partial`** | Useful progress but skips, overrides, failed dry-runs, configure gaps, or Windows rclone-client script deferred remain |
+| **`resolved`** | All required tools **ok** (or installed/upgraded), dry-runs passed, and gcloud configure succeeded when in scope (including rclone `client_id` write when configure ran) |
+| **`partial`** | Useful progress but skips, overrides, failed dry-runs, or configure gaps remain |
 | **`abandoned`** | User aborted |
 | **`aborted`** | Blocking error prevented continuation |
 

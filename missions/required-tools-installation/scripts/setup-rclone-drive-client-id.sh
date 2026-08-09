@@ -13,7 +13,7 @@
 # when those stop working, replace ensure_internal_brand / create_desktop_client.
 #
 # Forbidden: printing client_secret or oauth-client.json contents to stdout/stderr.
-# Windows: exit 5 — use setup-rclone-drive-client-id.ps1 (follow-up PR).
+# Windows: exit 5 — use sibling setup-rclone-drive-client-id.ps1.
 #
 # Exit codes: 0 ok | 1 usage | 2 preconditions | 3 GCP/oauth | 4 rclone | 5 windows
 set -euo pipefail
@@ -101,7 +101,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if is_windows; then
-  die 5 "Windows detected — use setup-rclone-drive-client-id.ps1 (follow-up PR)"
+  die 5 "Windows detected — use setup-rclone-drive-client-id.ps1 (sibling script)"
 fi
 
 [[ -n "$PROJECT_ID" ]] || { usage; die 1 "--project-id is required"; }
