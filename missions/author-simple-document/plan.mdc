@@ -501,9 +501,35 @@ USER_CHECKPOINT — retry PDF sync · keep local PDF without remote publication 
 - **Inputs:** Outcomes from §5–§8b; current `relativeFilePath`; optional PDF export
   outcome (`pdfExportMode`, `pdfRef`, `pdfSyncStatus`).
 - **Expected output:** `moreChanges: true | false`; optional new intent/file binding.
-- **Next-step resolution:** `moreChanges: true` → §2 (new binding) or §5 (same file). `moreChanges: false` → §10.
+- **Next-step resolution:** `moreChanges: true` → §2 (new binding) or §5 (same file). `moreChanges: false` → §9a. *finish dispatch* → §9a.
 
 USER_CHECKPOINT — make more changes on this file · start a new file (create) · change a different file · finish dispatch.
+
+### 9a. Outbound sync before dispatch resolution (binding)
+
+- **Type:** Branching logic
+- **Intent:** Require successful outbound bisync to the configured GDrive remote
+  for the authored working document before **`resolved`** dispatch closure.
+- **Inputs:** Folder binding; `relativeFilePath`; §7 outcome; pending-markup
+  state when applicable.
+- **Expected output:** `outboundSyncStatus` on leader ledger.
+- **Next-step resolution:** Sync clean → §10. Otherwise → USER_CHECKPOINT below.
+
+**Procedure (binding)**
+
+1. When the user selects *finish dispatch* at §9 (or reaches §9a from
+   `moreChanges: false`), run **§7 Sync local file to remote** when the document
+   was modified this dispatch and outbound sync is not already clean this pass.
+2. Honor pending-markup sync block and **`docx-outbound-sync-gate.mjs`** per
+   existing §7 bindings.
+3. On bisync success or conflict resolved via §4a → §10.
+4. On defer/failure → structured choice — **forbidden** **`resolved`** until §7
+   succeeds.
+
+USER_CHECKPOINT — retry §7 bisync · spawn file-synchronizer (§4a) · propose **partial** · make more changes (§9) · abort.
+
+**Forbidden:** **`mission_control_propose_dispatch_resolution`** with **`resolved`**
+while the working document remains unsynced to the configured remote.
 
 ### 10. Dispatch resolution (Squad Leader)
 
@@ -519,10 +545,18 @@ Call **`mission_control_propose_dispatch_resolution`** per
 
 | Status | When |
 |--------|------|
-| **`resolved`** | Document authored, plan approved, outbound bisync clean (or conflicts resolved via §4a); optional PDF path completed or explicitly skipped |
+| **`resolved`** | Document authored, plan approved, §9a/§7 outbound bisync clean (or conflicts resolved via §4a); optional PDF path completed or explicitly skipped |
 | **`partial`** | Useful progress but skipped sync, unresolved conflicts, incomplete authoring, or incomplete PDF export/sync remain |
 | **`abandoned`** | User aborted |
 | **`aborted`** | Blocking error prevented continuation |
 
+**Pre-resolution guard (binding):**
+**`mission_control_propose_dispatch_resolution`** with **`status: resolved`** is
+**forbidden** unless §9a completed with `outboundSyncStatus: synced` or
+`conflict-resolved` this pass when the working document was modified during this
+dispatch.
+
 **Forbidden:** prose-only wrap-up without the MCP resolution proposal; child lanes
-proposing dispatch resolution (this mission's Squad Leader owns §10).
+proposing dispatch resolution (this mission's Squad Leader owns §10);
+**`mission_control_propose_dispatch_resolution`** with **`resolved`** while the
+working document remains unsynced to the configured remote.

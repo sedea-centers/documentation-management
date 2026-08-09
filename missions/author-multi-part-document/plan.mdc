@@ -350,7 +350,7 @@ USER_CHECKPOINT — start/continue next part · request gap analysis · handle d
 | **Generate Content** | §8 |
 | **`sync-documents`** — Sync documents | §9 |
 | **Export PDF** | §10 (Squad Leader only) |
-| **Approve all content / finish** | §11 |
+| **Approve all content / finish** | §11a → §11 |
 | **Pause** | Resumable wait; re-open §5 later |
 
 ### 5a. Always-on Sync on Squad Leader structured choice (binding)
@@ -833,11 +833,42 @@ Open **#external-wait** while conversion runs. Inputs mirror Author Simple
 Document §8a (`sourcePath`, `sourceKind`, `outputMode`, `outputDirectory`,
 `outputFilename`, folder/rclone fields).
 
+### 11a. Outbound sync before dispatch resolution (binding)
+
+- **Type:** Branching logic
+- **Intent:** Push all locally modified working documents to the configured
+  GDrive remote before the Squad Leader may propose **`resolved`** dispatch closure.
+- **Inputs:** Folder binding; `relativeFilePath`; part ledger paths; latest §9
+  sync state; pending-markup block when `markupMode: pending`.
+- **Expected output:** `outboundSyncStatus` = `synced` | `conflict-resolved` |
+  `deferred` | `failed` on the leader ledger.
+- **Next-step resolution:** `synced` or `conflict-resolved` → §11. Otherwise →
+  USER_CHECKPOINT below.
+
+**Procedure (binding)**
+
+1. Enumerate every working document under `localPath` modified during this dispatch
+   (primary `relativeFilePath` plus any part-authored targets in the ledger).
+2. For each target, run **§9 Sync** outbound path (including pending-markup
+   block, script gate, and file-synchronizer on conflict).
+3. When all targets report clean outbound sync → set `outboundSyncStatus: synced`
+   (or `conflict-resolved` when §4a/file-synchronizer ran) → **auto-advance**
+   to §11.
+4. When sync is deferred, fails, or pending markup blocks push → open structured
+   choice — **forbidden** to call **`mission_control_propose_dispatch_resolution`**
+   with **`resolved`**.
+
+USER_CHECKPOINT — retry sync (§9) · propose **partial** (document unsynced state) · return to §5 standing options · abandon.
+
+**Forbidden:** proposing **`resolved`** while modified documents remain
+local-only; treating *finish* from §5 as bypass of §11a.
+
 ### 11. Dispatch resolution (Squad Leader)
 
 - **Type:** Finish/stop logic
 - **Intent:** Close when all parts are approved or the user signals wrap-up.
-- **Inputs:** Part ledger; open gaps; user finish signal.
+- **Inputs:** Part ledger; open gaps; user finish signal; §11a
+  `outboundSyncStatus` when modified working documents exist.
 - **Expected output:** MCP **`mission_control_propose_dispatch_resolution`**.
 - **Next-step resolution:** Terminal for this dispatch after user Accept on the
   resolution card.
@@ -851,7 +882,17 @@ USER_CHECKPOINT — propose resolved · propose partial (list remaining parts/ga
 **Forbidden in MCP args:** host-resolved identity keys (`correlationId`,
 `dispatchId`, `slotId`, …).
 
-Use **`resolved`** when all planned parts are authored and approved (and optional
-PDF/sync done as requested); **`partial`** when useful progress remains with
-documented follow-ups; **`abandoned`** / **`aborted`** when the user stops or
-execution cannot continue.
+**Pre-resolution guard (binding):**
+**`mission_control_propose_dispatch_resolution`** with **`status: resolved`** is
+**forbidden** unless §11a completed with `outboundSyncStatus: synced` or
+`conflict-resolved` this pass when any working document was modified during this
+dispatch.
+
+Use **`resolved`** when all planned parts are authored and approved **and** §11a
+outbound sync succeeded for modified working documents (optional PDF export done
+or explicitly skipped as requested); **`partial`** when useful progress remains
+with documented follow-ups (including unsynced paths); **`abandoned`** /
+**`aborted`** when the user stops or execution cannot continue.
+
+**Forbidden:** proposing **`resolved`** while modified documents remain unsynced
+to the configured remote; treating *finish* from §5 as bypass of §11a.
