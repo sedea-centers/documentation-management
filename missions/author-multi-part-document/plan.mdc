@@ -202,7 +202,8 @@ USER_CHECKPOINT — pick registered folder slug · provide relative file path ·
   - `userApprovedReport: true` + `continuationStatus: terminal` → compile §4
     **master-plan** spawn inputs from report (`intakeMode: structure-given` or
     derived template hints, `relativeFilePath` when known, structure outline +
-    objectives from report; `brainstormReportPath` / `brainstormReportRef`) →
+    objectives from report; `brainstormReportPath` / `brainstormReportRef`;
+    **`markupMode`** from §3 when collected, otherwise **`final`**) →
     **auto-chain §4** on the same leader turn (**forbidden:** repeat §3
     USER_CHECKPOINT before master-plan spawn).
   - `abandonMission: true` → §11 dispatch resolution **`abandoned`**.
@@ -235,15 +236,31 @@ when report outputs include `userApprovedReport: true`.
 - **Inputs:** Folder binding from §2; optional template path; optional structure
   outline from the user.
 - **Expected output:** `intakeMode` = `template` | `structure-given` |
-  `brainstorm-first`; when `template`: `templatePath` (read-only source) +
-  `relativeFilePath` (new working document under `localPath`); when
-  `structure-given`: approved structure outline; optional existing document to
-  extend (non-template path only); when `brainstorm-first`: route to §2.5 until
-  brainstorm completes or abandons.
+  `brainstorm-first`; `markupMode` = `pending` | `final` (default **`final`**
+  when the user skips or omits a pick); when `template`: `templatePath`
+  (read-only source) + `relativeFilePath` (new working document under
+  `localPath`); when `structure-given`: approved structure outline; optional
+  existing document to extend (non-template path only); when
+  `brainstorm-first`: route to §2.5 until brainstorm completes or abandons.
 - **Next-step resolution:** **`brainstorm-first`** → §2.5. Other modes: intake
-  approved with a writable working document → §4. Incomplete → re-ask.
+  approved with a writable working document and resolved **`markupMode`** → §4.
+  Incomplete → re-ask.
 
-USER_CHECKPOINT — brainstorm first · use template · supply structure outline · revise intake · abort.
+USER_CHECKPOINT — brainstorm first · use template · supply structure outline · pending markup (track changes) · final markup (direct write) · revise intake · abort.
+
+**Markup mode (binding):**
+
+1. Collect **`markupMode`** on the Squad Leader lane during §3 intake — after
+   intake mode is known and before §4 master-plan spawn (same modal when
+   practical, or an immediate follow-up structured choice).
+2. Option ids: **`markup-pending`** — Pending (track changes); **`markup-final`**
+   — Final (direct write). Default **`final`** when the user skips or omits.
+3. Record the resolved mode on the leader dispatch ledger. Pass **`markupMode`**
+   in §4 **master-plan** spawn **`inputs`** and in §2.5 auto-chain spawn inputs
+   when brainstorm completes.
+4. **`pending`** selects **`docx-markup.mjs`** track-changes authoring on
+   **`.docx`** working copies per author skill § *Pending markup mode*;
+   **`final`** keeps direct final OOXML insert (author skill default).
 
 **Modes (binding):**
 
@@ -270,9 +287,11 @@ USER_CHECKPOINT — brainstorm first · use template · supply structure outline
   **master-plan**; the child produces a reviewable **master plan**: document
   overview, ordered parts/sections, and high-level content notes — not full part
   prose.
-- **Inputs:** Intake from §3 (`intakeMode`, `relativeFilePath`, optional
+- **Inputs:** Intake from §3 (`intakeMode`, `relativeFilePath`, **`markupMode`**
+  — default **`final`** when omitted, optional
   `templatePath` / structure outline) or §2.5 terminal (`brainstormReportPath`,
-  `brainstormReportRef`, `structureOutline` / objectives from report); folder
+  `brainstormReportRef`, `structureOutline` / objectives from report;
+  **`markupMode`** from §3 when collected, otherwise **`final`**); folder
   binding (`localPath`, `folderSlug`, rclone fields); `operationsDocsDirectory`.
 - **Expected output:** Child milestone with `masterPlanPath`; `parts[]` with
   stable `partId` / titles, **`estimatedWordCount`**, and **`contentClass`**
@@ -286,7 +305,8 @@ USER_CHECKPOINT — brainstorm first · use template · supply structure outline
 **Procedure (binding)**
 
 1. Squad Leader emits **`mission_control_spawn_agent`** for
-   **`skills/master-plan/SKILL.md`** with §3 + folder binding inputs.
+   **`skills/master-plan/SKILL.md`** with §3 + folder binding inputs (include
+   resolved **`markupMode`** — **`final`** when §3 omitted a pick).
    Set spawn **`name`** to **`Master plan`** (or a ≤64-char document title when
    known); **`description`**: one-line scope (≤512 chars).
 2. Open **#external-wait** on the leader before ending the turn (wait for

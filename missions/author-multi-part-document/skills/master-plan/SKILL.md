@@ -45,6 +45,10 @@ inputs:
     type: string
     description: Registered documentation folder slug from §2
     required: false
+  markupMode:
+    type: string
+    description: pending (track changes) or final (direct write) from §3 intake; default final when omitted
+    required: false
 timeoutMs: 3600000
 warmUpRules:
   - .sedea/centers/documentation-management/missions/author-multi-part-document/plan.mdc
@@ -60,12 +64,16 @@ content notes — not full part prose.
 ## Inputs
 
 - `intakeMode`, `relativeFilePath`, `localPath`, `operationsDocsDirectory`
-- optional `templatePath`, `structureOutline`, `folderSlug`
+- optional `templatePath`, `structureOutline`, `folderSlug`, **`markupMode`**
+  (`pending` | `final`; default **`final`** when omitted or unrecognized)
 
 ## Steps
 
 1. Load §3 intake context. Confirm `relativeFilePath` is the **working document**
-   (never the read-only template when `intakeMode` is `template`).
+   (never the read-only template when `intakeMode` is `template`). Resolve
+   **`markupMode`** from spawn **`inputs`** — **`final`** when omitted or
+   unrecognized; echo resolved mode in milestone/terminal **`outputs.markupMode`**
+   when useful.
 2. **Lane title refresh (binding — own slot):** When spawn chrome is generic or
    stale, call MCP **`mission_control_update_lane_display`** with **`title`**
    `Master plan` (or a ≤64-char document title when known) and optional
@@ -137,7 +145,8 @@ content notes — not full part prose.
 
 8. **Part delivery orchestration (binding):** When Squad Leader or user requests
    the next part (`partId`, `partTitle`, master-plan excerpt), spawn
-   **`skills/part-planner/SKILL.md`** with binding inputs. Set spawn **`name`**
+   **`skills/part-planner/SKILL.md`** with binding inputs (include resolved
+   **`markupMode`** from this lane's spawn context). Set spawn **`name`**
    to **`P{nn} — {partTitle}`** per **`plan.mdc`** § *Part-planner lane title*.
    Open **#external-wait** before ending the turn (wait for part-planner terminal).
 9. **Gap-analysis orchestration (binding):** When Squad Leader or user requests
@@ -183,7 +192,7 @@ and spawn part-planner on the same turn.
 
 **outputs:** `masterPlanPath`, `parts[]` (each with `partId`, `partTitle`,
 `estimatedWordCount`, `contentClass`), `userApprovedMasterPlan`, `unresolvedCount`,
-`intakeMode`, `relativeFilePath`, `partsComplete[]`, `continuationStatus`
+`intakeMode`, `relativeFilePath`, `markupMode`, `partsComplete[]`, `continuationStatus`
 
 ### MCP result preflight (`mission_control_send_agent_result`)
 
@@ -191,7 +200,7 @@ and spawn part-planner on the same turn.
 |------|--------|
 | R1 | Call **`mission_control_send_agent_result`** with **`status`**, **`summary`**, optional **`outputs`** / **`errors`** |
 | R2 | **Forbidden args absent** — no **`correlationId`**, **`dispatchId`**, **`slotId`**, or other host-resolved keys |
-| R3 | Populate **`outputs`** from the required field list above; `userApprovedMasterPlan` only after user approval; `unresolvedCount` = remaining open items (0 when none); `continuationStatus: active` after master plan approval; terminal only when part delivery completes or is abandoned |
+| R3 | Populate **`outputs`** from the required field list above; `userApprovedMasterPlan` only after user approval; `unresolvedCount` = remaining open items (0 when none); set **`markupMode`** from resolved spawn input; `continuationStatus: active` after master plan approval; terminal only when part delivery completes or is abandoned |
 | R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) |
 
 ## Completion (inline)

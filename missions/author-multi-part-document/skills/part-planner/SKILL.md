@@ -43,6 +43,10 @@ inputs:
     type: string
     description: Absolute ops docs write root from Mission Control
     required: true
+  markupMode:
+    type: string
+    description: pending (track changes) or final (direct write) propagated from §3 intake; default final when omitted
+    required: false
 timeoutMs: 3600000
 warmUpRules:
   - .sedea/centers/documentation-management/missions/author-multi-part-document/plan.mdc
@@ -60,11 +64,14 @@ author full document prose here.
 - `masterPlanPath` and/or `masterPlanExcerpt` — binding overview for this part
 - `localPath`, `relativeFilePath` — target document context
 - `operationsDocsDirectory` — ops docs root (do not invent dispatch paths)
+- optional **`markupMode`** (`pending` | `final`; default **`final`** when
+  omitted or unrecognized)
 
 ## Steps
 
 1. Load master-plan context for `partId`. Confirm the part is incomplete or the
-   user explicitly requested a replan.
+   user explicitly requested a replan. Resolve **`markupMode`** from spawn
+   **`inputs`** — **`final`** when omitted or unrecognized.
 2. **Lane title refresh (binding — own slot):** Build **`title`** =
    **`P{nn} — {partTitle}`** per **`plan.mdc`** § *Part-planner lane title*
    (zero-pad `partId` to `{nn}`; truncate `{partTitle}` tail only if the full
@@ -102,8 +109,9 @@ author full document prose here.
    to hide Approve until all items are cleared.
 7. On approval, set `partPlanApproved: true`. Then emit
    **`mission_control_spawn_agent`** for **`skills/author/SKILL.md`** with
-   `partPlanPath`, `partId`, `localPath`, `relativeFilePath`, and
-   `operationsDocsDirectory`. Record the author child slug for revision notify.
+   `partPlanPath`, `partId`, `localPath`, `relativeFilePath`,
+   `operationsDocsDirectory`, and resolved **`markupMode`**. Record the author
+   child slug for revision notify.
    Set `continuationStatus: active`. Open **#external-wait** for the author
    result (do **not** emit a terminal planner result yet).
 8. **Plan revisions after author spawn (binding):** When the part plan is revised
