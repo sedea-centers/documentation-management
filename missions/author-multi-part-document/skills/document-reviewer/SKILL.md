@@ -2,18 +2,19 @@
 name: Multi-Part Document Reviewer
 designation:
   allowed: >-
-    Sync the remote document; inventory review comments; write and approve a
-    review plan; resolve ambiguities via structured choice; spawn revision-author
-    after plan approval; aggregate revision outputs into one terminal result to
-    master-plan
+    Sync the remote document; inventory review comments and pending OOXML markup
+    on .docx working copies; write and approve a review plan; resolve ambiguities
+    via structured choice; spawn revision-author after plan approval; aggregate
+    revision outputs into one terminal result to master-plan
   forbidden: >-
     Dispatch resolution; implementing document revisions on this lane; spawning
     revision-author before review-plan approval on the happy path; requiring
     Squad Leader to spawn revision-author
 description: >-
   Spawned document reviewer for author-multi-part-document. Sync from remote,
-  flag review comments, produce an approved review plan, and spawn revision-author
-  on this lane to implement approved revisions.
+  flag review comments and pending markup on .docx working copies, produce an
+  approved review plan, and spawn revision-author on this lane to implement
+  approved revisions.
 inputs:
   localPath:
     type: string
@@ -49,33 +50,66 @@ warmUpRules:
 # Multi-Part Document Reviewer
 
 Spawned **document-reviewer** for **author-multi-part-document**. Sync the working
-document from remote, inventory embedded review comments, produce an approved
-**review plan**, and **spawn revision-author** on this lane when the user approves
-implementation (nested spawn — mirror part-planner → author).
+document from remote, inventory embedded review comments and pending OOXML markup
+on **`.docx`** working copies, produce an approved **review plan**, and **spawn
+revision-author** on this lane when the user approves implementation (nested
+spawn — mirror part-planner → author).
 
 ## Inputs
 
 - `localPath`, `relativeFilePath`, `operationsDocsDirectory`
 - optional `gapReportPath`, `authoredPartRefs`, `sotFollowUpPath`
 
+## Pending markup inventory (`.docx` — binding)
+
+When **`relativeFilePath`** ends with **`.docx`**, invoke **`scripts/docx-markup.mjs
+list-pending`** per **`rules/10_required-tools.mdc`** § *Pending OOXML markup script*
+(center repo root or **`CENTER_WORKTREE_ROOT/scripts/docx-markup.mjs`**) via **`node`**
+— **forbidden** ad-hoc XML or substitute scripts.
+
+Resolve absolute document path: **`localPath` + `relativeFilePath`**.
+
+| Timing | When | Purpose |
+|--------|------|---------|
+| **Inbound** | Immediately after step **1** inbound sync succeeds | Inventory agent-created pending markup on the synced working copy |
+| **Outbound** | After step **9** (revision-author terminal) and before step **10** validate-before-sync / outbound **`bisync`** | Re-inventory pending markup on the post-revision working copy |
+
+Parse JSON stdout: `insCount`, `delCount`, `redRunCount`, `pending`. Set
+**`outputs.markupPendingFound: true`** when **`pending: true`** on either pass;
+**`false`** when both passes report no pending markup (or target is not **`.docx`**).
+
+**Non-`.docx` targets:** set **`markupPendingFound: false`**; skip **`list-pending`**.
+
 ## Steps
 
 1. **Sync (binding):** Run inbound sync per mission plan §9 (bisync /
    file-synchronizer when conflicts arise). Do not proceed to comment inventory
    on a stale local copy when sync fails — stop with structured choice or retry.
+1b. **Inbound pending markup inventory (`.docx` only):** When **`relativeFilePath`**
+    ends with **`.docx`**, run **`docx-markup.mjs list-pending`** on the absolute
+    working copy **immediately after** successful inbound sync. Record counts in
+    **`outputs.inboundPendingMarkup`** (`insCount`, `delCount`, `redRunCount`,
+    `pending`). Set **`outputs.markupPendingFound`** from inbound JSON when
+    **`pending: true`**.
 2. Read `localPath` + `relativeFilePath`. Extract **all review comments**
    (inline comments, suggestions, tracked-changes metadata — use format-specific
    extraction for the document type).
 3. Write **`reviewPlanPath`** under `operationsDocsDirectory` with one row per
    comment: stable id, location, comment text, proposed resolution, `ambiguous:
-   true | false`.
+   true | false`. When **`markupPendingFound`** or inbound **`list-pending`**
+   reported counts, add a **Pending markup inventory** section citing
+   **`insCount`**, **`delCount`**, **`redRunCount`**, and whether agent-created
+   pending markup remains — separate from comment rows.
    - **Relevant Links (post-write):** After the review plan write, call MCP
      **`mission_control_update_relevant_documents`** with the absolute
      `reviewPlanPath` (`kind: plan`) on this lane — same turn preferred. See
      **`../README.md`** § *Relevant Links — post-write registration*.
 4. Set `commentsFound: true | false`.
-5. **If `commentsFound: false`:** emit terminal result to **master-plan**
-   (`continuationStatus: terminal`).
+5. **If `commentsFound: false` and `markupPendingFound: false`:** emit terminal
+   result to **master-plan** (`continuationStatus: terminal`). When
+   **`markupPendingFound: true`** but **`commentsFound: false`**, still write
+   **`reviewPlanPath`** with the pending-markup section and continue to step **7**
+   (skip ambiguous resolution in step **6**).
 6. **If `commentsFound: true`:** For each ambiguous row, open structured choice
    (one `askQuestion.questions` entry per item; same modal may batch). **Forbidden:**
    leaving ambiguous items only in the review plan without a user pick.
@@ -87,10 +121,15 @@ implementation (nested spawn — mirror part-planner → author).
    Record the revision-author child slug. Set `continuationStatus: active`. Open
    **#external-wait** for the revision-author result (do **not** emit a terminal
    reviewer result yet).
-9. **On revision-author terminal:** merge revision outputs (including SoT
-   follow-up fields: `sotPresent`, `sotConsulted`, `sotFollowUpPath`,
-   `sotFollowUpStatus`, `sotFollowUpCount`) and emit **one**
-   terminal **`mission_control_send_agent_result`** to **master-plan**.
+9. **On revision-author terminal:** When **`relativeFilePath`** ends with
+   **`.docx`**, run **outbound** **`docx-markup.mjs list-pending`** on the
+   absolute working copy **before** outbound **`bisync`** / **`sync`**. Record in
+   **`outputs.outboundPendingMarkup`**; refresh **`outputs.markupPendingFound`**
+   from outbound JSON. Then run step **10** validate-before-sync when outbound
+   sync applies. Merge revision outputs (including SoT follow-up fields:
+   `sotPresent`, `sotConsulted`, `sotFollowUpPath`, `sotFollowUpStatus`,
+   `sotFollowUpCount`) and emit **one** terminal
+   **`mission_control_send_agent_result`** to **master-plan**.
 10. **`.docx` validate-before-sync (binding):** When **`relativeFilePath`**
     ends with **`.docx`** and this pass will run outbound **`bisync`** / **`sync`**
     on the working file, run **`docx-ooxml-validate.sh`** per
@@ -104,7 +143,8 @@ spawned; requiring Squad Leader to spawn revision-author on the happy path.
 
 ## Completion (spawned)
 
-**outputs:** `reviewPlanPath`, `commentsFound`, `commentCount`, `revisionAuthorSpawned`,
+**outputs:** `reviewPlanPath`, `commentsFound`, `commentCount`, `markupPendingFound`,
+`inboundPendingMarkup`, `outboundPendingMarkup`, `revisionAuthorSpawned`,
 `revisionAuthorSlug`, `reviewComplete`, `relativeFilePath`, `sotPresent`,
 `sotConsulted`, `sotFollowUpPath`, `sotFollowUpStatus`
 (`none` | `appended` | `no-sot` | `skipped`), `sotFollowUpCount`,

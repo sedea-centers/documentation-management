@@ -618,11 +618,20 @@ Options: **Start document comment review** · **Skip — return to standing opti
    binding inputs. Open **#external-wait** before ending the turn (wait for
    document-reviewer terminal).
 3. **On document-reviewer lane — sync & inventory:** Run inbound sync (same bisync
-   / file-synchronizer contract as §9). Read the working document and flag **all
-   review comments** (inline comments, suggestions, tracked-changes metadata —
-   format-specific extraction per skill). Write **`reviewPlanPath`** under
-   `operationsDocsDirectory` with one row per comment: id, location, comment
-   text, proposed resolution, ambiguity flag.
+   / file-synchronizer contract as §9). When the target **`relativeFilePath`**
+   ends with **`.docx`**, run **`scripts/docx-markup.mjs list-pending`** on the
+   absolute working copy **immediately after** successful inbound sync per rule
+   **10** § *Pending OOXML markup script* — record **`insCount`**, **`delCount`**,
+   **`redRunCount`**, and **`pending`** as inbound pending-markup inventory.
+   Read the working document and flag **all review comments** (inline comments,
+   suggestions, tracked-changes metadata — format-specific extraction per skill).
+   Write **`reviewPlanPath`** under `operationsDocsDirectory` with one row per
+   comment: id, location, comment text, proposed resolution, ambiguity flag; when
+   inbound **`list-pending`** reported pending markup, include a **Pending markup
+   inventory** section in the review plan. After revision-author completes,
+   re-run **`list-pending`** on the working copy (**outbound inventory**) before
+   outbound **`bisync`** / **`sync`** and record updated counts in reviewer
+   terminal **`outputs.outboundPendingMarkup`** and **`outputs.markupPendingFound`**.
 4. **If `commentsFound: false`:** emit reviewer terminal (`commentsFound: false`)
    → master-plan merges outputs → Squad Leader post-review gate.
 5. **If `commentsFound: true`:** For each row marked **ambiguous**, open
