@@ -159,10 +159,28 @@ when markup remains.
 **`pending: true`**; **Confirm document complete** before substantive content
 exists.
 
+## Post-content-approval backup cleanup (binding)
+
+After content approval completes at the **document-complete** USER_CHECKPOINT and
+**before** calling **`mission_control_send_agent_result`**:
+
+1. **Enumerate:** Beside the working file at `localPath` + `relativeFilePath`, list
+   files matching **`*.bak-*`** (timestamped backups from § *`.docx` programmatic
+   edit contract* **Pre-edit backup**).
+2. **Remove:** Delete **all** enumerated backups for this working document in the
+   pass.
+3. **Confirm:** Proceed to terminal MCP result only when deletion succeeded or no
+   backups were present. When deletion fails, report in **`summary`** and
+   **`errors`** — **forbidden:** terminal success while backups remain.
+4. **Output:** Set **`outputs.backupsRemoved`** to the count deleted (`0` when none).
+
+**Forbidden:** emitting **`mission_control_send_agent_result`** while **`*.bak-*`**
+backups for the working document remain beside the target file.
+
 ## Completion (spawned)
 
 **outputs:** `documentComplete`, `relativeFilePath`, `revisionCount`, `markupMode`,
-`markupPending`, `sotPresent`, `sotConsulted`, `continuationStatus`
+`markupPending`, `sotPresent`, `sotConsulted`, `backupsRemoved`, `continuationStatus`
 
 ### MCP result preflight (`mission_control_send_agent_result`)
 
@@ -170,7 +188,7 @@ exists.
 |------|--------|
 | R1 | Call **`mission_control_send_agent_result`** with **`status`**, **`summary`**, optional **`outputs`** / **`errors`** |
 | R2 | **Forbidden args absent** — no **`correlationId`**, **`dispatchId`**, **`slotId`**, or other host-resolved keys |
-| R3 | Populate **`outputs`** from the required field list above; `documentComplete` only after user confirmation; set `markupMode` / `markupPending` per § *Pending markup mode*; set `sotPresent` / `sotConsulted` honestly |
+| R3 | Populate **`outputs`** from the required field list above; `documentComplete` only after user confirmation; set `markupMode` / `markupPending` per § *Pending markup mode*; set `sotPresent` / `sotConsulted` honestly; set **`backupsRemoved`** after § *Post-content-approval backup cleanup* |
 | R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) |
 
 Stop after the MCP result call. Do not emit another **`mission_control_spawn_agent`** on this lane.

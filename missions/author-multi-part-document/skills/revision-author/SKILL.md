@@ -220,12 +220,31 @@ separate draft-review modal; *Approve draft → write final copy*; *Skip — tre
 current text as final*; mandatory draft pass for large edits; **Confirm revisions
 complete** while **`list-pending`** reports **`pending: true`**.
 
+## Post-content-approval backup cleanup (binding)
+
+After content approval completes at the **revision-complete** USER_CHECKPOINT
+(including required SoT conversation review when applicable) and **before** calling
+**`mission_control_send_agent_result`**:
+
+1. **Enumerate:** Beside the working file at `localPath` + `relativeFilePath`, list
+   files matching **`*.bak-*`** (timestamped backups from § *`.docx` programmatic
+   edit contract* **Pre-edit backup**).
+2. **Remove:** Delete **all** enumerated backups for this working document in the
+   pass.
+3. **Confirm:** Proceed to terminal MCP result only when deletion succeeded or no
+   backups were present. When deletion fails, report in **`summary`** and
+   **`errors`** — **forbidden:** terminal success while backups remain.
+4. **Output:** Set **`outputs.backupsRemoved`** to the count deleted (`0` when none).
+
+**Forbidden:** emitting **`mission_control_send_agent_result`** while **`*.bak-*`**
+backups for the working document remain beside the target file.
+
 ## Completion (spawned)
 
 **outputs:** `reviewPlanPath`, `reviewComplete`, `relativeFilePath`, `rowsApplied`,
 `rowsDeferred`, `markupMode`, `markupPending`, `sotPresent`, `sotConsulted`,
 `sotFollowUpPath`, `sotFollowUpStatus` (`none` | `appended` | `no-sot` | `skipped`),
-`sotFollowUpCount`, `continuationStatus`
+`sotFollowUpCount`, `backupsRemoved`, `continuationStatus`
 
 ### MCP result preflight (`mission_control_send_agent_result`)
 
@@ -233,7 +252,7 @@ complete** while **`list-pending`** reports **`pending: true`**.
 |------|--------|
 | R1 | Call **`mission_control_send_agent_result`** with **`status`**, **`summary`**, optional **`outputs`** / **`errors`** |
 | R2 | **Forbidden args absent** — no **`correlationId`**, **`dispatchId`**, **`slotId`**, or other host-resolved keys |
-| R3 | Populate **`outputs`** from the required field list above; `reviewComplete` only after user confirmation and SoT conversation review completes per step 8; set `markupMode` / `markupPending` per § *Pending markup mode* |
+| R3 | Populate **`outputs`** from the required field list above; `reviewComplete` only after user confirmation and SoT conversation review completes per step 8; set `markupMode` / `markupPending` per § *Pending markup mode*; set **`backupsRemoved`** after § *Post-content-approval backup cleanup* |
 | R4 | Re-emit updated MCP result after user-requested follow-up on this lane (same spawn session; host resolves **`correlationId`**) |
 | R5 | SoT conversation review complete: durable **Conversation review — {relativeFilePath}** section written; zero-candidate USER_CHECKPOINT passed (or per-change gates completed) before terminal MCP |
 
