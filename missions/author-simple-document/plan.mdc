@@ -293,39 +293,37 @@ treating **`CHANGELOG.md`** as default SoT for deviation compare.
 - **Inputs:** Same folder binding and `relativeFilePath` as §4.
 - **Expected output:** Bisync success, or conflict artifacts requiring §4a.
 - **Next-step resolution:** When **`markupMode: pending`** on a **`.docx`**
-  target and pending markup remains → pending-markup approval USER_CHECKPOINT
-  below (before script gate). When approval clears or mode is not pending →
-  script gate then bisync. Bisync clean → §8. Conflict → §4a then §8. Hard
+  target and pending markup remains → pending-markup **sync block** below
+  (read-only — no OOXML edits on this lane). When markup is cleared or mode is
+  not pending → script gate then bisync. Bisync clean → §8. Conflict → §4a then §8. Hard
   error → USER_CHECKPOINT below.
 
-**Pending markup approval gate (binding — `markupMode: pending` only):** When
+**Pending markup sync block (binding — `markupMode: pending` only):** When
 the §6 author child used **`markupMode: pending`** on a **`.docx`**
 **`relativeFilePath`** and **`outputs.markupPending: true`** (or
 **`list-pending`** reports pending when the flag is absent), open structured
 choice on **this mission dispatch lane** **before** the script gate and
-**`rclone bisync`**. **Skip** when
-**`markupMode: final`** (default), the target is not **`.docx`**, or
-**`list-pending`** on the absolute local **`.docx`** already reports no pending
-markup (Word accept path — set **`markupPending: false`** and auto-advance to
-the script gate).
+**`rclone bisync`**. **Skip** when **`markupMode: final`** (default), the target
+is not **`.docx`**, or **`list-pending`** on the absolute local **`.docx`**
+already reports no pending markup.
 
 Resolve absolute docx path: **`localPath` + `relativeFilePath`**. Invoke
 **`scripts/docx-markup.mjs list-pending`** per rule **10** § *Pending OOXML
-markup script* when the gate opens.
+markup script* when the block opens. **Read-only on this lane** — **forbidden:**
+**`accept-all`**, **`docx-markup.mjs`** mutations, or other OOXML edits; markup
+resolution belongs on the **author** document-complete gate.
 
-USER_CHECKPOINT — approve pending markup before outbound sync.
+USER_CHECKPOINT — pending markup blocks outbound sync.
 
 | Option id | Label | Agent action |
 |-----------|-------|--------------|
-| `word-accept-done` | Accepted in Word — re-check and continue | Re-run **`list-pending`**. When empty: set **`markupPending: false`**, run **`docx-ooxml-validate.sh`**, then continue to the script gate + bisync. When still pending: re-open this gate with recap |
-| `accept-all-pending` | Accept all pending markup (Mission Control) | Run **`docx-markup.mjs accept-all`**, **`docx-ooxml-validate.sh`**, re-run **`list-pending`** (must be empty), set **`markupPending: false`**, then script gate + bisync |
-| `revise-document` | Revise document before sync | Return to §6 (or §5 when plan revision needed) — **forbidden** outbound bisync |
-| `defer-sync` | Defer outbound sync | Stop at §7; re-open this gate on resume |
+| `retry-sync-after-author-clears` | Re-check — author cleared pending markup | Re-run **`list-pending`**. When empty: set **`markupPending: false`**, continue to script gate + bisync. When still pending: re-open this block — route user to author lane |
+| `defer-sync` | Defer outbound sync | Stop at §7; re-open this block on resume |
 
 **Forbidden:** running outbound **`rclone bisync`** while **`markupMode:
-pending`** and pending markup remain without a named approval pick on this
-gate; calling **`accept-all`** without **`accept-all-pending`** pick; treating
-Word accept as satisfied without re-running **`list-pending`**.
+pending`** and pending markup remain; calling **`accept-all`** or mutating
+working **`.docx`** OOXML on this lane; **`word-accept-done`** /
+**`accept-all-pending`** on this lane (author gate only).
 
 **Pending markup outbound gate (binding — after approval when applicable):**
 When **`relativeFilePath`** ends with **`.docx`**, run

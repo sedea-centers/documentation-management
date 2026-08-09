@@ -111,8 +111,10 @@ When **`markupMode: pending`** and **`relativeFilePath`** ends with **`.docx`**:
    **`list-pending`**; set **`outputs.markupPending: true`** when JSON reports
    pending markup. Set **`false`** when no pending markup at terminal.
 
-**Out of scope on this skill:** Outbound sync, **`accept-all`**, and parent
-mission pending-markup USER_CHECKPOINT (PR 4) — report **`markupPending`** only.
+**Lane ownership (binding):** Only author-family lanes (**author**, this skill)
+may mutate working **`.docx`** OOXML or run **`accept-all`** via
+**`docx-markup.mjs`**. **Out of scope on this skill:** outbound **`rclone`**
+sync — parent mission sync gates are read-only when markup remains.
 
 ## Steps
 
@@ -142,9 +144,26 @@ mission pending-markup USER_CHECKPOINT (PR 4) — report **`markupPending`** onl
      **Skip** unchanged already-registered paths (step 2 pre-edit satisfies the
      first registration). See **`../README.md`** § *Relevant Links — registration*.
 6. **Revision-complete USER_CHECKPOINT** — after all approved rows are implemented
-   (or explicitly deferred with rationale recorded). Options at minimum:
-   **Confirm revisions complete** · **Revise** · **Defer remaining rows** · then
-   the universal trailer. On **Revise**, rewrite finals and re-open this gate.
+   (or explicitly deferred with rationale recorded). When **`markupMode: pending`**
+   on **`.docx`**, run **`list-pending`** on the absolute working copy **before**
+   opening the gate; recap **`markupMode`**, insert/delete counts, and whether
+   Confirm is unlocked.
+   - Options at minimum when **`list-pending`** reports **`pending: true`**:
+     **`word-accept-done`** · **`accept-all-pending`** · **Revise** · **Defer
+     remaining rows** · then the universal trailer. **Forbidden:** **Confirm
+     revisions complete** while pending markup remains.
+   - Options at minimum when markup is cleared (**`pending: false`**) or
+     **`markupMode: final`**: **Confirm revisions complete** · **Revise** ·
+     **Defer remaining rows** · then the universal trailer.
+   - On **`word-accept-done`**: re-run **`list-pending`**. When empty: set
+     **`markupPending: false`**, run **`docx-ooxml-validate.sh`**, re-open this
+     gate. When still pending: re-open this gate.
+   - On **`accept-all-pending`**: run **`docx-markup.mjs accept-all`**, validate,
+     re-run **`list-pending`** (must be empty), set **`markupPending: false`**,
+     re-open this gate.
+   - **Confirm revisions complete** means content complete **and** markup cleared
+     when **`markupMode: pending`**. On **Revise**, rewrite affected regions and
+     re-open this gate.
 7. **Direct user SoT requests (binding):** When the user explicitly requests a SoT
    change during this pass, append to the SoT changes follow-up document. Do **not**
    write under **`source-of-truth/`**.
@@ -198,7 +217,8 @@ create or reuse
 lane; treating SoT follow-up approval as authorization to edit SoT **here**
 (Squad Leader applies per **`plan.mdc`** §6a after document-reviewer terminal);
 separate draft-review modal; *Approve draft → write final copy*; *Skip — treat
-current text as final*; mandatory draft pass for large edits.
+current text as final*; mandatory draft pass for large edits; **Confirm revisions
+complete** while **`list-pending`** reports **`pending: true`**.
 
 ## Completion (spawned)
 

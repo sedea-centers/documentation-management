@@ -496,16 +496,20 @@ picks with Approve / Revise on the same approval turn — see
 `skills/part-planner/SKILL.md` steps 4–5.
 
 **Author final-write review (binding — author lane):** The author writes
-**final-quality** prose on the first substantive write for each part region
-(rule **20** hygiene — no draft-quality meta/reasoning in the document body),
+**final-quality** prose on the first substantive write for each part region when
+**`markupMode: final`**, or pending markup when **`markupMode: pending`**, per
+rule **20** hygiene — no draft-quality meta/reasoning in the document body,
 then opens the **part-complete** structured-choice gate in
-`skills/author/SKILL.md` step 5. **Forbidden:** a separate draft-review modal;
+`skills/author/SKILL.md` step 5 (including pending-markup resolution when
+applicable). **Forbidden:** a separate draft-review modal;
 *Approve draft → write final copy*; *Skip — treat current text as final*;
 part-complete confirm before finals exist.
 
 **Revision-author final-write review (binding — revision-author lane):** Same
 contract as author — implement approved review-plan rows as final-quality prose
-immediately, then **Confirm revisions complete** gate only; see
+when **`markupMode: final`**, or pending markup when **`markupMode: pending`**,
+immediately, then **Confirm revisions complete** gate only (including
+pending-markup resolution when applicable); see
 `skills/revision-author/SKILL.md` step 5. **Forbidden:** draft→final chain or
 draft-review modal before revision-complete.
 
@@ -746,14 +750,14 @@ Open **#external-wait** while the child runs.
   Author Simple Document.
 - **Expected output:** Clean bisync, or conflict resolved via file-synchronizer.
 - **Next-step resolution:** When **`markupMode: pending`** on a **`.docx`**
-  working copy and pending markup remains → pending-markup approval
-  USER_CHECKPOINT below (before script gate). When approval clears or mode is
-  not pending → script gate then bisync. Success → re-open the gate that
+  working copy and pending markup remains → pending-markup **sync block**
+  below (read-only — no OOXML edits on this lane). When markup is cleared or
+  mode is not pending → script gate then bisync. Success → re-open the gate that
   invoked sync (§5a); when sync started from §5 standing options, return to §5.
   Conflict → spawn file-synchronizer, then re-open that same gate. Hard error →
   USER_CHECKPOINT.
 
-**Pending markup approval gate (binding — `markupMode: pending` only):**
+**Pending markup sync block (binding — `markupMode: pending` only):**
 Before outbound **`rclone bisync`** on **`.docx`** working copies, when the
 latest **author** or **revision-author** child for this document used
 **`markupMode: pending`** and **`outputs.markupPending: true`** (or
@@ -761,26 +765,26 @@ latest **author** or **revision-author** child for this document used
 choice on the **Squad Leader** lane **before** the script gate and bisync.
 **Skip** when **`markupMode: final`**, the target is not **`.docx`**, or
 **`list-pending`** on the absolute local **`.docx`** already reports no pending
-markup (Word accept path — set **`markupPending: false`** and auto-advance).
+markup.
 
 Resolve absolute docx path: **`localPath` + `relativeFilePath`**. Invoke
 **`scripts/docx-markup.mjs list-pending`** per rule **10** § *Pending OOXML
-markup script* when the gate opens. Timing mirrors §7a document-review opt-in —
-this gate runs on every outbound sync attempt while pending markup remains.
+markup script* when the block opens. **Read-only on this lane** — **forbidden:**
+**`accept-all`**, **`docx-markup.mjs`** mutations, or other OOXML edits; markup
+resolution belongs on **author** / **revision-author** part-complete or
+revision-complete gates.
 
-USER_CHECKPOINT — approve pending markup before outbound sync.
+USER_CHECKPOINT — pending markup blocks outbound sync.
 
 | Option id | Label | Agent action |
 |-----------|-------|--------------|
-| `word-accept-done` | Accepted in Word — re-check and continue | Re-run **`list-pending`**. When empty: set **`markupPending: false`**, run **`docx-ooxml-validate.sh`**, then continue to the script gate + bisync. When still pending: re-open this gate with recap |
-| `accept-all-pending` | Accept all pending markup (Mission Control) | Run **`docx-markup.mjs accept-all`**, **`docx-ooxml-validate.sh`**, re-run **`list-pending`** (must be empty), set **`markupPending: false`**, then script gate + bisync |
-| `revise-document` | Revise document before sync | Route to §6 part delivery or §7a document review as appropriate — **forbidden** outbound bisync |
+| `retry-sync-after-author-clears` | Re-check — author cleared pending markup | Re-run **`list-pending`**. When empty: set **`markupPending: false`**, continue to script gate + bisync. When still pending: re-open this block — route user to author-family lane |
 | `defer-sync` | Defer outbound sync | Re-open the gate that invoked sync (§5a) without bisync |
 
 **Forbidden:** outbound **`rclone bisync`** while **`markupMode: pending`** and
-pending markup remain without a named approval pick; calling **`accept-all`**
-without **`accept-all-pending`** pick; treating Word accept as satisfied without
-re-running **`list-pending`**.
+pending markup remain; calling **`accept-all`** or mutating working **`.docx`**
+OOXML on the Squad Leader lane; **`word-accept-done`** / **`accept-all-pending`**
+on this lane (author-family gates only).
 
 **Pending markup outbound gate (binding — after approval when applicable):**
 Before outbound **`rclone bisync`** on **`.docx`** working copies, run

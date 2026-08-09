@@ -125,9 +125,39 @@ When **`markupMode: pending`** and **`relativeFilePath`** ends with **`.docx`**:
    **`list-pending`** reports no pending markup at terminal. Non-**`.docx`**
    targets omit **`markupPending`** or set **`false`**.
 
-**Out of scope on this skill:** Outbound **`rclone`** sync, **`accept-all`**, and
-parent-mission pending-markup USER_CHECKPOINT gates (PR 4) — this skill only
-authors markup and reports **`markupPending`** honestly.
+**Lane ownership (binding):** Only this author lane may mutate working **`.docx`**
+OOXML or run **`accept-all`** via **`docx-markup.mjs`**. **Out of scope on this
+skill:** outbound **`rclone`** sync — parent mission sync gates are read-only
+when markup remains.
+
+## Document-complete review (binding)
+
+1. Render **Proposed Changes** from the approved plan into the target document.
+2. Iterate with the user until the document is complete.
+3. **Document-complete USER_CHECKPOINT** — before terminal MCP result. When
+   **`markupMode: pending`** on **`.docx`**, run **`list-pending`** on the absolute
+   working copy **before** opening the gate; recap **`markupMode`**, insert/delete
+   counts, and whether Confirm is unlocked.
+   - Options at minimum when **`list-pending`** reports **`pending: true`**:
+     **`word-accept-done`** · **`accept-all-pending`** · **Revise** · **Defer** ·
+     then the universal trailer. **Forbidden:** **Confirm document complete**
+     while pending markup remains.
+   - Options at minimum when markup is cleared (**`pending: false`**) or
+     **`markupMode: final`**: **Confirm document complete** · **Revise** ·
+     **Defer** · then the universal trailer.
+   - On **`word-accept-done`**: re-run **`list-pending`**. When empty: set
+     **`markupPending: false`**, run **`docx-ooxml-validate.sh`**, re-open this
+     gate. When still pending: re-open this gate.
+   - On **`accept-all-pending`**: run **`docx-markup.mjs accept-all`**, validate,
+     re-run **`list-pending`** (must be empty), set **`markupPending: false`**,
+     re-open this gate.
+   - **Confirm document complete** means content complete **and** markup cleared
+     when **`markupMode: pending`**.
+4. Record `documentComplete: true` only after explicit user confirmation at step 3.
+
+**Forbidden:** **Confirm document complete** while **`list-pending`** reports
+**`pending: true`**; **Confirm document complete** before substantive content
+exists.
 
 ## Completion (spawned)
 
