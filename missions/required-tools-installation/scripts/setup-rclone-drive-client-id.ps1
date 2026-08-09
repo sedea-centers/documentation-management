@@ -86,6 +86,34 @@ function Die {
   exit $Code
 }
 
+# Safe stderr snip for IAP JSON errors — never echo secret / clientSecret fields.
+function Format-SafeIapErrorSnip {
+  param(
+    [object] $JsonObject,
+    [int] $MaxLen = 300
+  )
+  if ($null -eq $JsonObject) { return '{}' }
+  try {
+    $safe = [ordered]@{}
+    $props = $JsonObject.PSObject.Properties
+    foreach ($name in @('error', 'message', 'status', 'code', 'details')) {
+      if ($props[$name]) { $safe[$name] = $JsonObject.$name }
+    }
+    $keys = @($props | ForEach-Object { $_.Name })
+    if ($keys.Count -gt 0) { $safe['keys'] = $keys }
+    # Explicitly omit secret-bearing fields even if present under other names.
+    foreach ($secretKey in @('secret', 'clientSecret', 'client_secret', 'clientId', 'client_id', 'name')) {
+      if ($safe.Contains($secretKey)) { $safe.Remove($secretKey) }
+    }
+    $snip = ($safe | ConvertTo-Json -Compress -Depth 4)
+    if ($snip.Length -gt $MaxLen) { $snip = $snip.Substring(0, $MaxLen) }
+    return $snip
+  }
+  catch {
+    return '{redacted}'
+  }
+}
+
 function Show-Usage {
   @"
 Usage: setup-rclone-drive-client-id.ps1 --project-id <id> --credentials-path <sa.json> [options]
@@ -338,12 +366,7 @@ function Ensure-InternalBrand {
     $brandName = Get-JsonFirstBrandName -JsonObject $listJson
   }
   if (-not $brandName) {
-    $snip = 'unknown'
-    try {
-      $snip = ($createJson | ConvertTo-Json -Compress -Depth 4)
-      if ($snip.Length -gt 200) { $snip = $snip.Substring(0, 200) }
-    }
-    catch { }
+    $snip = Format-SafeIapErrorSnip -JsonObject $createJson -MaxLen 200
     Die 3 "failed to create or locate OAuth consent brand via iap.googleapis.com: $snip"
   }
   return $brandName
@@ -380,12 +403,7 @@ function New-DesktopClient {
   }
 
   if (-not $cid -or -not $sec) {
-    $errSnip = '{}'
-    try {
-      $errSnip = ($resp | ConvertTo-Json -Compress -Depth 4)
-      if ($errSnip.Length -gt 300) { $errSnip = $errSnip.Substring(0, 300) }
-    }
-    catch { }
+    $errSnip = Format-SafeIapErrorSnip -JsonObject $resp -MaxLen 300
     Die 3 ('IAP OAuth client create failed - ' + $errSnip + '. Need iap.identityAwareProxyClients.create (and brands). Do not paste secrets into chat. Fix IAM and re-run.')
   }
 
