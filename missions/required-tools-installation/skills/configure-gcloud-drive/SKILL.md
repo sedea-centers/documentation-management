@@ -182,7 +182,7 @@ Present short, friendly instructions (paraphrase freely; keep the checklist):
 Open an **external-wait / next-step** structured choice before ending the turn,
 for example: **Sidebar and project selector work — continue to login**, **Still
 blocked / need help**, **Abort**, **More details for option _**. Do **not**
-proceed to `gcloud auth login` until the user selects a continue path that means
+proceed to auth login until the user selects a continue path that means
 the Console sidebar and organization/project selector are usable.
 
 #### 1b. Sign in with gcloud in the terminal
@@ -191,10 +191,14 @@ After 1a succeeds:
 
 1. Ask them to open the integrated terminal with **Ctrl+`** (Control +
    backtick).
-2. Ask them to run: **`gcloud auth login`** and finish the browser/device
-   flow that gcloud prints.
-3. **Forbidden:** running interactive `gcloud auth login` in the agent shell
-   for the user.
+2. Ask them to run auth login and finish the browser/device flow that gcloud
+   prints:
+   - **Windows (PowerShell):** **`gcloud.cmd auth login`** — prefer `.cmd` over
+     bare `gcloud` (PATH often resolves to `gcloud.ps1`, which default
+     execution policy blocks).
+   - **macOS / Linux:** **`gcloud auth login`**
+3. **Forbidden:** running interactive auth login (`gcloud.cmd auth login` /
+   `gcloud auth login`) in the agent shell for the user.
 4. Open an **external-wait / next-step** structured choice before ending the
    turn, for example: **Auth done — continue**, **Retry probe**, **Abort**,
    **More details for option _**.
@@ -215,10 +219,12 @@ symlink; declaring success from a full SDK path when bare **`gcloud`** is absent
 1. **Auth guard (binding).** Re-apply Agent shell bootstrap, then confirm an
    active account with `gcloud auth list`. If none is active — or a later
    `gcloud projects list` returns an auth/credential error — do **not** list or
-   select projects. Route back to step 1b: ask the user to run `gcloud auth
-   login` in the integrated terminal (Ctrl+`), open an external-wait / next-step
-   structured choice (**Auth done — continue** · **Retry probe** · **Abort** ·
-   **More details for option _**), and resume only after auth succeeds.
+   select projects. Route back to step 1b: ask the user to run auth login in the
+   integrated terminal (Ctrl+`) — **Windows:** **`gcloud.cmd auth login`**;
+   **macOS / Linux:** **`gcloud auth login`** — open an external-wait /
+   next-step structured choice (**Auth done — continue** · **Retry probe** ·
+   **Abort** · **More details for option _**), and resume only after auth
+   succeeds.
 2. When authenticated, list accessible projects (`gcloud projects list`).
 3. **Derive a suggested new project id** (create path only):
    - GCP **project ids are globally unique**. A fixed default such as
