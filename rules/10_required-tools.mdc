@@ -208,6 +208,15 @@ alone into `~/bin` is **forbidden**.
 Dry-runs are **CLI-only** for **`gcloud`** — user auth and GCP/Drive setup belong
 to mission **configure-gcloud-drive**.
 
+### `node`
+
+| OS | Canonical install path | Normal invoke / version probe |
+|----|------------------------|-------------------------------|
+| macOS / Linux (bash) | `$HOME/.local/share/fnm/aliases/default/bin/node` | `node --version` / `npx --version` after `eval "$(fnm env)"` (or equivalent PATH) |
+| Windows (PowerShell) | `$env:LOCALAPPDATA\Programs\nodejs\node.exe` | `node --version` / `npx --version` (PATH) or `& "$env:LOCALAPPDATA\Programs\nodejs\node.exe" --version` when PATH miss |
+
+**Windows PATH / probe precedence (binding):** Prefer an already-qualifying **`node`** + **`npx`** on PATH (**`use-path`** or bare PATH) that meets **`minVersion`** and dry-runs — including a pre-existing `%ProgramFiles%\nodejs\` MSI install — over forcing LocalAppData zip extract. When PATH misses or fails dry-runs, probe **`windowsInstallPath`**; presence without PATH reachability is an **incomplete** install (add the zip root to the **user** PATH). Registry install/upgrade always targets LocalAppData **`fixed-path-zip`** — **forbidden** to treat Admin MSI as the sole repair.
+
 ## Tool inventory
 
 ### `vscode-office`
@@ -410,11 +419,12 @@ symlinks exist). Full install-path executable is allowed only for an explicit
 | **kind** | `cli` |
 | **cli** | `node` |
 | **minVersion** | `20.0.0` |
+| **latestVersionProbe** | `curl -fsSL https://nodejs.org/dist/index.json` — select the **first** object whose **`lts`** is not **`false`**; parse **`version`** (e.g. `v22.14.0` → strip leading `v` for semver compare to installed `node --version`). **Windows zip artifact for install/upgrade:** `https://nodejs.org/dist/<version>/node-<version>-win-x64.zip` (keep the published `v` prefix inside `<version>`). **Forbidden:** probing or installing via Admin MSI as the upgrade channel. |
 | **docsUrl** | https://nodejs.org/en/download/ |
 | **installUrl** | https://nodejs.org/en/download/ |
 | **macosInstallPath** | `~/.local/share/fnm/aliases/default/bin/node` |
 | **linuxInstallPath** | `~/.local/share/fnm/aliases/default/bin/node` |
-| **windowsInstallPath** | `%ProgramFiles%\nodejs\node.exe` |
+| **windowsInstallPath** | `%LOCALAPPDATA%\Programs\nodejs\node.exe` |
 
 **macOS methods (`macosMethods`):**
 
@@ -432,7 +442,7 @@ symlinks exist). Full install-path executable is allowed only for an explicit
 
 | Method id | Notes |
 |-----------|--------|
-| `nodejs-lts-msi` | **Sole** Windows method. Install Node.js **LTS** from **`installUrl`** so **`node.exe`** is at **`windowsInstallPath`** and **`npx`** is available on PATH. **Forbidden:** open-ended install-directory questions. |
+| `fixed-path-zip` | **Sole** Windows method. Download the official Node.js **LTS** Windows **x64 binary zip** from nodejs.org via **`latestVersionProbe`** (URL pattern `https://nodejs.org/dist/<version>/node-<version>-win-x64.zip`). Extract so **`node.exe`** is exactly at **`windowsInstallPath`** (zip root layout is typically `node-<version>-win-x64\` containing `node.exe`, `npm.cmd`, `npx.cmd` — place those files in `%LOCALAPPDATA%\Programs\nodejs\`; create directories as needed). Ensure that directory is on the **user** PATH so dry-runs can use bare **`node`** and **`npx`**. Prefer **`tar -xf`** or .NET `ZipFile` for extract. **Probe / PATH precedence:** follow the registry probe algorithm — **`use-path`** when supplied; else bare **`node`** / **`npx`** on PATH when they meet **`minVersion`** and dry-runs (existing Program Files MSI installs may qualify — do **not** force a zip reinstall); else incomplete LocalAppData install at **`windowsInstallPath`** routes to repair. When install/upgrade is required, write only to the LocalAppData **`windowsInstallPath`** tree (overwrite in place) — never Admin MSI / `%ProgramFiles%\nodejs\`. **Forbidden:** `nodejs-lts-msi` or any MSI/`msiexec` sole method; dual Windows sole methods; winget / Scoop / Chocolatey as sole method; open-ended install-directory questions; Electron-as-Node as inventory **`node`** (no bundled npm/`npx`); inventing Admin/UAC elevation as the recovery path. |
 
 **dryRuns:**
 

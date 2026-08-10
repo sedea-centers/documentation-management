@@ -124,14 +124,28 @@ page is sufficient. Treat **`upgrade`** the same as a consented re-run of the
 sole install procedure (overwrite in place at the registry fixed path).
 
 - For **`kind: cli`**, follow the registry's placement contract. On Windows
-  `fixed-path-exe`, install only to the registry fixed path. On Unix
-  **`gcloud`** (`curl-sdk`), create the registry-required **`~/bin`** symlinks
-  after installation/upgrade and before dry-runs.
+  `fixed-path-exe` / `fixed-path-sdk` / `fixed-path-zip`, install only to the
+  registry fixed path (Node **`fixed-path-zip`** →
+  `%LOCALAPPDATA%\Programs\nodejs\node.exe`). On Unix **`gcloud`** (`curl-sdk`),
+  create the registry-required **`~/bin`** symlinks after installation/upgrade
+  and before dry-runs.
 - For **`kind: sedea-extension`**, run the **sole registry method** against the
   resolved **Sedea** CLI after consent (gallery id **or** pinned VSIX download +
   path per method notes, including `--force` so upgrades refresh the install).
   Do not add the extension to Sedea's built-in extension bundle, invoke another
   editor's profile, or require a new MCP tool.
+
+**Node (Windows) success / failure copy (binding):**
+
+- **Success:** Report that Node + npm/`npx` are available via bare PATH (or the
+  consented **`use-path`**) at or above **`minVersion`**, with dry-runs green.
+  When this pass installed/upgraded, state that the sole method was
+  **`fixed-path-zip`** under `%LOCALAPPDATA%\Programs\nodejs\` (no Admin / MSI).
+- **Failure:** Summarize zip download/extract/PATH repair errors. Offer the
+  existing failure-gate options (**retry** / **skip** / **abort**, plus
+  **`use-path`** when the user has another qualifying Node+npm). **Forbidden:**
+  presenting MSI/`msiexec`, UAC elevation, or `%ProgramFiles%\nodejs\` Admin
+  install as the only recovery narrative for missing or failed **`node`**.
 
 USER_CHECKPOINT — retry, skip failed tool, or abort after an install/upgrade failure.
 
