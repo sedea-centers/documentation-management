@@ -1,8 +1,9 @@
 ---
 description: >-
-  Configure a new gitignored documentation folder and sync with an
-  already-configured rclone GDrive remote — GDrive URL/ID first, local name
-  from Drive folder, registry, SA share check, dry-run exit, then full pull.
+  Configure a new gitignored documentation folder — or reconfigure and sync
+  existing registry rows after clone — against an already-configured rclone
+  GDrive remote (inventory first, then GDrive URL/ID / SA share / dry-run /
+  full pull).
 alwaysApply: false
 ---
 
@@ -10,30 +11,34 @@ alwaysApply: false
 
 ## Objectives
 
-1. Register a new top-level documentation folder in
+1. On clone / workstation bind: inventory **`.sedea/documentation-management.yaml`**
+   for existing folder rows that are unsynced or unbound on **this** machine, and
+   offer **reconfigure + sync** those rows (or continue to configure a **new**
+   folder) so users can sync preconfigured Drive folders confidently.
+2. Register a new top-level documentation folder in
    **`.sedea/documentation-management.yaml`** with **`localPath`** and rclone
    **`remote`** / **`remotePath`** per
    [`.sedea/centers/documentation-management/rules/00_documentation-management.mdc`](../../rules/00_documentation-management.mdc)
    — authored in the **same hosting worktree** as the **`.gitignore`** entry and
-   landed on **`main`** via one promote pass (§4–§6).
-2. Capture the **Google Drive** folder the user will sync (v1: GDrive only) as
+   landed on **`main`** via one promote pass (§5–§7).
+3. Capture the **Google Drive** folder the user will sync (v1: GDrive only) as
    rclone **`remotePath`** (URL or folder ID first).
-3. Confirm the **service account email** (from Required Tools SA JSON) is shared
+4. Confirm the **service account email** (from Required Tools SA JSON) is shared
    on that Drive folder; if not, instruct the user how to add it and wait for
    confirm.
-4. Propose a local directory name derived from the **Drive folder display name**
+5. Propose a local directory name derived from the **Drive folder display name**
    (first choice), then create the local folder under the hosting workspace and
    add it to the hosting-repo **`.gitignore`** so documentation payloads stay out
    of git.
-5. **Force-include** the same **`localPath`** for Cursor SDK indexing via
+6. **Force-include** the same **`localPath`** for Cursor SDK indexing via
    hosting-repo **`.cursorignore`** negation lines (`!<localPath>/` and
    `!<localPath>/**`) — authored in the **same** hosting worktree as the
    **`.gitignore`** entry and the registry, and landed on **`main`** in the same
-   promote pass (§4–§6). Gitignored documentation folders **must** be indexed for
+   promote pass (§5–§7). Gitignored documentation folders **must** be indexed for
    Documentation Management missions to succeed; this is required, not optional.
-6. Run an agent **dry-run** against the **existing** rclone Drive remote as the
+7. Run an agent **dry-run** against the **existing** rclone Drive remote as the
    installation exit; then a **full pull** sync only after explicit confirm.
-7. Close the dispatch with an explicit Squad Leader resolution proposal when
+8. Close the dispatch with an explicit Squad Leader resolution proposal when
    configuration and sync gates are complete or abandoned.
 
 ## Protocol
@@ -43,20 +48,73 @@ alwaysApply: false
 - **Type:** Branching logic
 - **Intent:** Match this mission’s command phrases and prepare routing.
 - **Inputs:** Opening message; **`mission.yaml`** `commands`.
-- **Expected output:** Intent label (`configure`).
+- **Expected output:** Intent label (`configure` | `reconfigure-sync`).
 - **Next-step resolution:** Phrase matches → §2 (auto-advance). No match → USER_CHECKPOINT below.
 
-USER_CHECKPOINT — confirm configure intent when the opening command phrase does not match unambiguously.
+USER_CHECKPOINT — confirm configure / reconfigure-sync intent when the opening command phrase does not match unambiguously.
 
 - Apply **phrase matching** from [`.sedea/centers/sedea/rules/4_mission.mdc`](.sedea/centers/sedea/rules/4_mission.mdc) (§ Mission command phrases — longer phrases first).
-- Map phrases from **`mission.yaml`**:
+- Map phrases from **`mission.yaml`** (longer phrases first):
+  - **`reconfigure documentation folder`** → intent **`reconfigure-sync`**
+  - **`sync existing documentation folder`** → intent **`reconfigure-sync`**
   - **`configure new documentation folder`** → intent **`configure`**
 - After intent is mapped, when dispatch scope is readable, call MCP
   **`mission_control_update_dispatch_display`** with a topic/domain title (≤64 chars) —
   **not** live sync status. Skip when chrome already matches. See
   [`.sedea/centers/sedea/rules/9_display-metadata-authority.mdc`](.sedea/centers/sedea/rules/9_display-metadata-authority.mdc).
 
-### 2. Preconditions — rclone + configured Drive remote + SA email
+### 2. Inventory existing configs — unsynced / unbound on this workstation
+
+- **Type:** Branching logic
+- **Intent:** Before capturing a *new* Drive folder, detect registry rows already on
+  the hosting repo that are not ready on **this** workstation (missing local tree,
+  empty `localPath`, rclone remote missing locally, or never pulled), and offer
+  **reconfigure + sync** those rows — or continue to **configure new**.
+- **Inputs:** Opening intent; **`.sedea/documentation-management.yaml`** on
+  **`HOSTING_ROOT`** (read-only inventory); shell probe for `rclone` / remotes
+  (same signals as §3); optional user preference from opening message
+  (`reconfigure` / `sync existing` / `configure new`).
+- **Expected output:** Inventory summary (`slug`, `localPath` exists?, remote
+  present?, last sync unknown/never); chosen path: **`reconfigure-sync`** (one or
+  more existing slugs) · **`configure-new`** · **abort**.
+- **Next-step resolution:**
+  - Registry empty or user chooses **configure new** / intent **`configure`** with
+    no existing rows to prefer → §3 (preconditions; then Drive capture…).
+  - User chooses **reconfigure-sync** for selected slug(s) or opening intent is
+    **`reconfigure-sync`** → §3 preconditions, then the **reconfigure-sync branch**
+    below (reuse SA share check, dry-run, promote-if-needed, and full pull
+    **without** inventing a new Drive folder or duplicate registry slug).
+  - Unclear → USER_CHECKPOINT below.
+
+USER_CHECKPOINT — pick existing unsynced/unbound folder(s) to reconfigure+sync · configure new folder · abort.
+
+**Procedure (binding):**
+
+1. **Read** `.sedea/documentation-management.yaml` on **`HOSTING_ROOT`**. If missing
+   or `folders` empty → auto-advance to §3 / configure-new path (no inventory gate).
+2. For each `folders.<slug>`: record `localPath`, `rclone.remote`,
+   `rclone.remotePath`. Classify on this workstation:
+   - **unbound** — `localPath` missing or not a directory
+   - **empty-local** — directory exists but appears empty (no files) while
+     `remotePath` is set
+   - **remote-gap** — expected rclone remote not in `rclone listremotes`
+   - **ready-candidate** — local exists and remote present (may still need dry-run /
+     full pull confirm)
+3. Present inventory in **`displayMarkdown`**. Prefer listing **unbound** /
+   **empty-local** / **remote-gap** first.
+4. Structured choice: select one or more listed slugs to **reconfigure + sync** ·
+   **configure new documentation folder** · abort. Under Checkpoint, a list-pick of
+   slug(s) **is** consent to enter the reconfigure-sync branch for those slugs —
+   do not open a redundant “are you sure” modal before preconditions.
+5. **Reconfigure-sync branch (same dispatch):** run §3 preconditions; for each
+   selected slug, ensure local dir + `.gitignore` / `.cursorignore` force-include
+   match registry (idempotent repair under hosting **`WORKTREE_ROOT`** when tracked
+   files differ); SA share check on existing `remotePath`; dry-run (§6); promote if
+   tracked edits (§7); full-pull USER_CHECKPOINT (§8). **Forbidden:** treating
+   reconfigure as license to create a **new** Drive folder or **new** registry
+   slug; mutating rclone remotes; skipping SA share / dry-run / full-pull gates.
+
+### 3. Preconditions — rclone + configured Drive remote + SA email
 
 - **Type:** Simple skill execution
 - **Intent:** Ensure `rclone` is usable, a Drive remote from **Required Tools
@@ -66,13 +124,13 @@ USER_CHECKPOINT — confirm configure intent when the opening command phrase doe
 - **Expected output:** `rclone` **ok**; named Drive remote present in
   `rclone listremotes`; SA JSON readable with `client_email` — or stop with a
   clear gap.
-- **Next-step resolution:** Preconditions met → §3. Otherwise → USER_CHECKPOINT below.
+- **Next-step resolution:** Preconditions met → §4. Otherwise → USER_CHECKPOINT below.
 
 Probe `rclone` (PATH or user-supplied command). Compare to **`minVersion`** in the
 required-tools registry. Confirm `rclone listremotes` includes the expected
 remote. Confirm the SA JSON path exists (`type: service_account` with
 `client_email` — validate in-process; **do not** print key material). Record
-the SA email for §3.
+the SA email for §4.
 
 USER_CHECKPOINT — start Required Tools Installation (new dispatch) · provide rclone path · provide remote name · provide SA JSON path · abort.
 
@@ -92,17 +150,17 @@ only binds a folder path on that remote and syncs.
 `rclone config` / `reconnect`; `client_id` / `client_secret` entry; collecting
 SA private key material via chat.
 
-### 3. Capture Drive folder (URL or ID)
+### 4. Capture Drive folder (URL or ID)
 
 - **Type:** Branching logic
 - **Intent:** Collect the Google Drive folder first so local naming can follow the
   remote folder name.
 - **Inputs:** User-supplied Drive folder **URL** or **folder ID**; existing rclone
-  remote from §2; SA email from §2.
+  remote from §3; SA email from §3.
 - **Expected output:** Provider id `gdrive`; rclone **`remote`**; **`remotePath`**;
   human **Drive folder name** (for local naming); SA share confirmed (or user
   instructed and confirmed).
-- **Next-step resolution:** URL/ID + folder name resolved and SA share ok → §4.
+- **Next-step resolution:** URL/ID + folder name resolved and SA share ok → §5.
   Missing/unclear → USER_CHECKPOINT below.
 
 USER_CHECKPOINT — collect GDrive folder URL or folder ID when not clear from the opening message.
@@ -129,8 +187,8 @@ substantive free-form chat to **discuss or inquire** about the Google Drive fold
 before bind.
 
 **Unchanged:** SA share **#external-wait** gate (only when share not yet done);
-§4 local directory name confirm; §4 auto-advance hosting configuration; dry-run
-failure gates; §7 full pull confirm.
+§5 local directory name confirm; §5 auto-advance hosting configuration; dry-run
+failure gates; §8 full pull confirm.
 
 2. Resolve **`remotePath`** for rclone from that URL/ID. Keep provider **`gdrive`**.
    **Forbidden:** other cloud providers in v1; inventing a Drive folder without
@@ -140,7 +198,7 @@ failure gates; §7 full pull confirm.
    after a checkpoint list-pick, **auto-advance** — **do not** open a separate
    name-confirm modal under checkpoint trust; else ask the user to confirm the
    name only when probe fails and no list label supplied the name).
-4. **SA share check:** Using the SA email from §2, verify the target folder
+4. **SA share check:** Using the SA email from §3, verify the target folder
    (or Shared Drive) is shared with that email. Prefer a non-destructive rclone
    probe against `remote:remotePath` when that is a reliable signal; otherwise
    ask the user to confirm the share in Drive.
@@ -154,22 +212,22 @@ failure gates; §7 full pull confirm.
 
 USER_CHECKPOINT — #external-wait — confirm Drive folder shared with SA email (only when share not yet done).
 
-### 4. Collect local folder and apply hosting tracked edits
+### 5. Collect local folder and apply hosting tracked edits
 
 - **Type:** Branching logic
 - **Intent:** Create the local documentation root using a name derived from the
   Drive folder, then author **`.gitignore`**, **`.cursorignore`** (indexing
   force-include), and **`.sedea/documentation-management.yaml`** in the **same**
   hosting **`WORKTREE_ROOT`**.
-- **Inputs:** Drive folder **display name** from §3; optional user override for
-  local name/path; rclone **`remote`** from §2 (registry may finalize **`remotePath`**
-  after §5 bind).
+- **Inputs:** Drive folder **display name** from §4; optional user override for
+  local name/path; rclone **`remote`** from §3 (registry may finalize **`remotePath`**
+  after §6 bind).
 - **Expected output:** Absolute **`localPath`**; hosting **`.gitignore`** entry;
   hosting **`.cursorignore`** force-include lines for that **`localPath`**;
   registry **`slug`** (and provisional or full registry row) under the **same**
   **`WORKTREE_ROOT`**.
 - **Next-step resolution:** Local directory name confirmed and hosting configuration
-  written (or edits already in worktree) → §5.
+  written (or edits already in worktree) → §6.
 
 **Non-technical users (binding):** Do not ask the user to approve individual
 configuration files (`.gitignore`, `.cursorignore`, registry YAML). After folder
@@ -204,7 +262,7 @@ USER_CHECKPOINT — confirm or override the proposed local directory name.
    - Under that **same** **`WORKTREE_ROOT`**, edit hosting-repo **`.gitignore`**
      (path or agreed pattern), hosting-repo **`.cursorignore`**, **and**
      **`.sedea/documentation-management.yaml`** (provisional row with **`slug`**,
-     **`localPath`**, known **`remote`**; fill **`remotePath`** in §5 if not yet
+     **`localPath`**, known **`remote`**; fill **`remotePath`** in §6 if not yet
      bound).
    - **`.cursorignore` force-include (binding):** ensure the hosting-repo
      **`.cursorignore`** contains negation lines that re-include the folder for
@@ -229,29 +287,29 @@ USER_CHECKPOINT — confirm or override the proposed local directory name.
      leaving force-include only in chat, skills, or Sedea host UI settings.
 6. Documentation **payloads** under **`localPath`** must never be committed.
 
-### 5. Installation exit — bind path + dry-run
+### 6. Installation exit — bind path + dry-run
 
 - **Type:** Simple skill execution
 - **Intent:** Bind captured **`remotePath`** to the **existing** rclone remote and
   exit installation with a dry-run result.
-- **Inputs:** Provider + remote path from §3; rclone remote name from §2; hosting
-  **`localPath`** from §4; existing hosting **`WORKTREE_ROOT`** from §4
+- **Inputs:** Provider + remote path from §4; rclone remote name from §3; hosting
+  **`localPath`** from §5; existing hosting **`WORKTREE_ROOT`** from §5
   configuration when tracked files are open.
 - **Expected output:** Registry-ready **`remote`** + **`remotePath`**; **dry-run
   log** (command, exit code, pass/fail summary) as the **installation exit
   result**; registry row updated in the **same** **`WORKTREE_ROOT`** when fields
   finalize here.
-- **Next-step resolution:** Dry-run **pass** → §6 (promote hosting worktree to
-  main). Dry-run **fail** or setup abort → USER_CHECKPOINT below, then §6 / §7
-  or §9.
+- **Next-step resolution:** Dry-run **pass** → §7 (promote hosting worktree to
+  main). Dry-run **fail** or setup abort → USER_CHECKPOINT below, then §7 / §8
+  or §10.
 
 **Setup (binding — agent runs):**
 
-1. Record **`remote`** (from §2) and **`remotePath`** (from §3) for the registry
+1. Record **`remote`** (from §3) and **`remotePath`** (from §4) for the registry
    row. **Do not** run `rclone config create` / `rclone config update` for
    auth or remote creation.
 2. When **`remotePath`** (or other registry fields) finalize here and this pass
-   already has a hosting **`WORKTREE_ROOT`** from §4, **auto-advance**
+   already has a hosting **`WORKTREE_ROOT`** from §5, **auto-advance**
    **`StrReplace`** / write on **`.sedea/documentation-management.yaml`** in that
    worktree — **do not** re-ask worktree or configuration consent.
 3. **Forbidden:** printing SA JSON contents; interactive `rclone config`;
@@ -271,7 +329,7 @@ USER_CHECKPOINT — confirm or override the proposed local directory name.
 
 USER_CHECKPOINT — retry dry-run · fix path/share · abort after dry-run failure.
 
-### 6. Promote hosting worktree to main
+### 7. Promote hosting worktree to main
 
 - **Type:** Simple skill execution
 - **Intent:** Land hosting-repo tracked edits (**`.gitignore`**, **`.cursorignore`**,
@@ -281,17 +339,17 @@ USER_CHECKPOINT — retry dry-run · fix path/share · abort after dry-run failu
    correctly saved artifacts **are** ship consent **through merge** —
    the PR is only the vehicle to land the pre-approved configuration; there is no
    second product approval on the PR itself.
-- **Inputs:** Hosting **`WORKTREE_ROOT`** from §4 configuration (updated in §5
-   when needed); prior configuration USER_CHECKPOINT approvals; §5 dry-run pass
+- **Inputs:** Hosting **`WORKTREE_ROOT`** from §5 configuration (updated in §6
+   when needed); prior configuration USER_CHECKPOINT approvals; §6 dry-run pass
    (or skip-no-changes).
 - **Expected output:** PR merged by agent **without** a separate merge modal on
    the Checkpoint happy path; worktree cleaned up; **`HOSTING_ROOT`** on updated
    **`main`**.
-- **Next-step resolution:** Success or skip-no-changes → §7 (full pull). Ship
+- **Next-step resolution:** Success or skip-no-changes → §8 (full pull). Ship
   failure → USER_CHECKPOINT below.
 
 When this pass has **no** uncommitted/unmerged hosting-repo tracked changes,
-**skip** this section and continue to §7.
+**skip** this section and continue to §8.
 
 Otherwise promote **this pass’s** **`WORKTREE_ROOT`** only:
 
@@ -354,7 +412,7 @@ before mutating GitHub.
    mounted, then center **`worktree-cleanup.sh`**) for **this** path only —
    Path A or Path B ownership; then on **`HOSTING_ROOT`**: **`git pull origin main`**.
 
-**Forbidden:** full pull (§7) while this pass still has an unmerged hosting
+**Forbidden:** full pull (§8) while this pass still has an unmerged hosting
 worktree PR for the configure edit set; separate worktrees or PRs for gitignore
 vs **`.cursorignore`** vs registry; removing worktrees you do not own; re-asking
 create-worktree, pipeline-depth, or merge after local directory name approval on
@@ -363,14 +421,14 @@ when rule **6** inspect shows merge-only is sufficient.
 
 USER_CHECKPOINT — retry ship · skip to full pull (document risk) · abort after ship failure.
 
-### 7. Full pull sync
+### 8. Full pull sync
 
 - **Type:** Simple skill execution
 - **Intent:** Pull remote files into **`localPath`** after explicit consent.
-- **Inputs:** Successful installation dry-run from §5; §6 promote complete or
+- **Inputs:** Successful installation dry-run from §6; §7 promote complete or
   skip-no-changes; user confirm.
 - **Expected output:** Sync result summary (files transferred / errors).
-- **Next-step resolution:** Success → §8. Failure → USER_CHECKPOINT below.
+- **Next-step resolution:** Success → §9. Failure → USER_CHECKPOINT below.
 
 USER_CHECKPOINT — confirm full pull sync (writes into localPath).
 
@@ -379,19 +437,19 @@ USER_CHECKPOINT — confirm full pull sync (writes into localPath).
 
 USER_CHECKPOINT — retry sync · accept partial · abort after sync failure.
 
-### 8. Verify folder registry on main
+### 9. Verify folder registry on main
 
 - **Type:** Simple skill execution
 - **Intent:** Confirm the folder row exists in
-   **`.sedea/documentation-management.yaml`** on **`HOSTING_ROOT`** after §6
+   **`.sedea/documentation-management.yaml`** on **`HOSTING_ROOT`** after §7
    merge + pull (idempotent — do **not** open a second ship for the registry).
 - **Inputs:** **`slug`**, **`localPath`**, rclone **`remote`**, **`remotePath`**;
    merged **`main`** on **`HOSTING_ROOT`**.
-- **Expected output:** Registry valid on **`HOSTING_ROOT`**; no-op when the §4–§6
+- **Expected output:** Registry valid on **`HOSTING_ROOT`**; no-op when the §5–§7
    worktree already landed the row.
-- **Next-step resolution:** Registry valid → §9.
+- **Next-step resolution:** Registry valid → §10.
 
-Read the registry on the **main hosting clone** after §6 pull. If the row is
+Read the registry on the **main hosting clone** after §7 pull. If the row is
 missing or incomplete (unexpected), repair under a **new** hosting worktree only
 with a fresh configuration edit pass — do not silently edit **`HOSTING_ROOT`**
 checked-out **`main`**. Schema:
@@ -404,10 +462,10 @@ for this folder’s repo-relative **`localPath`**. If either line is missing
 pass used for a registry repair — never a second, separate ship.
 
 **Forbidden:** inventing a second registry path; committing documentation payloads;
-treating §8 as the primary authoring step for a tracked registry or **`.cursorignore`**
-(primary write is §4–§5 in **`WORKTREE_ROOT`**).
+treating §9 as the primary authoring step for a tracked registry or **`.cursorignore`**
+(primary write is §5–§6 in **`WORKTREE_ROOT`**).
 
-### 9. Dispatch resolution (Squad Leader)
+### 10. Dispatch resolution (Squad Leader)
 
 - **Type:** Finish/stop logic
 - **Intent:** Close this Mission Control dispatch explicitly.
@@ -416,7 +474,7 @@ treating §8 as the primary authoring step for a tracked registry or **`.cursori
 - **Expected output:** MCP **`mission_control_propose_dispatch_resolution`** with status + summary.
 - **Next-step resolution:** Terminal for this dispatch after user Accept/Continue on the resolution card.
 
-USER_CHECKPOINT — approve dispatch resolution when configure objectives are satisfied or the user signals closure.
+USER_CHECKPOINT — approve dispatch resolution when configure / reconfigure-sync objectives are satisfied or the user signals closure.
 
 Call **`mission_control_propose_dispatch_resolution`** with
 `resolved` / `partial` / `aborted` / `abandoned` and a short summary.
