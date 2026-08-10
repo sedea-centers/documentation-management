@@ -456,6 +456,17 @@ Run dry-run **3** from the hosting workspace root when the center submodule is
 present. On a center worktree pass, substitute the active **`CENTER_WORKTREE_ROOT`**
 path: `bash "<CENTER_WORKTREE_ROOT>/scripts/docx-ooxml-validate.sh" --self-test`.
 
+**Windows dry-run 3 (Git bash + `zip` — binding):** Dry-run **3** is a **bash**
+script. On Windows, invoke it with **Git bash** (for example
+`C:\Program Files\Git\bin\bash.exe`). The `--self-test` path builds a minimal
+`.docx` with **`zip -qr`**, so a **`zip`** binary must be on **that bash PATH**.
+Stock **Git for Windows** often ships **`unzip`** under `usr\bin` **without**
+**`zip`** — dry-run 3 then fails with `zip: command not found` (**exit 127**)
+even when Node/`npx` dry-runs 1–2 passed. **Keep this dry-run command unchanged** —
+do not remove or rewrite row 3 to drop `zip`. Provide `zip` on the Git bash PATH
+(install Info-ZIP/`zip`, or another package that puts `zip` where Git bash can
+resolve it) before treating dry-run 3 as a Node install failure.
+
 ## Office binary (`.docx`) validation (binding)
 
 Programmatic **writes** to **`.docx`** files (author / revision-author /
@@ -469,7 +480,7 @@ default xmlns on **`[Content_Types].xml`** and **`*.rels`**).
 
 | Phase | Agent obligation |
 |-------|------------------|
-| **Prerequisite** | **`node`** and **`npx`** on PATH — probe/install via **`node`** in **Tool inventory** and mission **`install required tools`**. **Forbidden:** Python OOXML stacks on end-user workstations. |
+| **Prerequisite** | **`node`** and **`npx`** on PATH — probe/install via **`node`** in **Tool inventory** and mission **`install required tools`**. On Windows, **Git bash** plus **`zip`** on that bash PATH are also required for **`--self-test`** / dry-run 3 (see **Windows dry-run 3** under tool **`node`**). **Forbidden:** Python OOXML stacks on end-user workstations. |
 | **Before outbound sync** | Run **`docx-ooxml-validate.sh`** on the absolute **`.docx`** path. **Fail closed** on non-zero exit — do not **`bisync`** / **`sync`**. |
 | **After material edit** | Same validation gate before any outbound push when the lane edited the **`.docx`** in-process. |
 

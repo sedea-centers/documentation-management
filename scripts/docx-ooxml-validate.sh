@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Validate .docx OOXML package hygiene + schema (Node-first; no Python).
 # Usage: docx-ooxml-validate.sh [--self-test] ABS_PATH.docx
+#
+# Windows: run under Git bash. --self-test needs `zip` on that bash PATH
+# (stock Git for Windows may ship unzip without zip; missing zip → exit 127).
 set -euo pipefail
 
 OOXML_VALIDATOR_PKG="@xarsh/ooxml-validator@0.2.0"
