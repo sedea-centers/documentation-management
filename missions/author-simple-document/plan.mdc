@@ -69,7 +69,7 @@ USER_CHECKPOINT — confirm intent when the opening command phrase does not matc
   **`change`**) the file path the user will edit.
 - **Inputs:** [`.sedea/documentation-management.yaml`](.sedea/documentation-management.yaml) on the hosting root; intent from §1; user hints (folder slug, relative file path).
 - **Expected output:** `folderSlug`, `localPath`, `rclone.remote`, `rclone.remotePath`; for **`change`**, `relativeFilePath` under `localPath`.
-- **Next-step resolution:** Folder + path resolved → §3 when intent **`create`**, §4 when intent **`change`**. Missing registry or path → USER_CHECKPOINT below.
+- **Next-step resolution:** Folder resolved → §3 when intent **`create`**. Intent **`change`** with `relativeFilePath` resolved → §2a when the target ends with **`.docx`**, otherwise record **`markupMode: final`** on the leader ledger and auto-advance to §4. Missing registry or path → USER_CHECKPOINT below.
 
 Read the folder registry completely. Do **not** invent slugs, remotes, or local
 roots. Preconditions for **`rclone`** and a configured Drive remote follow
@@ -82,6 +82,35 @@ When **`rclone`** or the folder's remote is missing, direct the user to a **new*
 dispatch for **`install required tools`** on center **`documentation-management`**
 — do not open that mission from this dispatch.
 
+### 2a. Markup mode (`.docx` targets)
+
+- **Type:** Branching logic
+- **Intent:** Collect whether the author lane writes final prose or pending track-change
+  markup on **`.docx`** working copies — aligned with **author-multi-part-document**
+  §3 *Markup mode*.
+- **Inputs:** `relativeFilePath` from §2 or §3; leader dispatch ledger.
+- **Expected output:** `markupMode` = `pending` | `final` (default **`final`** when the
+  user skips, omits a pick, or the target is not **`.docx`**).
+- **Next-step resolution:** Mode resolved → §4 (auto-advance).
+
+**When to run:** After `relativeFilePath` is known — from §2 for intent **`change`**, or
+from §3 scaffold success for intent **`create`**. **Skip** structured choice when the
+path does not end with **`.docx`** — record **`markupMode: final`** and auto-advance.
+
+USER_CHECKPOINT — pending markup (track changes) · final markup (direct write) · revise intake · abort.
+
+**Markup mode (binding):**
+
+1. Collect **`markupMode`** on the Squad Leader lane before §4 inbound sync when the
+   working target ends with **`.docx`**.
+2. Option ids: **`markup-pending`** — Pending (track changes); **`markup-final`** —
+   Final (direct write). Default **`final`** when the user skips or omits.
+3. Record the resolved mode on the leader dispatch ledger. Pass **`markupMode`** in §6
+   author spawn **`inputs`**.
+4. **`pending`** selects **`docx-markup.mjs`** track-changes authoring on **`.docx`**
+   per author skill § *Pending markup mode*; **`final`** keeps direct final OOXML
+   insert (author skill default).
+
 ### 3. Scaffold new document (spawned)
 
 - **Type:** Agent engagement and handover
@@ -91,7 +120,9 @@ dispatch for **`install required tools`** on center **`documentation-management`
   scaffold (standard document **or** new template file).
 - **Inputs:** `folderSlug`, `localPath`, `operationsDocsDirectory` from Mission Control; optional `subfolder`; optional `templatePath`; intent **`create`** from §1.
 - **Expected output:** Child **`mission_control_send_agent_result`** with `relativeFilePath`, `scaffoldWritten: true`, `scaffoldKind` (`document` | `template`), `continuationStatus: terminal`.
-- **Next-step resolution:** Child success → §4 (treat scaffold as existing document). Child failure → USER_CHECKPOINT below, then §10.
+- **Next-step resolution:** Child success → §2a when `relativeFilePath` ends with
+  **`.docx`**, otherwise record **`markupMode: final`** and auto-advance to §4 (treat
+  scaffold as existing document). Child failure → USER_CHECKPOINT below, then §10.
 
 **When to run:** Only when intent is **`create`**. When intent is **`change`** → skip to §4.
 
@@ -227,15 +258,37 @@ USER_CHECKPOINT — retry planner spawn, revise plan scope, or abort after child
 - **execution:** `spawned`
 - **Intent:** Render approved plan changes into `relativeFilePath`; iterate with
   the user until the document is done.
-- **Inputs:** `planPath`, `relativeFilePath`, `localPath`, `operationsDocsDirectory`.
-- **Expected output:** Child result with `documentComplete: true`, `relativeFilePath`, `sotPresent`, `sotConsulted`, `continuationStatus: terminal`.
+- **Inputs:** `planPath`, `relativeFilePath`, `localPath`, `operationsDocsDirectory`,
+  **`markupMode`** (`pending` | `final` — default **`final`** when §2a omitted or
+  target is not **`.docx`**).
+- **Expected output:** Child result with `documentComplete: true`, `relativeFilePath`,
+  `markupMode`, `markupPending`, `backupsRemoved`, `sotPresent`, `sotConsulted`,
+  `continuationStatus: terminal`.
 - **Next-step resolution:** Child success → §6a. Child failure or user stops early → USER_CHECKPOINT below, then §6a or §10.
 
 **Target skill:** [skills/author/SKILL.md](skills/author/SKILL.md)
 
-**Spawn:** Emit **`mission_control_spawn_agent`** per §3 spawn contract.
+**Spawn:** Emit **`mission_control_spawn_agent`** per §3 spawn contract; include
+resolved **`markupMode`** from the leader ledger in spawn **`inputs`**.
 
 USER_CHECKPOINT — retry author spawn, accept partial document, or abort.
+
+**Author final-write review (binding — author lane):** The author writes
+**final-quality** prose on the first substantive write when **`markupMode: final`**, or
+pending markup when **`markupMode: pending`**, per rule **20** hygiene — no
+draft-quality meta/reasoning in the document body, then opens the **document-complete**
+structured-choice gate in `skills/author/SKILL.md` (including pending-markup resolution
+when applicable). **Forbidden:** a separate draft-review modal; *Approve draft → write
+final copy*; *Skip — treat current text as final*; **Confirm document complete** before
+substantive content exists; **Confirm document complete** while **`list-pending`**
+reports **`pending: true`**.
+
+**Author Relevant Links pre-edit (binding — author lane):** After reading the target
+document and **before** the first Write/StrReplace on the working file, the author lane
+calls MCP **`mission_control_update_relevant_documents`** with the absolute document
+path (`kind: other`; optional **`label`**: basename). Re-register after subsequent
+material edits per `skills/author/SKILL.md`. **Forbidden:** material edit before first
+registration when the path is not yet registered this session.
 
 **Forbidden:** child proposing dispatch resolution; editing without an approved
 `planPath` from §5; writing under **`source-of-truth/`**.

@@ -52,6 +52,39 @@ when **`markupMode: final`** (default), as final-quality prose; when
 mode* (not final unmarked prose). Interact with the user until they confirm the
 document is done. Do not edit without a plan where `planApproved` was true.
 
+## Steps
+
+1. Verify `planPath` exists and reflects an approved plan. Read the target document
+   at `localPath` + `relativeFilePath`.
+   - **Relevant Links (pre-edit — binding):** Before the **first** Write/StrReplace on
+     the working file in this spawn session, call MCP
+     **`mission_control_update_relevant_documents`** with the absolute document path
+     (`kind: other`; optional **`label`**: basename) — same turn preferred.
+     **Forbidden:** material edit before this first registration when the path is not
+     yet registered this session.
+2. **Source of truth** — per § *Source of truth (binding)* below; set `sotPresent` /
+   `sotConsulted` honestly for parent §6a.
+3. **Authored output hygiene** — per § *Authored output hygiene (binding)* below.
+4. **Final-write → document-complete review (binding):** Apply **Proposed Changes**
+   from the approved plan — when **`markupMode: final`** (default), as **final-quality**
+   prose; when **`markupMode: pending`** on **`.docx`**, as pending markup per §
+   *Pending markup mode* — then run the document-complete gate (§ *Document-complete
+   review* below).
+   1. Write (or revise) the document — finals when **`final`**, pending markup when
+      **`pending`** — on substantive edits per § *`.docx` programmatic edit contract* when
+      applicable.
+      - **Relevant Links (after material edit):** After each Write/StrReplace that
+        **materially edits** the working document, call MCP
+        **`mission_control_update_relevant_documents`** with the absolute document path
+        (`kind: other`) — same turn preferred. **Skip** unchanged paths already
+        registered this session (step 1 pre-edit satisfies the first registration).
+   2. **Document-complete USER_CHECKPOINT** — per § *Document-complete review* below.
+   3. On **Revise**: apply feedback, rewrite affected regions, and re-open the
+      document-complete gate — do not skip review.
+   4. Loop substeps 1–3 until the user confirms document complete or defers.
+5. Record `documentComplete: true` only after explicit user confirmation at the
+   document-complete gate and after § *Post-content-approval backup cleanup* below.
+
 ## Source of truth (binding)
 
 1. Check for **`<localPath>/source-of-truth/`** per center rule **20**.
@@ -132,10 +165,9 @@ when markup remains.
 
 ## Document-complete review (binding)
 
-1. Render **Proposed Changes** from the approved plan into the target document.
-2. Iterate with the user until the document is complete.
-3. **Document-complete USER_CHECKPOINT** — before terminal MCP result. When
-   **`markupMode: pending`** on **`.docx`**, run **`list-pending`** on the absolute
+Run at step **4** substep **2** after finals or pending markup exist for the document.
+
+1. When **`markupMode: pending`** on **`.docx`**, run **`list-pending`** on the absolute
    working copy **before** opening the gate; recap **`markupMode`**, insert/delete
    counts, and whether Confirm is unlocked.
    - Options at minimum when **`list-pending`** reports **`pending: true`**:
@@ -153,11 +185,12 @@ when markup remains.
      re-open this gate.
    - **Confirm document complete** means content complete **and** markup cleared
      when **`markupMode: pending`**.
-4. Record `documentComplete: true` only after explicit user confirmation at step 3.
 
 **Forbidden:** **Confirm document complete** while **`list-pending`** reports
 **`pending: true`**; **Confirm document complete** before substantive content
-exists.
+exists; separate draft-review modal; *Approve draft → write final copy*; *Skip —
+treat current text as final*; offering **Confirm document complete** before finals
+exist.
 
 ## Post-content-approval backup cleanup (binding)
 
