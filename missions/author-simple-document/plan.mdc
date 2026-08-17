@@ -127,7 +127,7 @@ USER_CHECKPOINT — pending markup (track changes) · final markup (direct write
 **When to run:** Only when intent is **`create`**. When intent is **`change`** → skip to §4.
 
 **Create intake modes (binding — all retained):** Labels for shared modes match
-**author-multi-part-document** §3 (*Use template* · *Structure given*). The
+**author-multi-part-document** §3 (*Use template* · *I'll explain the document structure*). The
 scaffolder USER_CHECKPOINT must offer **all** of the following (plus destination
 override and **More details for option _**):
 
@@ -135,9 +135,9 @@ override and **More details for option _**):
 |------|---------|
 | **Author new template — I'll explain how** | User describes the template; agent proposes template shape; write a **new template** file (**simple-document only** — not on multi-part) |
 | **Use template** | User supplies `templatePath`. Agent **duplicates** the template into a **new** standard document under `localPath` (propose a new filename; confirm or revise before write). Later edits target **only** the new file. |
-| **Structure given** | User supplies section structure (or document kind → proposed outline); write a **standard document** (non-template) |
+| **I'll explain the document structure** | User supplies section structure (or document kind → proposed outline); write a **standard document** (non-template) |
 
-USER_CHECKPOINT — author new template · use template · supply structure outline · change destination · revise intake · abort.
+USER_CHECKPOINT — author new template · use template · I'll explain the document structure · change destination · revise intake · abort.
 
 **Default destination:** For **Author new template — I'll explain how**, default
 `subfolder` is **`templates`** (write under `<localPath>/templates/…`). The intake
@@ -174,7 +174,7 @@ USER_CHECKPOINT — retry scaffold spawn, accept partial path only, or abort aft
 structure-given document shape; editing the selected template in place; treating
 `templatePath` as the working document; skipping the new-filename proposal when
 intake mode is **Use template**; dropping **Author new template**, **Use
-template**, or **Structure given** from the create intake modal.
+template**, or **I'll explain the document structure** from the create intake modal.
 
 ### 4. Sync local file from remote (`rclone bisync`)
 

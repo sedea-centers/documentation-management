@@ -246,7 +246,7 @@ when report outputs include `userApprovedReport: true`.
   approved with a writable working document and resolved **`markupMode`** → §4.
   Incomplete → re-ask.
 
-USER_CHECKPOINT — brainstorm first · use template · supply structure outline · pending markup (track changes) · final markup (direct write) · revise intake · abort.
+USER_CHECKPOINT — brainstorm first · use template · I'll explain the document structure · pending markup (track changes) · final markup (direct write) · revise intake · abort.
 
 **Markup mode (binding):**
 
@@ -268,7 +268,7 @@ USER_CHECKPOINT — brainstorm first · use template · supply structure outline
 |------|---------|
 | **Brainstorm first** | Squad Leader spawns **document-brainstorm** (§2.5). After approved report, auto-chain §4 **master-plan** with report-derived intake — skip template/structure collection on the leader lane until brainstorm completes or abandons. |
 | **Use template** | User supplies `templatePath`. Agent **duplicates** the template into a **new** working document under `localPath` (propose a new filename; confirm or revise before write). Master plan and all later edits target **only** the new file. |
-| **Structure given** | User supplies section/part structure; master plan uses that outline on a new or existing **non-template** working file. |
+| **I'll explain the document structure** | User supplies section/part structure; master plan uses that outline on a new or existing **non-template** working file. |
 
 **Template reuse (binding — Use template):**
 

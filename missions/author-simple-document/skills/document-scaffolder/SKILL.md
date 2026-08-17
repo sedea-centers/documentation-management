@@ -47,7 +47,7 @@ intake, then walk filename/placement, shape or template resolution, approval, an
 write under `localPath` (respecting `subfolder`).
 
 **Shared labels with author-multi-part-document:** **Use template** and
-**Structure given** (supply structure outline). **Author new template — I'll
+**I'll explain the document structure**. **Author new template — I'll
 explain how** remains a third, simple-document-only mode. Do not collapse create
 into template-only or drop any of the three modes.
 
@@ -62,7 +62,7 @@ into template-only or drop any of the three modes.
      (and optional subfolder); after confirmation, **copy** / scaffold a
      **standard document** from that template (non-template outcome). Treat
      `templatePath` as read-only — never edit the template in place.
-   - **Structure given** — user supplies section structure, or gather file type
+   - **I'll explain the document structure** — user supplies section structure, or gather file type
      and document kind (invoice, consulting contract, memo, …) and propose an
      outline; write a **standard document** (non-template outcome).
    - **Change destination folder** — override relative subfolder under `localPath`
@@ -79,7 +79,7 @@ into template-only or drop any of the three modes.
      per revision).
    - **Use template** — resolve `templatePath`; confirm new working path; copy
      then continue (do not write into `templatePath`).
-   - **Structure given** — use supplied outline or propose structure from
+   - **I'll explain the document structure** — use supplied outline or propose structure from
      document kind; iterate until approved (USER_CHECKPOINT per revision).
 4. **Write scaffold** — create `relativeFilePath` under `localPath` (+ `subfolder`);
    set `scaffoldKind` to `template` or `document`. Do not commit to hosting git
