@@ -181,20 +181,23 @@ USER_CHECKPOINT — pick registered folder slug · provide relative file path ·
 
 - **Type:** Agent engagement and handover
 - **execution:** `spawned`
-- **Intent:** Free-form exploration of folder documents and source-of-truth until
-  the **user** is ready to start multi-part authoring; produce an approved
-  brainstorm report for **master-plan** intake.
+- **Intent:** Analysis-first exploration of folder documents and source-of-truth
+  until the **user** is ready to start multi-part authoring; track requests in a
+  ledger and interim request log, then produce an approved brainstorm report for
+  **master-plan** intake.
 - **Trigger:** User selects **`brainstorm-first`** at §3 (or opening message
   states brainstorm-first after §2 folder bind).
 - **Target agent role:** Document brainstorm agent
 - **Assigned skill:** [`skills/document-brainstorm/SKILL.md`](skills/document-brainstorm/SKILL.md)
-- **Checkpoint child UX:** Report completion USER_CHECKPOINT lives on the child
-  skill — see **`document-brainstorm/SKILL.md`** § *Report completion gate*; this
-  §2.5 **#external-wait** covers leader spawn-and-wait only.
+- **Checkpoint child UX:** Analysis gate and post-write revision gate live on the
+  child skill — see **`document-brainstorm/SKILL.md`** § *Analysis gate* and §
+  *Post-write revision gate*; this §2.5 **#external-wait** covers leader
+  spawn-and-wait only.
 - **Inputs:** Folder binding from §2 (`folderSlug`, `localPath`, rclone fields);
   `operationsDocsDirectory`; optional `brainstormTopic`, `brainstormPrompt`,
   `openingSeeds` from user message.
 - **Expected output:** Child terminal with `outputs.brainstormReportPath`,
+  `outputs.brainstormRequestsPath`, `outputs.brainstormRequestsRef`,
   `outputs.userApprovedReport`, `outputs.objectives[]`,
   `outputs.documentsToChange[]`, `outputs.downstreamHandoffSummary`, or
   `outputs.abandonMission: true`.
