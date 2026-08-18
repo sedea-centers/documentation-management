@@ -1,8 +1,9 @@
 ---
 description: >-
   Author or refresh a registered folder's source-of-truth/ tree — intake via
-  documents, brainstorm, or existing agent plan; then gather, plan, write
-  (append CHANGELOG.md for audit), and ship (sync / hosting PR when needed).
+  documents, brainstorm-first (spawned document-brainstorm), inline brainstorm,
+  or existing agent plan; then gather, plan, write (append CHANGELOG.md for
+  audit), and ship (sync / hosting PR when needed).
 alwaysApply: false
 ---
 
@@ -13,8 +14,15 @@ alwaysApply: false
 1. Resolve the target **registered** documentation folder from
    **`.sedea/documentation-management.yaml`** (slug → `localPath`).
 2. Gather source-of-truth inputs via exactly one intake path:
-   **documents** (file or folder), **brainstorm** with the user, or an
-   **existing agent plan**.
+   **documents** (file or folder), **brainstorm-first** (spawned
+   **document-brainstorm** child lane), **brainstorm** (inline Q&A on the
+   leader lane), or an **existing agent plan**.
+2a. Optionally spawn **document-brainstorm** on a dedicated child lane when the
+   user selects **`brainstorm-first`** at §3 — analysis-first exploration of
+   folder docs, existing SoT, and (when the user opts in) prior
+   **author-simple-document** / **author-multi-part-document** work under ops
+   docs — producing an approved brainstorm report that pre-seeds §4 gather and
+   §5 SoT change plan without a second leader approval gate before planning.
 3. Produce a reviewable **SoT change plan** naming creates/updates under
    **`<localPath>/source-of-truth/`**.
 4. Write SoT files **only** after explicit user approval per
@@ -31,6 +39,18 @@ alwaysApply: false
    sync with **rclone** when the user confirms.
 7. Close the dispatch with an explicit Squad Leader resolution proposal when
    SoT work is complete, deferred, or abandoned.
+
+## Squad operations (runtime SoT authoring)
+
+Runtime SoT authoring follows **Protocol** §§1–8 below. Skills live under
+**`missions/source-of-truth-folder/skills/`** when authored.
+
+| Role | Lane | `execution` | Spawns / owns | Does not |
+|------|------|-------------|---------------|----------|
+| **Squad Leader** | Dispatch leader | — | **`document-brainstorm`** (§2.5); §4 gather when inline; §5–§8 SoT plan, write, sync, resolution | Inline spawned-lane brainstorm Q&A; dispatch resolution from child lanes |
+| **Document brainstorm agent** | Child | `spawned` | Scan folder docs + SoT; optional prior-authoring-mission lookup in ops docs; Q&A with user; brainstorm report under ops docs | Write under `source-of-truth/`; spawn gather/plan lanes; `mission_control_propose_dispatch_resolution` |
+
+**Skill stub:** `document-brainstorm` (spawned on **`brainstorm-first`** — §2.5).
 
 ## Squad operations (three-lane hosting-repo delivery)
 
@@ -127,20 +147,72 @@ folder per center registry / rclone contract). On success, **re-open the same
 gate** that was active when sync started. User may sync **any number of times**
 during the dispatch.
 
+### 2.5 Brainstorming intake (optional — `brainstorm-first`)
+
+- **Type:** Agent engagement and handover
+- **execution:** `spawned`
+- **Intent:** Analysis-first SoT exploration until the user is ready to draft a
+  SoT change plan; track requests in a ledger; produce an approved brainstorm
+  report for §4/§5 intake.
+- **Trigger:** User selects **`brainstorm-first`** at §3 (or opening message
+  states brainstorm-first after §2 folder bind).
+- **Target agent role:** Document brainstorm agent
+- **Assigned skill:** [`skills/document-brainstorm/SKILL.md`](skills/document-brainstorm/SKILL.md)
+- **Checkpoint child UX:** Analysis gate and post-write revision gate live on the
+  child skill — see **`document-brainstorm/SKILL.md`** § *Analysis gate* and §
+  *Post-write revision gate*; this §2.5 **#external-wait** covers leader
+  spawn-and-wait only.
+- **Inputs:** Folder binding from §2 (`folderSlug`, `localPath`, rclone fields);
+  `operationsDocsDirectory`; optional `brainstormTopic`, `brainstormPrompt`,
+  `openingSeeds` from user message.
+- **Expected output:** Child terminal with `outputs.brainstormReportPath`,
+  `outputs.brainstormRequestsPath`, `outputs.brainstormRequestsRef`,
+  `outputs.userApprovedReport`, `outputs.sotTopics[]`,
+  `outputs.priorAuthoringLookupRequested`,
+  `outputs.priorAuthoringFindingsSummary`,
+  `outputs.downstreamHandoffSummary`, or `outputs.abandonMission: true`.
+- **Next-step resolution:**
+  - `userApprovedReport: true` + `continuationStatus: terminal` → compile §4
+    gather notes from report → **auto-advance §5** SoT change plan draft
+    (**forbidden:** repeat §3 intake gate).
+  - `abandonMission: true` → §8 resolution **`abandoned`**.
+  - Otherwise → USER_CHECKPOINT gate below.
+
+USER_CHECKPOINT — pick next step when brainstorm child reports failure or partial.
+
+**Procedure (binding)**
+
+1. **Spawn turn:** Emit exactly one **`mission_control_spawn_agent`** for
+   **`document-brainstorm`** with §2 folder binding + optional topic/prompt
+   seeds — **alone** per rule **4** spawn-turn sequencing.
+2. **Next turn:** After host-visible spawn confirmation, open **#external-wait**
+   structured choice before StreamFinal. Include **`sync-gdrive-folder`** per §2a.
+3. On terminal **`userApprovedReport: true`**, record `brainstormReportPath` /
+   `brainstormReportRef` on the leader ledger; continue §4 using report as
+   gathered context, then §5.
+4. On **`abandonMission: true`**, propose dispatch resolution — do not continue §4.
+
+**Checkpoint auto-chain (binding):** Under **`trustLevel: checkpoint`**, approved
+brainstorm report → §5 SoT change plan draft is **happy-path auto-advance** on the
+leader lane — **forbidden:** USER_CHECKPOINT to re-approve starting plan when
+report outputs include `userApprovedReport: true`.
+
 ### 3. Pick intake mode
 
 - **Type:** Branching logic
 - **Intent:** Choose how SoT source material is gathered.
 - **Inputs:** Intent from §1; optional opening seeds (paths, plan `@path`).
-- **Expected output:** `intakeMode`: `documents` | `brainstorm` | `existing-plan`.
-- **Next-step resolution:** Mode selected → §4.
+- **Expected output:** `intakeMode`: `documents` | `brainstorm-first` |
+  `brainstorm` | `existing-plan`.
+- **Next-step resolution:** **`brainstorm-first`** → §2.5. Other modes selected → §4.
 
-USER_CHECKPOINT — pick intake mode (documents · brainstorm · existing agent plan).
+USER_CHECKPOINT — pick intake mode (brainstorm first · documents · brainstorm inline · existing agent plan).
 
 | Mode | Meaning |
 |------|---------|
+| **`brainstorm-first`** | Squad Leader spawns **document-brainstorm** (§2.5). After approved report, auto-chain §4/§5 with report-derived context — skip inline brainstorm at §4. |
 | **`documents`** | User supplies a file or folder of source materials |
-| **`brainstorm`** | Free-form research / Q&A with the user until enough context exists |
+| **`brainstorm`** | Free-form research / Q&A with the user on the leader lane until enough context exists |
 | **`existing-plan`** | User supplies an existing agent plan (`@path` or absolute path) |
 
 ### 4. Gather information
@@ -153,9 +225,13 @@ USER_CHECKPOINT — pick intake mode (documents · brainstorm · existing agent 
 
 **Procedure by mode**
 
-1. **`documents`** — Read supplied file(s) or folder; build a source ledger. Do not invent content from titles alone.
-2. **`brainstorm`** — Ask structured questions; accumulate answers until the user confirms gathering is complete.
-3. **`existing-plan`** — Read the plan; extract SoT-relevant scope; note out-of-scope items.
+1. **`brainstorm-first`** — Handled by §2.5; §4 receives report-derived ledger
+   only (`brainstormReportPath`, `sotTopics[]`, `priorAuthoringFindingsSummary`
+   when present). **Forbidden:** duplicate inline brainstorm on the leader lane
+   when §2.5 already completed with `userApprovedReport: true`.
+2. **`documents`** — Read supplied file(s) or folder; build a source ledger. Do not invent content from titles alone.
+3. **`brainstorm`** — Ask structured questions on the leader lane; accumulate answers until the user confirms gathering is complete.
+4. **`existing-plan`** — Read the plan; extract SoT-relevant scope; note out-of-scope items.
 
 **Document extraction (binding — `documents` intake)**
 
