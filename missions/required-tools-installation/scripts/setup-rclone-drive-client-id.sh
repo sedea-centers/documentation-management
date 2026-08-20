@@ -2,6 +2,7 @@
 # setup-rclone-drive-client-id.sh — Unix (macOS/Linux)
 #
 # Expects authenticated gcloud + a Drive-capable service-account JSON.
+# Requires --gcloud-account (explicit user email); never mutates global active account.
 # Ensures Internal OAuth consent, provisions an OAuth client for rclone Drive
 # (https://rclone.org/drive/#making-your-own-client-id), and writes
 # client_id / client_secret into rclone config.
@@ -34,13 +35,14 @@ Usage: ${SCRIPT_NAME} --project-id <id> --credentials-path <sa.json> [options]
 Required:
   --project-id <id>
   --credentials-path <path>   Absolute path to Drive-capable SA JSON
+  --gcloud-account <email>    Google user account (explicit --account on every gcloud)
 
 Options:
   --rclone-remote <name>         Default: sedea-gdrive
   --client-display-name <name>   Default: ${CLIENT_DISPLAY_NAME_DEFAULT}
   --oauth-store-dir <dir>        Default: ${OAUTH_STORE_DIR_DEFAULT}
   --reuse-existing-oauth         Skip create when oauth-client.json already valid
-  --support-email <email>        Default: active gcloud account
+  --support-email <email>        Default: --gcloud-account value
   --dry-run                      Plan only (no secrets printed)
   -h, --help
 EOF
@@ -78,6 +80,7 @@ json_first_brand_name() {
 
 PROJECT_ID=""
 CREDENTIALS_PATH=""
+GCLOUD_ACCOUNT=""
 RCLONE_REMOTE="sedea-gdrive"
 CLIENT_DISPLAY_NAME="${CLIENT_DISPLAY_NAME_DEFAULT}"
 OAUTH_STORE_DIR="${OAUTH_STORE_DIR_DEFAULT}"
@@ -89,6 +92,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --project-id) PROJECT_ID="${2:-}"; shift 2 ;;
     --credentials-path) CREDENTIALS_PATH="${2:-}"; shift 2 ;;
+    --gcloud-account) GCLOUD_ACCOUNT="${2:-}"; shift 2 ;;
     --rclone-remote) RCLONE_REMOTE="${2:-}"; shift 2 ;;
     --client-display-name) CLIENT_DISPLAY_NAME="${2:-}"; shift 2 ;;
     --oauth-store-dir) OAUTH_STORE_DIR="${2:-}"; shift 2 ;;
@@ -106,7 +110,12 @@ fi
 
 [[ -n "$PROJECT_ID" ]] || { usage; die 1 "--project-id is required"; }
 [[ -n "$CREDENTIALS_PATH" ]] || { usage; die 1 "--credentials-path is required"; }
+[[ -n "$GCLOUD_ACCOUNT" ]] || { usage; die 1 "--gcloud-account is required"; }
 [[ -n "$RCLONE_REMOTE" ]] || die 1 "--rclone-remote must be non-empty"
+
+gcloud_invoke() {
+  gcloud --account="$GCLOUD_ACCOUNT" "$@"
+}
 
 require_cmd gcloud
 require_cmd rclone
@@ -116,11 +125,12 @@ require_cmd awk
 
 [[ -f "$CREDENTIALS_PATH" ]] || die 2 "credentials file not found: $CREDENTIALS_PATH"
 
-ACTIVE_ACCOUNT="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' 2>/dev/null | head -n1 || true)"
-[[ -n "$ACTIVE_ACCOUNT" ]] || die 2 "no active gcloud account — run gcloud auth login in the user terminal"
+if ! gcloud auth list --format='value(account)' 2>/dev/null | grep -Fxq "$GCLOUD_ACCOUNT"; then
+  die 2 "gcloud account not logged in: ${GCLOUD_ACCOUNT} — run gcloud auth login in the user terminal"
+fi
 
 if [[ -z "$SUPPORT_EMAIL" ]]; then
-  SUPPORT_EMAIL="$ACTIVE_ACCOUNT"
+  SUPPORT_EMAIL="$GCLOUD_ACCOUNT"
 fi
 
 SA_TYPE="$(jq -r '.type // empty' "$CREDENTIALS_PATH")"
@@ -128,7 +138,7 @@ SA_TYPE="$(jq -r '.type // empty' "$CREDENTIALS_PATH")"
 SA_EMAIL="$(jq -r '.client_email // empty' "$CREDENTIALS_PATH")"
 [[ -n "$SA_EMAIL" ]] || die 2 "credentials path is not a usable service-account JSON (missing client_email)"
 
-log "preconditions ok: gcloud=${ACTIVE_ACCOUNT} sa=${SA_EMAIL} project=${PROJECT_ID}"
+log "preconditions ok: gcloud=${GCLOUD_ACCOUNT} sa=${SA_EMAIL} project=${PROJECT_ID}"
 
 OAUTH_JSON="${OAUTH_STORE_DIR}/oauth-client.json"
 mkdir -p "$OAUTH_STORE_DIR"
@@ -143,14 +153,13 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   exit 0
 fi
 
-gcloud config set project "$PROJECT_ID" >/dev/null
+gcloud_invoke services enable drive.googleapis.com iap.googleapis.com --project="$PROJECT_ID"
 log "enabling drive.googleapis.com and iap.googleapis.com ..."
-gcloud services enable drive.googleapis.com iap.googleapis.com --project="$PROJECT_ID"
 
-PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+PROJECT_NUMBER="$(gcloud_invoke projects describe "$PROJECT_ID" --format='value(projectNumber)')"
 [[ -n "$PROJECT_NUMBER" ]] || die 3 "could not resolve projectNumber for ${PROJECT_ID}"
 
-ACCESS_TOKEN="$(gcloud auth print-access-token)"
+ACCESS_TOKEN="$(gcloud_invoke auth print-access-token)"
 [[ -n "$ACCESS_TOKEN" ]] || die 2 "gcloud auth print-access-token failed"
 
 oauth_store_valid() {

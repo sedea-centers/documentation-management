@@ -120,10 +120,11 @@ USER_CHECKPOINT — pick existing unsynced/unbound folder(s) to reconfigure+sync
 - **Intent:** Ensure `rclone` is usable, a Drive remote from **Required Tools
   Installation** / **configure-gcloud-drive** already exists, and the SA JSON
   yields a readable **`client_email`** — before folder setup.
-- **Inputs:** Center registry [`.sedea/centers/documentation-management/rules/10_required-tools.mdc`](../../rules/10_required-tools.mdc); shell probe for `rclone`; expected rclone remote name (default **`sedea-gdrive`**, or user-supplied); expected SA JSON path (from prior configure outputs or the standard credentials path used by **configure-gcloud-drive**).
+- **Inputs:** Center registry [`.sedea/centers/documentation-management/rules/10_required-tools.mdc`](../../rules/10_required-tools.mdc); shell probe for `rclone`; expected rclone remote name (default **`sedea-gdrive`**, or user-supplied); expected SA JSON path (from prior configure outputs or the standard credentials path used by **configure-gcloud-drive**); optional **`gcloudAccountEmail`** from configure outputs when recorded (for any future **`gcloud`** probes per **`rules/15_gcloud-multi-account.mdc`**).
 - **Expected output:** `rclone` **ok**; named Drive remote present in
   `rclone listremotes`; SA JSON readable with `client_email` — or stop with a
-  clear gap.
+  clear gap. When configure outputs include **`gcloudAccountEmail`**, record it
+  for handover — this mission is rclone-first and does not mutate gcloud global state.
 - **Next-step resolution:** Preconditions met → §4. Otherwise → USER_CHECKPOINT below.
 
 Probe `rclone` (PATH or user-supplied command). Compare to **`minVersion`** in the

@@ -131,6 +131,8 @@ renumbering.
 
 ## Related
 
+- Multi-account **`gcloud`** — **`rules/15_gcloud-multi-account.mdc`** (explicit
+  **`--account`** on every agent-shell `gcloud`; no global account mutation).
 - Mission **Required Tools Installation** — `missions/required-tools-installation/`
   (phrase **`install required tools`**); registry **`rules/10_required-tools.mdc`**.
 - Center **conflict-resolution** skill — shared conflict handling for all lanes

@@ -206,7 +206,8 @@ dereferences symlinks to find the SDK root — relocating or copying the launche
 alone into `~/bin` is **forbidden**.
 
 Dry-runs are **CLI-only** for **`gcloud`** — user auth and GCP/Drive setup belong
-to mission **configure-gcloud-drive**.
+to mission **configure-gcloud-drive**. Multi-account policy (explicit
+**`--account`**, no global account mutation): **`rules/15_gcloud-multi-account.mdc`**.
 
 ### `node`
 
@@ -410,6 +411,11 @@ requires. This rule still owns **auth**; the mission owns **format-pair flags**.
 Run **`dryRuns`** with bare **`cli`** after install (Unix: after `~/bin`
 symlinks exist). Full install-path executable is allowed only for an explicit
 **`use-path`** override.
+
+**Agent-shell `gcloud` (non-dry-run — binding):** When a lane runs **`gcloud`**
+beyond dry-runs, follow **`rules/15_gcloud-multi-account.mdc`** — every command
+includes **`--account=<gcloudAccountEmail>`** and project-scoped commands use
+**`--project=<id>`**. **Forbidden:** **`gcloud config set account`**, **`gcloud config configurations activate`**, and relying on the global active account.
 
 ### `node`
 
@@ -644,6 +650,7 @@ Mitigation for premature pip during SoT gather:
 
 ## Related
 
+- Multi-account **`gcloud`** — **`rules/15_gcloud-multi-account.mdc`**.
 - Mission **Required Tools Installation** —
   `missions/required-tools-installation/` (command phrase **`install required tools`**);
   probe → install/upgrade consent → dry-run; spawned **configure-gcloud-drive** after

@@ -5,6 +5,7 @@
 
 .DESCRIPTION
   Expects authenticated gcloud + a Drive-capable service-account JSON.
+  Requires --gcloud-account (explicit user email); never mutates global active account.
   Ensures Internal OAuth consent, provisions an OAuth client for rclone Drive
   (https://rclone.org/drive/#making-your-own-client-id), and writes
   client_id / client_secret into rclone config.
@@ -49,6 +50,9 @@ param(
 
   [Parameter(Mandatory = $false)]
   [switch] $DryRun,
+
+  [Parameter(Mandatory = $false)]
+  [string] $GcloudAccount,
 
   [Parameter(Mandatory = $false)]
   [switch] $Help,
@@ -121,13 +125,14 @@ Usage: setup-rclone-drive-client-id.ps1 --project-id <id> --credentials-path <sa
 Required:
   --project-id <id>
   --credentials-path <path>   Absolute path to Drive-capable SA JSON
+  --gcloud-account <email>    Google user account (explicit --account on every gcloud)
 
 Options:
   --rclone-remote <name>         Default: sedea-gdrive
   --client-display-name <name>   Default: sedea-rclone-drive
   --oauth-store-dir <dir>        Default: `$HOME/.config/sedea/documentation-management
   --reuse-existing-oauth         Skip create when oauth-client.json already valid
-  --support-email <email>        Default: active gcloud account
+  --support-email <email>        Default: --gcloud-account value
   --dry-run                      Plan only (no secrets printed)
   -h, --help
 "@ | Write-Output
@@ -179,6 +184,10 @@ function Invoke-Gcloud {
     [string[]] $GcloudArgs,
     [switch] $AllowFail
   )
+  if (-not $script:GCLOUD_ACCOUNT) {
+    Die 2 '--gcloud-account is required'
+  }
+  $withAccount = @('--account', $script:GCLOUD_ACCOUNT) + $GcloudArgs
   # gcloud writes notices to stderr; with $ErrorActionPreference Stop those
   # ErrorRecords terminate before exit-code handling. Prefer gcloud.cmd on Windows
   # (avoids gcloud.ps1 execution-policy / stderr wrapping issues).
@@ -187,9 +196,9 @@ function Invoke-Gcloud {
   try {
     $gcloudCmd = Get-Command gcloud.cmd -ErrorAction SilentlyContinue
     if ($gcloudCmd) {
-      $out = & $gcloudCmd.Source @GcloudArgs 2>&1
+      $out = & $gcloudCmd.Source @withAccount 2>&1
     } else {
-      $out = & gcloud @GcloudArgs 2>&1
+      $out = & gcloud @withAccount 2>&1
     }
     $code = $LASTEXITCODE
   } finally {
@@ -210,7 +219,7 @@ function Invoke-Gcloud {
     $combined = if ($errText) { "$text`n$errText" } else { $text }
     $combined = $combined.Trim()
     if ($combined.Length -gt 400) { $combined = $combined.Substring(0, 400) }
-    Die 3 "gcloud $($GcloudArgs -join ' ') failed (exit $code): $combined"
+    Die 3 "gcloud $($withAccount -join ' ') failed (exit $code): $combined"
   }
   return $text
 }
@@ -520,6 +529,7 @@ if ($Remaining) { foreach ($r in $Remaining) { [void]$argv.Add($r) } }
 # Also honor named params when called PowerShell-natively
 $PROJECT_ID = $ProjectId
 $CREDENTIALS_PATH = $CredentialsPathArg
+$script:GCLOUD_ACCOUNT = $GcloudAccount
 $RCLONE_REMOTE = $RcloneRemote
 $CLIENT_DISPLAY_NAME = $ClientDisplayName
 $OAUTH_STORE_DIR = $OauthStoreDir
@@ -538,6 +548,10 @@ while ($i -lt $argv.Count) {
     '^--credentials-path$' {
       if ($i + 1 -ge $argv.Count) { Die 1 '--credentials-path requires a value' }
       $CREDENTIALS_PATH = $argv[$i + 1]; $i += 2; continue
+    }
+    '^--gcloud-account$' {
+      if ($i + 1 -ge $argv.Count) { Die 1 '--gcloud-account requires a value' }
+      $script:GCLOUD_ACCOUNT = $argv[$i + 1]; $i += 2; continue
     }
     '^--rclone-remote$' {
       if ($i + 1 -ge $argv.Count) { Die 1 '--rclone-remote requires a value' }
@@ -573,6 +587,7 @@ if (-not $OAUTH_STORE_DIR) {
 
 if (-not $PROJECT_ID) { Show-Usage; Die 1 '--project-id is required' }
 if (-not $CREDENTIALS_PATH) { Show-Usage; Die 1 '--credentials-path is required' }
+if (-not $script:GCLOUD_ACCOUNT) { Show-Usage; Die 1 '--gcloud-account is required' }
 if (-not $RCLONE_REMOTE) { Die 1 '--rclone-remote must be non-empty' }
 
 if (-not (Test-CommandOnPath 'gcloud')) { Die 2 'missing required command: gcloud' }
@@ -582,12 +597,13 @@ if (-not (Test-Path -LiteralPath $CREDENTIALS_PATH)) {
   Die 2 "credentials file not found: $CREDENTIALS_PATH"
 }
 
-$activeOut = Invoke-Gcloud -GcloudArgs @('auth', 'list', '--filter=status:ACTIVE', '--format=value(account)') -AllowFail
-$ACTIVE_ACCOUNT = ($activeOut -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 1)
-if (-not $ACTIVE_ACCOUNT) {
-  Die 2 'no active gcloud account - run gcloud auth login in the user terminal'
+$listedAccounts = Invoke-Gcloud -GcloudArgs @('auth', 'list', '--format=value(account)') -AllowFail
+$accountListed = @($listedAccounts -split "`r?`n" | Where-Object { $_.Trim() -eq $script:GCLOUD_ACCOUNT })
+if ($accountListed.Count -eq 0) {
+  Die 2 "gcloud account not logged in: $($script:GCLOUD_ACCOUNT) - run gcloud auth login in the user terminal"
 }
-if (-not $SUPPORT_EMAIL) { $SUPPORT_EMAIL = $ACTIVE_ACCOUNT }
+
+if (-not $SUPPORT_EMAIL) { $SUPPORT_EMAIL = $script:GCLOUD_ACCOUNT }
 
 try {
   $saObj = Get-Content -LiteralPath $CREDENTIALS_PATH -Raw | ConvertFrom-Json
@@ -603,7 +619,7 @@ if (-not $SA_EMAIL) {
   Die 2 'credentials path is not a usable service-account JSON (missing client_email)'
 }
 
-Write-Log "preconditions ok: gcloud=${ACTIVE_ACCOUNT} sa=${SA_EMAIL} project=${PROJECT_ID}"
+Write-Log "preconditions ok: gcloud=$($script:GCLOUD_ACCOUNT) sa=${SA_EMAIL} project=${PROJECT_ID}"
 
 $OAUTH_JSON = Join-Path $OAUTH_STORE_DIR 'oauth-client.json'
 if (-not (Test-Path -LiteralPath $OAUTH_STORE_DIR)) {
@@ -619,7 +635,6 @@ if ($DRY_RUN) {
   exit 0
 }
 
-$null = Invoke-Gcloud -GcloudArgs @('config', 'set', 'project', $PROJECT_ID)
 Write-Log 'enabling drive.googleapis.com and iap.googleapis.com ...'
 $null = Invoke-Gcloud -GcloudArgs @('services', 'enable', 'drive.googleapis.com', 'iap.googleapis.com', "--project=$PROJECT_ID")
 

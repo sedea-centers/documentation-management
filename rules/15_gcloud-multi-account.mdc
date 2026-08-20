@@ -1,0 +1,99 @@
+---
+description: >-
+  Documentation Management — multi-Google-account gcloud contract: additive auth,
+  per-hosting-repo named configuration (project only), explicit --account on
+  every agent-shell gcloud call; no global account mutation.
+globs: "**/*"
+alwaysApply: false
+---
+
+# Google Cloud multi-account (binding)
+
+## Purpose
+
+Developers may sign into **multiple Google accounts** on one machine. Documentation
+Management missions and skills must **not** clobber the machine-wide gcloud active
+account or interfere with dispatches on **other hosting repos**.
+
+Normative **`gcloud` install** registry: **`rules/10_required-tools.mdc`**. Drive
+setup owner: **`missions/required-tools-installation/skills/configure-gcloud-drive/SKILL.md`**.
+
+## Additive authentication (binding)
+
+| Rule | Behavior |
+|------|----------|
+| User terminal | **`gcloud auth login`** (or **`gcloud.cmd auth login`** on Windows) **adds** credentials — existing logins remain |
+| Agent shells | **Forbidden:** interactive **`gcloud auth login`** — user runs login in the integrated terminal |
+| Revoke | **Forbidden:** **`gcloud auth revoke`** (any account) in agent shells without explicit user structured-choice consent |
+
+## Account binding (binding)
+
+The Google account for **this hosting repo** is bound during **configure-gcloud-drive**
+and recorded in terminal skill outputs:
+
+| Field | Meaning |
+|-------|---------|
+| **`gcloudAccountEmail`** | User Google account email used for this hosting repo's GCP/Drive setup |
+| **`gcloudConfigurationName`** | Named gcloud configuration id (see below) — documentation only; **never activate** in agent shells |
+
+Other missions **must** read **`gcloudAccountEmail`** from configure handover or prior
+spawn outputs — **forbidden:** inferring account from **`gcloud auth list --filter=status:ACTIVE`**
+or the global active account alone.
+
+## Every agent-shell `gcloud` call (binding — all lanes)
+
+Before any **`gcloud`** command in an **agent** shell (including **configure-gcloud-drive**):
+
+```bash
+export CLOUDSDK_CORE_DISABLE_PROMPTS=1
+export GCLOUD_ACCOUNT="<gcloudAccountEmail>"   # after account is bound for this pass
+```
+
+**Required on every `gcloud` invocation:**
+
+- **`--account="${GCLOUD_ACCOUNT}"`** (or equivalent explicit email flag)
+- **`--project="<projectId>"`** when the command is project-scoped — prefer the flag
+  over mutating default project state
+
+Optional belt-and-suspenders: **`export CLOUDSDK_AUTH_ACCOUNT="${GCLOUD_ACCOUNT}"`**
+— **does not** replace **`--account`** on commands.
+
+**Forbidden in all agent shells (including configure-gcloud-drive):**
+
+| Pattern | Why |
+|---------|-----|
+| **`gcloud config set account`** | Mutates global or named-config account binding — breaks other hosting repos |
+| **`gcloud config configurations activate`** | Switches machine-wide active configuration |
+| **`gcloud config set project`** without **`--configuration=`** | Mutates global default project |
+| Relying on **`status:ACTIVE`** from **`gcloud auth list`** as authority | Wrong account when multiple repos/users share one machine |
+
+Dry-runs in **`10_required-tools.mdc`** (**`gcloud version`**, **`gcloud help`**) are
+**CLI-only** and do not require **`--account`**.
+
+## Named configuration (configure-gcloud-drive only)
+
+**Purpose:** Persist **project default** per hosting repo without activating a config
+or changing the global active account.
+
+| Step | Command (example) |
+|------|-------------------|
+| Derive name | **`sedea-<hosting-basename>`** where **`<hosting-basename>`** is **`HOSTING_ROOT`** directory basename |
+| Create (idempotent) | **`gcloud config configurations create "<name>" --no-activate`** |
+| Set project on named config | **`gcloud config set project "<projectId>" --configuration="<name>"`** |
+
+**Forbidden:** **`gcloud config set account`** on any configuration; **`gcloud config configurations activate`**.
+
+Record **`gcloudConfigurationName`** in configure terminal outputs.
+
+## Non-configure missions
+
+Missions that do not run **configure-gcloud-drive** typically use **rclone** with
+service-account JSON flags (**`10_required-tools.mdc`** § Drive auth invoke). When they
+**do** invoke **`gcloud`**, apply **Every agent-shell `gcloud` call** above using the
+bound **`gcloudAccountEmail`**.
+
+## Related
+
+- **`rules/10_required-tools.mdc`** — tool inventory, Drive SA invoke, dry-runs
+- **`rules/00_documentation-management.mdc`** — folder registry and rclone contract
+- **`missions/required-tools-installation/`** — install + configure spawn
