@@ -1,7 +1,8 @@
 ---
 name: Configure gcloud Drive
 description: >-
-  Confirm GCP console access, authenticate gcloud (user terminal), configure
+  Confirm GCP console access, authenticate gcloud (interactive terminal MCP),
+  configure
   GCP project and service account, enable Drive API, apply rclone Drive
   access, provision Internal Desktop OAuth client_id into rclone config, and
   verify.
@@ -71,7 +72,8 @@ warmUpRules:
 
 Spawned specialist for Documentation Management: after the **gcloud** CLI is
 available, confirm the user can open Google Cloud in the browser, authenticate
-in the terminal, configure a GCP project and service account, enable Google
+via **`mission_control_start_interactive_terminal`** preset **`gcloud`**, configure
+a GCP project and service account, enable Google
 Drive API, apply rclone-compatible Drive access, provision an **Internal**
 Desktop OAuth client for rclone (write `client_id` / `client_secret` into
 rclone config — never into chat), and verify.
@@ -173,13 +175,33 @@ probe bare gcloud on PATH
 
 0. Run **Agent shell bootstrap** (without **`GCLOUD_ACCOUNT`** until after bind).
 1. Probe credentials: `gcloud auth list --format='value(account)'` (all logged-in
-   accounts — **forbidden:** `--filter=status:ACTIVE` as sole authority). If the
-   account to bind for this hosting repo is already known and listed → continue to
-   step **2.5**. If no suitable account is listed → continue to **1a** / **1b**.
+   accounts — **forbidden:** `--filter=status:ACTIVE` as sole authority).
+
+#### 1.0 Existing accounts — additive auth choice (USER_CHECKPOINT)
+
+When the probe lists **one or more** logged-in accounts:
+
+Open structured choice (paraphrase labels; keep semantics):
+
+- Recap listed account email(s) from the probe.
+- Explain per **`rules/15_gcloud-multi-account.mdc`**: **`gcloud auth login` is
+  additive** — adding another account does **not** remove existing logins.
+- **Use an existing account for this hosting repo** → skip **§1b**; continue to
+  **§2.5** to pick **`gcloudAccountEmail`**.
+- **Add another Google account** → continue to **§1a** then **§1b** (interactive
+  terminal MCP).
+- **Abort** · universal trailer.
+
+When **zero** accounts are listed → continue to **§1a** / **§1b** (no **§1.0**
+gate).
+
+When the account to bind is already known from prior configure handover **and**
+is listed → may skip **§1.0** and continue to **§2.5**.
 
 #### 1a. Make sure Google Cloud is available for their account (browser)
 
-Run when the bound account is **not** yet listed in **`gcloud auth list`**. Present
+Run when proceeding to **§1b** (no suitable account yet, or the user chose **Add
+another Google account**). Present
 short, friendly instructions (paraphrase freely; keep the checklist):
 
 1. Open **[https://console.cloud.google.com/](https://console.cloud.google.com/)** in a browser
@@ -203,27 +225,61 @@ blocked / need help**, **Abort**, **More details for option _**. Do **not**
 proceed to auth login until the user selects a continue path that means
 the Console sidebar and organization/project selector are usable.
 
-#### 1b. Sign in with gcloud in the terminal
+#### 1b. Sign in with gcloud (interactive terminal MCP — binding)
 
-After 1a succeeds:
+After **§1a** succeeds:
 
-1. Ask them to open the integrated terminal with **Ctrl+`** (Control +
-   backtick).
-2. Ask them to run auth login and finish the browser/device flow that gcloud
-   prints (**additive** — existing Google accounts on this machine remain):
-   - **Windows (PowerShell):** **`gcloud.cmd auth login`** — prefer `.cmd` over
-     bare `gcloud` (PATH often resolves to `gcloud.ps1`, which default
-     execution policy blocks).
-   - **macOS / Linux:** **`gcloud auth login`**
-3. **Forbidden:** running interactive auth login (`gcloud.cmd auth login` /
-   `gcloud auth login`) in the agent shell for the user. **Forbidden:** revoking
-   other accounts to “switch” auth.
-4. Open an **external-wait / next-step** structured choice before ending the
-   turn, for example: **Auth done — continue**, **Retry probe**, **Abort**,
-   **More details for option _**.
-5. Resume only after they select a continue path; re-probe auth before
-   proceeding. If still unauthenticated → ask once more or abort per their
-   choice.
+##### 1b.1 Pre-run gate (USER_CHECKPOINT)
+
+Before starting auth, open structured choice:
+
+- Announce the lane will run **`gcloud auth login`** via
+  **`mission_control_start_interactive_terminal`** preset **`gcloud`**.
+- Ask the developer to **focus the browser profile where they are already signed
+  into the intended Google account** — OAuth opens in the default browser; the
+  wrong profile binds the wrong account.
+- Options: **Ready — run gcloud auth login** · **Need to switch browser/profile
+  first** · **Abort** · universal trailer.
+
+**Forbidden:** proceeding to **§1b.2** until the developer selects a continue path.
+
+##### 1b.2 Invoke MCP — lane waiting mode (binding)
+
+On **Ready — run gcloud auth login**:
+
+1. Emit **`mission_control_start_interactive_terminal`** with
+   `{ "preset": "gcloud" }` **alone on this assistant turn** — no other tools,
+   no structured choice on the same turn.
+2. The host opens the integrated terminal + status card and puts the lane in
+   **waiting mode** (**lane waiter** blocks until the terminal session completes).
+3. **Forbidden:** background / non-blocking invocation; treating stdio MCP ack as
+   login success; agent **Shell** for interactive login; freeform **`command`**
+   when preset exists.
+4. **Forbidden:** opening the **§1b.3** post-login gate on the same turn as
+   **§1b.2** before host terminal completion.
+
+The developer completes the browser/device OAuth flow in the integrated terminal
+while the lane waits. Login is **additive** — existing Google accounts on this
+machine remain. **Forbidden:** revoking other accounts to “switch” auth.
+
+##### 1b.3 Post-login gate (USER_CHECKPOINT — after host completion)
+
+**Only after** the host lane waiter reports terminal completion, open structured
+choice:
+
+- **Auth succeeded — continue to account bind**
+- **Login failed / wrong account — retry auth**
+- **Abort**
+- universal trailer
+
+On **continue**: re-probe with read-only agent **Shell** —
+`gcloud auth list --format='value(account)'` (all accounts — **forbidden:**
+`--filter=status:ACTIVE` as sole authority). If the intended account is listed →
+step **2.5**. If not → offer **retry** (return to **§1b.1**) or **abort**.
+
+**On-demand Read:**
+[`.sedea/centers/sedea/docs/interactive-terminal-mcp.md`](../../../../sedea/docs/interactive-terminal-mcp.md)
+§ **`gcloud`** preset.
 
 ### 2. Confirm gcloud CLI
 
@@ -254,7 +310,7 @@ gcloud config configurations create "${gcloudConfigurationName}" --no-activate 2
 
 1. **Auth guard (binding).** Re-apply Agent shell bootstrap, then confirm
    **`gcloudAccountEmail`** appears in `gcloud auth list --format='value(account)'`.
-   If missing — route back to step **1b** (additive user terminal login).
+   If missing — route back to **§1.0** / **§1b** (additive interactive-terminal MCP login).
 2. When bound, list accessible projects:
    `gcloud --account="${GCLOUD_ACCOUNT}" projects list`.
 3. **Derive a suggested new project id** (create path only):

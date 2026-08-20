@@ -22,8 +22,8 @@ setup owner: **`missions/required-tools-installation/skills/configure-gcloud-dri
 
 | Rule | Behavior |
 |------|----------|
-| User terminal | **`gcloud auth login`** (or **`gcloud.cmd auth login`** on Windows) **adds** credentials — existing logins remain |
-| Agent shells | **Forbidden:** interactive **`gcloud auth login`** — user runs login in the integrated terminal |
+| User auth | **`mission_control_start_interactive_terminal`** preset **`gcloud`** in **lane waiting mode**; **configure-gcloud-drive** §1.0 asks **use existing** vs **add another** when accounts exist; post-login gate per §1b.3 — **forbidden:** agent **Shell** interactive login; **forbidden:** background invocation |
+| Agent shells | **Forbidden:** interactive **`gcloud auth login`** — use interactive-terminal MCP preset **`gcloud`** per **configure-gcloud-drive** §1b |
 | Revoke | **Forbidden:** **`gcloud auth revoke`** (any account) in agent shells without explicit user structured-choice consent |
 
 ## Account binding (binding)
