@@ -90,8 +90,11 @@ Non-**`.docx`** targets skip this gate.
 
 When **`relativeFilePath`** ends with **`.docx`**, run **`docx-ooxml-validate.sh`**
 per **`rules/10_required-tools.mdc`** § *Office binary (`.docx`) validation* on
-the absolute merged file path **before** outbound **`rclone sync`**. **Fail
-closed** on non-zero exit. **Missing `node` / `npx`:** stop and route to
+the absolute merged file path **before** outbound **`rclone sync`**. Default
+invocation **auto-normalizes** GDrive/interop patterns in place (timestamped
+**`.bak-*`** first) before strict validation; use **`--no-normalize`** only for
+strict pre-normalize checks. **Fail closed** on non-zero exit — stderr includes
+a structured error summary. **Missing `node` / `npx`:** stop and route to
 **`install required tools`** on a new dispatch — do not bisync/sync first.
 
 ### Drive format pairing on outbound `rclone sync` (binding)

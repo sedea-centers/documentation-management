@@ -125,7 +125,10 @@ When **`relativeFilePath`** ends with **`.docx`** and this lane performs materia
 3. **Validate before sync:** Before outbound **`rclone bisync`** / **`sync`**, run
    **`docx-ooxml-validate.sh`** per
    **`rules/10_required-tools.mdc`** § *Office binary (`.docx`) validation*.
-   **Fail closed** on non-zero exit.
+   Default invocation **auto-normalizes** GDrive/interop float-twips and enum
+   patterns in place (timestamped **`.bak-*`** first) before strict validation.
+   Use **`--no-normalize`** only when a strict pre-normalize check is required.
+   **Fail closed** on non-zero exit — stderr includes a structured error summary.
 4. **Missing `node` / `npx`:** Stop; tell the user to start **`install required
    tools`** on center **`documentation-management`** in a **new dispatch**.
 
@@ -151,7 +154,8 @@ When **`markupMode: pending`** and **`relativeFilePath`** ends with **`.docx`**:
 3. **`w:trackRevisions`:** The script enables **`w:trackRevisions`** in
    **`word/settings.xml`** when absent — do not strip settings the script adds.
 4. **Validate:** Run **`docx-ooxml-validate.sh`** after every markup mutation
-   (fail closed) before setting **`markupPending`** or handing off to sync.
+   (default auto-normalize; fail closed) before setting **`markupPending`** or
+   handing off to sync.
 5. **`markupPending` output:** After substantive pending edits, run
    **`list-pending`**; set **`outputs.markupPending: true`** when JSON reports
    pending markup (`pending: true`). Set **`markupPending: false`** when

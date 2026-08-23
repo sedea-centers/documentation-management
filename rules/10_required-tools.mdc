@@ -484,16 +484,35 @@ alone — Word can reject packages that remain ZIP/XML-well-formed.
 **`@xarsh/ooxml-validator@0.2.0`**, plus a hygiene gate rejecting prefixed
 default xmlns on **`[Content_Types].xml`** and **`*.rels`**).
 
+**Interop normalizer:** center script **`scripts/docx-ooxml-normalize.mjs`**
+(Node-only). Rounds float twips and fixes common Google Docs export enum patterns
+so strict validation passes while Word/GDrive remain editable.
+
+| Flag | Behavior |
+|------|----------|
+| *(default)* | **Auto-normalize** when GDrive/interop patterns are detected, then validate |
+| **`--normalize`** | Always normalize in place before validation |
+| **`--no-normalize`** | Strict validator only — no in-place rewrite |
+| **`--verbose`** | Emit full validator JSON on failure |
+
+**Auto-normalize rewrites the `.docx` in place** (timestamped **`.bak-*`** beside
+the file first). Agents must not assume byte-identical packages after default
+validation on GDrive-exported files.
+
+On validation failure the validator emits a **structured stderr summary**
+(error counts by type and top rule ids) — not a silent abort under **`set -e`**.
+
 | Phase | Agent obligation |
 |-------|------------------|
 | **Prerequisite** | **`node`** and **`npx`** on PATH — probe/install via **`node`** in **Tool inventory** and mission **`install required tools`**. On Windows, **Git bash** plus **`zip`** on that bash PATH are also required for **`--self-test`** / dry-run 3 (see **Windows dry-run 3** under tool **`node`**). **Forbidden:** Python OOXML stacks on end-user workstations. |
-| **Before outbound sync** | Run **`docx-ooxml-validate.sh`** on the absolute **`.docx`** path. **Fail closed** on non-zero exit — do not **`bisync`** / **`sync`**. |
+| **Before outbound sync** | Run **`docx-ooxml-validate.sh`** on the absolute **`.docx`** path (default auto-normalize). **Fail closed** on non-zero exit — do not **`bisync`** / **`sync`**. |
 | **After material edit** | Same validation gate before any outbound push when the lane edited the **`.docx`** in-process. |
 
 **Invoke (from hosting workspace or center worktree):**
 
 ```bash
 bash .sedea/centers/documentation-management/scripts/docx-ooxml-validate.sh "/absolute/path/to/file.docx"
+bash .sedea/centers/documentation-management/scripts/docx-ooxml-validate.sh --no-normalize "/absolute/path/to/file.docx"
 ```
 
 Substitute **`CENTER_WORKTREE_ROOT/scripts/docx-ooxml-validate.sh`** when editing

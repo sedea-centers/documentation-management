@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Validate .docx OOXML package hygiene + schema (Node-first; no Python).
-# Usage: docx-ooxml-validate.sh [--self-test] ABS_PATH.docx
+# Usage: docx-ooxml-validate.sh [--self-test] [--normalize|--no-normalize] [--verbose] ABS_PATH.docx
+#
+# --normalize     Apply GDrive/interop normalization before schema validation.
+# --no-normalize  Skip normalization (strict validator only).
+# Default: auto-normalize when float-twips interop patterns are detected.
 #
 # Windows: run under Git bash. --self-test needs `zip` on that bash PATH
 # (stock Git for Windows may ship unzip without zip; missing zip → exit 127).
@@ -9,7 +13,7 @@ set -euo pipefail
 OOXML_VALIDATOR_PKG="@xarsh/ooxml-validator@0.2.0"
 
 usage() {
-  echo "Usage: docx-ooxml-validate.sh [--self-test] ABS_PATH.docx" >&2
+  echo "Usage: docx-ooxml-validate.sh [--self-test] [--normalize|--no-normalize] [--verbose] ABS_PATH.docx" >&2
   exit 2
 }
 
@@ -19,6 +23,10 @@ require_node() {
     echo "Start Required Tools Installation (install required tools) on documentation-management." >&2
     exit 2
   fi
+}
+
+script_dir() {
+  cd "$(dirname "${BASH_SOURCE[0]}")" && pwd
 }
 
 hygiene_check() {
@@ -51,25 +59,109 @@ hygiene_check() {
   rm -rf "$tmp"
 }
 
-run_ooxml_validator() {
+maybe_normalize() {
   local docx="$1"
-  local json ok
-  json="$(npx --yes "$OOXML_VALIDATOR_PKG" "$docx")"
-  ok="$(printf '%s' "$json" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(j.ok===true?"true":"false")}catch{process.stdout.write("false")}})')"
-  if [[ "$ok" != "true" ]]; then
-    echo "docx-ooxml-validate: OOXML validator reported errors for $docx" >&2
-    printf '%s\n' "$json" >&2
+  local mode="$2"
+  local normalize_script="$3"
+  local detect_json needs reason
+
+  if [[ "$mode" == "never" ]]; then
+    return 0
+  fi
+
+  if [[ ! -f "$normalize_script" ]]; then
+    echo "docx-ooxml-validate: missing docx-ooxml-normalize.mjs beside validator" >&2
     return 1
   fi
+
+  if [[ "$mode" == "always" ]]; then
+    echo "docx-ooxml-validate: applying GDrive/interop normalize (--normalize) for $docx" >&2
+    node "$normalize_script" --in-place "$docx" >&2 || return 1
+    return 0
+  fi
+
+  detect_json="$(node "$normalize_script" --detect-only "$docx")"
+  needs="$(printf '%s' "$detect_json" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(j.needsNormalize===true?"yes":"no")}catch{process.stdout.write("no")}})')"
+  if [[ "$needs" != "yes" ]]; then
+    return 0
+  fi
+  reason="$(printf '%s' "$detect_json" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(j.reason||"interop")}catch{process.stdout.write("interop")}})')"
+  echo "docx-ooxml-validate: auto-normalize ($reason) for $docx" >&2
+  node "$normalize_script" --in-place "$docx" >&2 || return 1
+}
+
+emit_error_summary() {
+  local json_file="$1"
+  local verbose="$2"
+  node - "$json_file" "$verbose" <<'NODE'
+const fs = require('fs');
+const jsonFile = process.argv[2];
+const verbose = process.argv[3] === '1';
+let j;
+try {
+  j = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
+} catch {
+  console.error('docx-ooxml-validate: validator returned non-JSON output');
+  process.exit(0);
+}
+const errs = j.errors || [];
+console.error(`docx-ooxml-validate: ${errs.length} validation error(s)`);
+const byType = {};
+const byId = {};
+for (const e of errs) {
+  byType[e.errorType || 'unknown'] = (byType[e.errorType || 'unknown'] || 0) + 1;
+  byId[e.id || 'unknown'] = (byId[e.id || 'unknown'] || 0) + 1;
+}
+for (const [k, v] of Object.entries(byType).sort((a, b) => b[1] - a[1])) {
+  console.error(`  ${k}: ${v}`);
+}
+for (const [id, count] of Object.entries(byId).sort((a, b) => b[1] - a[1]).slice(0, 5)) {
+  console.error(`  ${id}: ${count}`);
+}
+if (verbose) {
+  console.error('docx-ooxml-validate: full validator JSON follows');
+  console.error(JSON.stringify(j, null, 2));
+} else {
+  console.error('docx-ooxml-validate: re-run with --verbose for full JSON report');
+}
+NODE
+}
+
+run_ooxml_validator() {
+  local docx="$1"
+  local verbose="$2"
+  local json_file ok npx_exit=0
+
+  json_file="$(mktemp "${TMPDIR:-/tmp}/docx-validate.XXXXXX")"
+  set +e
+  npx --yes "$OOXML_VALIDATOR_PKG" "$docx" >"$json_file" 2>/dev/null
+  npx_exit=$?
+  set -e
+
+  if [[ ! -s "$json_file" ]]; then
+    rm -f "$json_file"
+    echo "docx-ooxml-validate: validator produced no output for $docx (npx exit $npx_exit)" >&2
+    return 1
+  fi
+
+  ok="$(node -e "const j=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));process.stdout.write(j.ok===true?'true':'false');" "$json_file")"
+  if [[ "$ok" != "true" ]]; then
+    echo "docx-ooxml-validate: OOXML validator reported errors for $docx" >&2
+    emit_error_summary "$json_file" "$verbose"
+    rm -f "$json_file"
+    return 1
+  fi
+  rm -f "$json_file"
 }
 
 self_test() {
   require_node
-  local tmp docx script_dir markup
+  local tmp docx dir markup normalize
   tmp="$(mktemp -d)"
   docx="$tmp/minimal.docx"
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  markup="$script_dir/docx-markup.mjs"
+  dir="$(script_dir)"
+  markup="$dir/docx-markup.mjs"
+  normalize="$dir/docx-ooxml-normalize.mjs"
   # Minimal OOXML package Word accepts (empty document).
   mkdir -p "$tmp/_rels" "$tmp/word/_rels"
   cat >"$tmp/[Content_Types].xml" <<'EOF'
@@ -98,10 +190,14 @@ EOF
 EOF
   (cd "$tmp" && zip -qr "$docx" '[Content_Types].xml' _rels word)
   hygiene_check "$docx"
-  run_ooxml_validator "$docx"
+  run_ooxml_validator "$docx" 0
 
   if [[ ! -f "$markup" ]]; then
     echo "docx-ooxml-validate: missing docx-markup.mjs beside validator" >&2
+    return 1
+  fi
+  if [[ ! -f "$normalize" ]]; then
+    echo "docx-ooxml-validate: missing docx-ooxml-normalize.mjs beside validator" >&2
     return 1
   fi
 
@@ -112,34 +208,62 @@ EOF
 
   node "$markup" mark-insert "$track_docx" --text " pending insert"
   hygiene_check "$track_docx"
-  run_ooxml_validator "$track_docx"
+  run_ooxml_validator "$track_docx" 0
 
   node "$markup" mark-delete "$track_docx" --text "validate"
   hygiene_check "$track_docx"
-  run_ooxml_validator "$track_docx"
+  run_ooxml_validator "$track_docx" 0
 
   node "$markup" mark-red "$red_docx" --text "validate"
   hygiene_check "$red_docx"
-  run_ooxml_validator "$red_docx"
+  run_ooxml_validator "$red_docx" 0
 
   node "$markup" list-pending "$track_docx" >/dev/null
   node "$markup" accept-all "$track_docx"
   hygiene_check "$track_docx"
-  run_ooxml_validator "$track_docx"
+  run_ooxml_validator "$track_docx" 0
 
   rm -rf "$tmp"
   echo "docx-ooxml-validate: self-test passed"
 }
 
 main() {
-  if [[ $# -lt 1 ]]; then
+  local normalize_mode="auto"
+  local verbose=0
+  local docx=""
+  local arg dir normalize_script
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --self-test)
+        self_test
+        exit 0
+        ;;
+      --normalize)
+        normalize_mode="always"
+        shift
+        ;;
+      --no-normalize)
+        normalize_mode="never"
+        shift
+        ;;
+      --verbose)
+        verbose=1
+        shift
+        ;;
+      -*)
+        usage
+        ;;
+      *)
+        docx="$1"
+        shift
+        ;;
+    esac
+  done
+
+  if [[ -z "$docx" ]]; then
     usage
   fi
-  if [[ "$1" == "--self-test" ]]; then
-    self_test
-    exit 0
-  fi
-  local docx="$1"
   if [[ ! -f "$docx" ]]; then
     echo "docx-ooxml-validate: file not found: $docx" >&2
     exit 1
@@ -151,9 +275,13 @@ main() {
       exit 1
       ;;
   esac
+
   require_node
+  dir="$(script_dir)"
+  normalize_script="$dir/docx-ooxml-normalize.mjs"
   hygiene_check "$docx"
-  run_ooxml_validator "$docx"
+  maybe_normalize "$docx" "$normalize_mode" "$normalize_script"
+  run_ooxml_validator "$docx" "$verbose"
   echo "docx-ooxml-validate: passed $docx"
 }
 
