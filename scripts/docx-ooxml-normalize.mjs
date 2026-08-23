@@ -16,6 +16,16 @@ import { fileURLToPath } from 'node:url';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
+function listWordXmlParts(tmpDir) {
+  const wordDir = path.join(tmpDir, 'word');
+  if (!fs.existsSync(wordDir)) return [];
+  return fs
+    .readdirSync(wordDir)
+    .filter((name) => name.endsWith('.xml'))
+    .map((name) => `word/${name}`)
+    .sort();
+}
+
 const FLOAT_MEASURE_ATTRS = ['w', 'line', 'top', 'bottom', 'left', 'right', 'before', 'after', 'h', 'space', 'sz'];
 const ON_OFF_TAGS = new Set([
   'tblHeader',
@@ -163,7 +173,7 @@ function normalizeDocx(docxPath, { inPlace }) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docx-norm-'));
   try {
     unzipDocx(resolved, tmp);
-    const parts = ['word/document.xml', 'word/styles.xml', 'word/header1.xml', 'word/footer1.xml'];
+    const parts = listWordXmlParts(tmp);
     let totalChanges = 0;
     let reasons = new Set();
 
@@ -215,7 +225,7 @@ function detectDocx(docxPath) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docx-detect-'));
   try {
     unzipDocx(resolved, tmp);
-    const parts = ['word/document.xml', 'word/styles.xml'];
+    const parts = listWordXmlParts(tmp);
     for (const rel of parts) {
       const partPath = path.join(tmp, rel);
       if (!fs.existsSync(partPath)) continue;

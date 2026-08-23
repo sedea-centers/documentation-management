@@ -223,6 +223,54 @@ EOF
   hygiene_check "$track_docx"
   run_ooxml_validator "$track_docx" 0
 
+  # GDrive/interop fixture: float twips trigger detect + auto-normalize path.
+  local interop_docx="$tmp/interop-float.docx"
+  mkdir -p "$tmp/interop/_rels" "$tmp/interop/word/_rels"
+  cat >"$tmp/interop/[Content_Types].xml" <<'EOF'
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>
+EOF
+  cat >"$tmp/interop/_rels/.rels" <<'EOF'
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>
+EOF
+  cat >"$tmp/interop/word/document.xml" <<'EOF'
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p>
+      <w:pPr><w:spacing w:before="12.5" w:after="6.75"/></w:pPr>
+      <w:r><w:t>interop</w:t></w:r>
+    </w:p>
+  </w:body>
+</w:document>
+EOF
+  cat >"$tmp/interop/word/_rels/document.xml.rels" <<'EOF'
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>
+EOF
+  (cd "$tmp/interop" && zip -qr "$interop_docx" '[Content_Types].xml' _rels word)
+
+  local detect_json needs
+  detect_json="$(node "$normalize" --detect-only "$interop_docx")"
+  needs="$(printf '%s' "$detect_json" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(j.needsNormalize===true?"yes":"no")}catch{process.stdout.write("no")}})')"
+  if [[ "$needs" != "yes" ]]; then
+    echo "docx-ooxml-validate: self-test interop detect expected needsNormalize" >&2
+    return 1
+  fi
+
+  local interop_norm="$tmp/interop-normalized.docx"
+  cp "$interop_docx" "$interop_norm"
+  hygiene_check "$interop_norm"
+  maybe_normalize "$interop_norm" "auto" "$normalize"
+  run_ooxml_validator "$interop_norm" 0
+
   rm -rf "$tmp"
   echo "docx-ooxml-validate: self-test passed"
 }
