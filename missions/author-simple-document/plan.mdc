@@ -69,7 +69,7 @@ USER_CHECKPOINT — confirm intent when the opening command phrase does not matc
   **`change`**) the file path the user will edit.
 - **Inputs:** [`.sedea/documentation-management.yaml`](.sedea/documentation-management.yaml) on the hosting root; intent from §1; user hints (folder slug, relative file path).
 - **Expected output:** `folderSlug`, `localPath`, `rclone.remote`, `rclone.remotePath`; for **`change`**, `relativeFilePath` under `localPath`.
-- **Next-step resolution:** Folder resolved → §3 when intent **`create`**. Intent **`change`** with `relativeFilePath` resolved → §2a when the target ends with **`.docx`**, otherwise record **`markupMode: final`** on the leader ledger and auto-advance to §4. Missing registry or path → USER_CHECKPOINT below.
+- **Next-step resolution:** Folder resolved → §2a. Missing registry or path → USER_CHECKPOINT below.
 
 Read the folder registry completely. Do **not** invent slugs, remotes, or local
 roots. Preconditions for **`rclone`** and a configured Drive remote follow
@@ -82,7 +82,44 @@ When **`rclone`** or the folder's remote is missing, direct the user to a **new*
 dispatch for **`install required tools`** on center **`documentation-management`**
 — do not open that mission from this dispatch.
 
-### 2a. Markup mode (`.docx` targets)
+### 2a. Post-folder-bind gate — pull remote files
+
+- **Type:** Branching logic
+- **Intent:** After §2 folder bind, offer **folder-level inbound sync** before
+  scaffold, markup, or file-scoped bisync when the target document may exist
+  **only on remote**.
+- **Inputs:** `folderSlug`, `localPath`, `rclone.remote`, `rclone.remotePath`
+  from §2; intent from §1; optional `relativeFilePath` when the user already
+  named a file at §2.
+- **Expected output:** `folderInboundSyncStatus` = `skipped` | `synced` |
+  `conflict-resolved` | `failed` on the leader ledger.
+- **Next-step resolution:** **`continue-to-intake`** → §3 when intent **`create`**.
+  Intent **`change`** with `relativeFilePath` resolved → §2b when the target
+  ends with **`.docx`**, otherwise record **`markupMode: final`** and
+  auto-advance to §4. **`pull-remote-folder`** success → **re-open this §2a
+  gate**. Hard error → USER_CHECKPOINT below.
+
+USER_CHECKPOINT — pull all files from remote (folder sync) · continue to next step · provide relative file path (change) · start Required Tools Installation in a new dispatch · abort.
+
+| Option id | Label | Agent action |
+|-----------|-------|--------------|
+| `pull-remote-folder` | Pull all files from remote (folder sync) | Folder-level inbound **`rclone sync`** from configured remote → `localPath` per **10_required-tools.mdc** — **no `relativeFilePath` required** |
+| `continue-to-intake` | Continue — proceed to next step | §3 (`create`) or §2b/§4 (`change`) per resolved intent and path |
+| `provide-relative-file-path` | Provide relative file path (change) | Record path on the leader ledger when known |
+| `start-required-tools-installation` | Start Required Tools Installation in a new dispatch | Detached dispatch only |
+| `abort` | Abort | §10 dispatch resolution |
+
+**On `pull-remote-folder` (binding):**
+
+1. Run **folder-level inbound** **`rclone sync`** with Drive flags from
+   **10_required-tools.mdc** and format-pairing rules from § *Drive format pairing*
+   below when applicable.
+2. **Forbidden:** requiring `relativeFilePath` before folder pull; skipping this
+   gate when the user needs a remote-only document that is not yet local.
+3. On success, set `folderInboundSyncStatus: synced` and **re-open this §2a
+   gate** unless the user continues on the same turn after sync completes.
+
+### 2b. Markup mode (`.docx` targets)
 
 - **Type:** Branching logic
 - **Intent:** Collect whether the author lane writes final prose or pending track-change
@@ -111,6 +148,34 @@ USER_CHECKPOINT — pending markup (track changes) · final markup (direct write
    per author skill § *Pending markup mode*; **`final`** keeps direct final OOXML
    insert (author skill default).
 
+### 2c. Always-on folder sync on Squad Leader structured choice (binding)
+
+After §2 folder bind succeeds, **every** Squad Leader
+**`mission_control_present_structured_choice`** / **AskQuestion** modal on this
+dispatch **must** include **`pull-remote-folder`** until dispatch resolution.
+When `relativeFilePath` is known, also include **`sync-documents`** (file-scoped
+§4 / §7 bisync for that path).
+
+| Field | Value |
+|-------|-------|
+| **Option ids** | `pull-remote-folder` · `sync-documents` (when path known) |
+| **Labels** | Pull all files from remote (folder sync) · Sync documents |
+| **Placement** | After mission-specific options; **`pull-remote-folder` before `sync-documents`**; both before the universal modal trailer per rule **2** |
+
+**Applies to:** §2a post-folder-bind gate; §3 scaffold external-wait resume
+modals; §6a / §7 / §8 / §9 gates on the **leader** lane after folder bind.
+
+**Forbidden:** omitting **`pull-remote-folder`** after §2 folder bind; no-op
+**`sync-documents`** when `relativeFilePath` is absent.
+
+**On select `pull-remote-folder`:** run §2a **`pull-remote-folder`** procedure;
+re-open the invoking gate on success.
+
+**On select `sync-documents`:** when `relativeFilePath` is **absent**, run §2a
+**`pull-remote-folder`** — **forbidden** to no-op. When present, run §4 (inbound
+before planning) or §7 (outbound after authoring) per context; re-open the
+invoking gate on success.
+
 ### 3. Scaffold new document (spawned)
 
 - **Type:** Agent engagement and handover
@@ -120,7 +185,7 @@ USER_CHECKPOINT — pending markup (track changes) · final markup (direct write
   scaffold (standard document **or** new template file).
 - **Inputs:** `folderSlug`, `localPath`, `operationsDocsDirectory` from Mission Control; optional `subfolder`; optional `templatePath`; intent **`create`** from §1.
 - **Expected output:** Child **`mission_control_send_agent_result`** with `relativeFilePath`, `scaffoldWritten: true`, `scaffoldKind` (`document` | `template`), `continuationStatus: terminal`.
-- **Next-step resolution:** Child success → §2a when `relativeFilePath` ends with
+- **Next-step resolution:** Child success → §2b when `relativeFilePath` ends with
   **`.docx`**, otherwise record **`markupMode: final`** and auto-advance to §4 (treat
   scaffold as existing document). Child failure → USER_CHECKPOINT below, then §10.
 
@@ -259,7 +324,7 @@ USER_CHECKPOINT — retry planner spawn, revise plan scope, or abort after child
 - **Intent:** Render approved plan changes into `relativeFilePath`; iterate with
   the user until the document is done.
 - **Inputs:** `planPath`, `relativeFilePath`, `localPath`, `operationsDocsDirectory`,
-  **`markupMode`** (`pending` | `final` — default **`final`** when §2a omitted or
+  **`markupMode`** (`pending` | `final` — default **`final`** when §2b omitted or
   target is not **`.docx`**).
 - **Expected output:** Child result with `documentComplete: true`, `relativeFilePath`,
   `markupMode`, `markupPending`, `backupsRemoved`, `sotPresent`, `sotConsulted`,

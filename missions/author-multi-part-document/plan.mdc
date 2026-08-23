@@ -166,7 +166,7 @@ USER_CHECKPOINT — confirm intent when the opening command phrase does not matc
   `rclone.remotePath`; `relativeFilePath` under `localPath` when known.
   When §3 used a template, `relativeFilePath` **must** be the duplicated
   working file — **never** the template path.
-- **Next-step resolution:** Folder resolved → §3. Missing registry or tools →
+- **Next-step resolution:** Folder resolved → §2a. Missing registry or tools →
   USER_CHECKPOINT below.
 
 Read the folder registry completely. Do **not** invent slugs, remotes, or local
@@ -176,6 +176,46 @@ and
 [`.sedea/centers/documentation-management/rules/10_required-tools.mdc`](../../rules/10_required-tools.mdc).
 
 USER_CHECKPOINT — pick registered folder slug · provide relative file path · start Required Tools Installation in a new dispatch · abort.
+
+### 2a. Post-folder-bind gate — pull remote files
+
+- **Type:** Branching logic
+- **Intent:** After §2 folder bind, offer **folder-level inbound sync** before
+  §3 intake when the working document may exist **only on remote**.
+- **Inputs:** `folderSlug`, `localPath`, `rclone.remote`, `rclone.remotePath`
+  from §2; optional `relativeFilePath` when the user already named a file at §2.
+- **Expected output:** `folderInboundSyncStatus` = `skipped` | `synced` |
+  `conflict-resolved` | `failed` on the leader ledger; optional updated local
+  listing under `localPath`.
+- **Next-step resolution:** **`continue-to-intake`** → §3. **`pull-remote-folder`**
+  success → **re-open this §2a gate** (user may pull again) or continue when
+  ready. Hard error → USER_CHECKPOINT below.
+
+USER_CHECKPOINT — pull all files from remote (folder sync) · continue to intake · provide relative file path · start Required Tools Installation in a new dispatch · abort.
+
+| Option id | Label | Agent action |
+|-----------|-------|--------------|
+| `pull-remote-folder` | Pull all files from remote (folder sync) | Folder-level inbound **`rclone sync`** from configured `rclone.remote` + `rclone.remotePath` → `localPath` per **10_required-tools.mdc** — **no `relativeFilePath` required** |
+| `continue-to-intake` | Continue — proceed to intake | §3 |
+| `provide-relative-file-path` | Provide relative file path | Record path on the leader ledger when known |
+| `start-required-tools-installation` | Start Required Tools Installation in a new dispatch | Detached dispatch only |
+| `abort` | Abort | §11 dispatch resolution |
+
+**On `pull-remote-folder` (binding):**
+
+1. Run **folder-level inbound** sync: **`rclone sync`** (registered remote →
+   `localPath`) with Drive service-account / root-folder flags from
+   **10_required-tools.mdc** and format-pairing rules from Author Simple Document
+   § *Drive format pairing* when applicable.
+2. **Forbidden:** requiring `relativeFilePath` before folder pull; treating §9
+   file-scoped sync as a substitute when no working file is bound yet.
+3. On success, set `folderInboundSyncStatus: synced` and **re-open this §2a
+   gate** unless the user continues to §3 on the same turn after sync completes.
+4. Per-path bisync conflicts discovered later still use **file-synchronizer** (§9).
+
+**Checkpoint auto-advance:** When the user selects **`continue-to-intake`** and
+folder pull is not required, auto-advance to §3 — **forbidden:** repeat §2a when
+the user already declined pull and named a path at §2.
 
 ### 2.5 Brainstorming intake (optional — `brainstorm-first`)
 
@@ -360,25 +400,32 @@ USER_CHECKPOINT — start/continue next part · request gap analysis · handle d
 
 After §2 folder bind succeeds, **every** Squad Leader
 **`mission_control_present_structured_choice`** / **AskQuestion** modal on this
-dispatch **must** include **Sync documents** until dispatch resolution.
+dispatch **must** include **Pull all files from remote (folder sync)** and **Sync
+documents** until dispatch resolution.
 
-| Field | Value |
-|-------|-------|
-| **Option id** | `sync-documents` |
-| **Label** | Sync documents |
-| **Placement** | After mission-specific options; **before** the universal modal trailer (`more-details` … `other`) per rule **2** |
+| Field | `pull-remote-folder` | `sync-documents` |
+|-------|----------------------|------------------|
+| **Option id** | `pull-remote-folder` | `sync-documents` |
+| **Label** | Pull all files from remote (folder sync) | Sync documents |
+| **Placement** | After mission-specific options; **before** the universal modal trailer (`more-details` … `other`) per rule **2** — **`pull-remote-folder` immediately before `sync-documents`** |
 
-**Applies to:** §5 standing gate; §3 intake gate on the leader lane;
-**#external-wait** resume modals while child lanes run; gap / content-generator /
-PDF / sync failure gates on the **leader** lane — any Squad Leader gate after
-folder bind.
+**Applies to:** §2a post-folder-bind gate; §5 standing gate; §3 intake gate on
+the leader lane; **#external-wait** resume modals while child lanes run; gap /
+content-generator / PDF / sync failure gates on the **leader** lane — any Squad
+Leader gate after folder bind.
 
-**Forbidden:** omitting `sync-documents` from any Squad Leader modal after §2
-folder bind; treating sync as available only on the §5 standing gate.
+**Forbidden:** omitting **`pull-remote-folder`** or **`sync-documents`** from any
+Squad Leader modal after §2 folder bind; treating sync as available only on the
+§5 standing gate; no-op **`sync-documents`** when `relativeFilePath` is absent.
 
-**On select `sync-documents`:** run §9. On success, **re-open the same gate**
-that was active when sync started (same options and mission context). When sync
-was selected from §5 as the primary next action, return to §5 after §9.
+**On select `pull-remote-folder`:** run §2a **`pull-remote-folder`** procedure.
+On success, **re-open the same gate** that was active when sync started.
+
+**On select `sync-documents`:** when `relativeFilePath` is **absent**, run §2a
+**`pull-remote-folder`** procedure — **forbidden** to no-op or error. When
+present, run §9. On success, **re-open the same gate** that was active when sync
+started (same options and mission context). When sync was selected from §5 as the
+primary next action, return to §5 after §9.
 
 **Child lanes:** unchanged — Sync remains Squad Leader–owned (Squad operations
 table).
