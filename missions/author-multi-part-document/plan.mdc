@@ -279,17 +279,20 @@ when report outputs include `userApprovedReport: true`.
 - **Inputs:** Folder binding from §2; optional template path; optional structure
   outline from the user.
 - **Expected output:** `intakeMode` = `template` | `structure-given` |
-  `brainstorm-first`; `markupMode` = `pending` | `final` (default **`final`**
-  when the user skips or omits a pick); when `template`: `templatePath`
-  (read-only source) + `relativeFilePath` (new working document under
-  `localPath`); when `structure-given`: approved structure outline; optional
-  existing document to extend (non-template path only); when
-  `brainstorm-first`: route to §2.5 until brainstorm completes or abandons.
+  `edit-existing` | `brainstorm-first`; `markupMode` = `pending` | `final`
+  (default **`final`** when the user skips or omits a pick); when `template`:
+  `templatePath` (read-only source) + `relativeFilePath` (new working document
+  under `localPath`); when `structure-given`: approved structure outline;
+  optional existing document to extend (non-template path only); when
+  `edit-existing`: required `relativeFilePath` under `localPath` (existing
+  non-template working file; optional structure notes for master-plan context
+  only); when `brainstorm-first`: route to §2.5 until brainstorm completes or
+  abandons.
 - **Next-step resolution:** **`brainstorm-first`** → §2.5. Other modes: intake
   approved with a writable working document and resolved **`markupMode`** → §4.
   Incomplete → re-ask.
 
-USER_CHECKPOINT — brainstorm first · use template · I'll explain the document structure · pending markup (track changes) · final markup (direct write) · revise intake · abort.
+USER_CHECKPOINT — brainstorm first · use template · edit existing document · I'll explain the document structure · pending markup (track changes) · final markup (direct write) · revise intake · abort.
 
 **Markup mode (binding):**
 
@@ -312,6 +315,7 @@ USER_CHECKPOINT — brainstorm first · use template · I'll explain the documen
 | **Brainstorm first** | Squad Leader spawns **document-brainstorm** (§2.5). After approved report, auto-chain §4 **master-plan** with report-derived intake — skip template/structure collection on the leader lane until brainstorm completes or abandons. |
 | **Use template** | User supplies `templatePath`. Agent **duplicates** the template into a **new** working document under `localPath` (propose a new filename; confirm or revise before write). Master plan and all later edits target **only** the new file. |
 | **I'll explain the document structure** | User supplies section/part structure; master plan uses that outline on a new or existing **non-template** working file. |
+| **Edit existing document** | User supplies or picks `relativeFilePath` under `localPath`; validate exists (run §2a **`pull-remote-folder`** when remote-only); master plan and part delivery target **only** that file — **no** new scaffold |
 
 **Template reuse (binding — Use template):**
 
@@ -320,7 +324,7 @@ USER_CHECKPOINT — brainstorm first · use template · I'll explain the documen
 3. Treat `templatePath` as **read-only** for structure derivation only (section headings / outline). All authoring, Generate Content, Sync of the working doc, and PDF export use `relativeFilePath`.
 4. Mirror Author Simple Document create mode **Use template** → scaffold a **standard document** from the template (non-template outcome).
 
-**Forbidden:** editing the selected template in place; treating the template path as the multi-part working document; skipping the new-filename proposal when `intakeMode` is `template`.
+**Forbidden:** editing the selected template in place; treating the template path as the multi-part working document; skipping the new-filename proposal when `intakeMode` is `template`; treating edit-existing as permission to edit a **template** path in place; skipping path validation for edit-existing.
 
 ### 4. Author and approve master plan (spawned master-plan lane)
 

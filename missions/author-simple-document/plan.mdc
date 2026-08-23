@@ -176,18 +176,23 @@ re-open the invoking gate on success.
 before planning) or §7 (outbound after authoring) per context; re-open the
 invoking gate on success.
 
-### 3. Scaffold new document (spawned)
+### 3. Document intake — scaffold or bind existing (spawned)
 
 - **Type:** Agent engagement and handover
 - **execution:** `spawned`
-- **Intent:** Collect create-mode choice, filename, destination folder, optional
-  existing template or document shape, user approval, and write the initial
-  scaffold (standard document **or** new template file).
+- **Intent:** Collect create-mode choice (including **edit existing document**),
+  filename, destination folder, optional existing template or document shape,
+  user approval, and either write the initial scaffold (standard document **or**
+  new template file) or bind an existing working file without scaffold write.
 - **Inputs:** `folderSlug`, `localPath`, `operationsDocsDirectory` from Mission Control; optional `subfolder`; optional `templatePath`; intent **`create`** from §1.
-- **Expected output:** Child **`mission_control_send_agent_result`** with `relativeFilePath`, `scaffoldWritten: true`, `scaffoldKind` (`document` | `template`), `continuationStatus: terminal`.
-- **Next-step resolution:** Child success → §2b when `relativeFilePath` ends with
-  **`.docx`**, otherwise record **`markupMode: final`** and auto-advance to §4 (treat
-  scaffold as existing document). Child failure → USER_CHECKPOINT below, then §10.
+- **Expected output:** Child **`mission_control_send_agent_result`** with
+  `relativeFilePath`; `scaffoldWritten: true | false`; when `scaffoldWritten:
+  true`: `scaffoldKind` (`document` | `template`); `continuationStatus: terminal`.
+- **Next-step resolution:** Child success with valid `relativeFilePath` → §2b when
+  path ends with **`.docx`**, otherwise record **`markupMode: final`** and
+  auto-advance to §4. When **`scaffoldWritten: false`** (edit-existing bind),
+  treat like intent **`change`** — no scaffold skip for bisync unless local-only.
+  Child failure → USER_CHECKPOINT below, then §10.
 
 **When to run:** Only when intent is **`create`**. When intent is **`change`** → skip to §4.
 
@@ -201,8 +206,9 @@ override and **More details for option _**):
 | **Author new template — I'll explain how** | User describes the template; agent proposes template shape; write a **new template** file (**simple-document only** — not on multi-part) |
 | **Use template** | User supplies `templatePath`. Agent **duplicates** the template into a **new** standard document under `localPath` (propose a new filename; confirm or revise before write). Later edits target **only** the new file. |
 | **I'll explain the document structure** | User supplies section structure (or document kind → proposed outline); write a **standard document** (non-template) |
+| **Edit existing document** | User supplies or picks `relativeFilePath` under `localPath`; validate the file exists locally (or parent runs **`pull-remote-folder`** / §2a when remote-only); **no scaffold write**; bind working file for §5 planner and §6 author |
 
-USER_CHECKPOINT — author new template · use template · I'll explain the document structure · change destination · revise intake · abort.
+USER_CHECKPOINT — author new template · use template · I'll explain the document structure · edit existing document · change destination · revise intake · abort.
 
 **Default destination:** For **Author new template — I'll explain how**, default
 `subfolder` is **`templates`** (write under `<localPath>/templates/…`). The intake
@@ -239,7 +245,8 @@ USER_CHECKPOINT — retry scaffold spawn, accept partial path only, or abort aft
 structure-given document shape; editing the selected template in place; treating
 `templatePath` as the working document; skipping the new-filename proposal when
 intake mode is **Use template**; dropping **Author new template**, **Use
-template**, or **I'll explain the document structure** from the create intake modal.
+template**, **I'll explain the document structure**, or **Edit existing document**
+from the create intake modal; scaffold write when intake mode is edit-existing.
 
 ### 4. Sync local file from remote (`rclone bisync`)
 
