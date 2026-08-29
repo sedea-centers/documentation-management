@@ -85,7 +85,7 @@ Sync and PDF conversion reuse Author Simple Document / Convert Document contract
 |------|------|-------------|---------------|----------|
 | **Squad Leader** | Dispatch leader | — | **`document-brainstorm`**, **`master-plan`**, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter**; **§6a SoT auto-apply** after part/review child terminals; **notify master-plan** for next-part delivery, gap analysis, and document comment review | Draft/approve master plan inline; spawn **part-planner**, **author**, **gap-analyzer**, or **document-reviewer** on the happy path; spawn **gap-closer** on the happy path (gap-analyzer owns that); resolve dispatch from a child lane |
 | **Document brainstorm agent** | Child | `spawned` | Scan registered folder docs + SoT; Q&A loop with **user**; write brainstorm report under ops docs | Spawn **master-plan** or other part lanes; `mission_control_propose_dispatch_resolution` |
-| **Master plan agent** | Child | `spawned` | Draft + approve master plan artifact; Relevant Links for `masterPlanPath` and working document; **spawn part-planner**, **gap-analyzer**, and **document-reviewer** per §6 / §7 / §7a; **revise master plan** when plan-affecting child outputs or notifications arrive | Spawn **author** or **gap-closer**; `mission_control_propose_dispatch_resolution` |
+| **Master plan agent** | Child | `spawned` | Draft + approve master plan artifact; Relevant Links for `masterPlanPath` and working document; **spawn part-planner**, **gap-analyzer**, and **document-reviewer** per §6 / §7 / §7a; **revise master plan** when plan-affecting child outputs or notifications arrive; **user-initiated revise master plan** on the post-terminal orchestration gate while downstream work is active | Spawn **author** or **gap-closer**; `mission_control_propose_dispatch_resolution` |
 | **Part planner** | Child | `spawned` | **author** (after part-plan approval); plan-revision notify to author | `mission_control_propose_dispatch_resolution`; requiring Squad Leader to re-spawn author for plan revisions |
 | **Author** | Child | `spawned` (by part-planner) | SoT conversation review + SoT follow-up collection | `mission_control_propose_dispatch_resolution`; spawning other parts |
 | **Gap analyzer** | Child | `spawned` (by master-plan) | **gap-closer** (when `gapsFound: true`) | Spawn gap-closer on happy path; resolve dispatch |
@@ -378,6 +378,25 @@ USER_CHECKPOINT — brainstorm first · use template · edit existing document �
 **Forbidden:** leader inline master-plan authoring; one-pass full-document
 authoring on this step (that is Author Simple Document); Squad Leader
 USER_CHECKPOINT to re-approve a plan already approved on the master-plan lane.
+
+#### Master-plan orchestration gate — Revise Plan (binding)
+
+While **`continuationStatus: active`** on the master-plan lane (part delivery,
+gap analysis, document review, or other downstream operations in progress or
+between child terminals), the master-plan **post-terminal orchestration gate**
+(**`skills/master-plan/SKILL.md`** step 12) **must** include
+**`revise-master-plan`** / **Revise master plan** alongside spawn next part ·
+gap analysis · document comment review · pause · terminal.
+
+**On `revise-master-plan`:** user-initiated revision of part order, titles,
+scope notes, or **`parts[]`** membership — **not** part prose — patch
+**`masterPlanPath`**, update the part ledger, re-register Relevant Links, emit
+**milestone** **`mission_control_send_agent_result`** with
+`continuationStatus: active`, and re-open the orchestration gate with
+**`revise-master-plan`** still available.
+
+**Forbidden:** limiting *revise master plan* to §4 step 3 initial approval only;
+prose-only revision on the master-plan lane.
 
 ### 5. Standing options (Squad Leader — always while active)
 

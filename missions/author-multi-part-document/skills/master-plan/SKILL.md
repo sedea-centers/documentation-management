@@ -181,9 +181,42 @@ content notes — not full part prose.
     update the part ledger when applicable, **re-register the working document**
     at absolute `localPath` + `relativeFilePath` via
     **`mission_control_update_relevant_documents`** (`kind: other`; skip unchanged
-    already-registered paths), and re-open a master-plan gate:
-    spawn next part · request gap analysis · document comment review · pause ·
-    terminal when all parts complete or user abandons.
+    already-registered paths), and re-open a master-plan orchestration gate
+    (**USER_CHECKPOINT**):
+    spawn next part · request gap analysis · document comment review ·
+    **revise master plan** · pause · terminal when all parts complete or user
+    abandons.
+
+    **Orchestration gate — required options (binding):** Mission-specific rows
+    **in this order** (then universal modal trailer per rule **2**):
+
+    | Option id | Label |
+    |-----------|-------|
+    | `spawn-next-part` | Spawn next part |
+    | `request-gap-analysis` | Request gap analysis |
+    | `document-comment-review` | Document comment review |
+    | `revise-master-plan` | Revise master plan |
+    | `pause-orchestration` | Pause |
+    | `terminal-orchestration` | Terminal — all parts complete or abandon |
+
+    **On `revise-master-plan` (binding):** While **`continuationStatus: active`**
+    (authoring, gap analysis, document review, or other downstream work in
+    progress or between child terminals — not only at initial approval in step
+    **6**):
+    1. Collect revision scope via structured choice (part order, titles,
+       high-level notes, add/remove parts — **not** part prose).
+    2. Patch **`masterPlanPath`**; update **`parts[]`** on this lane.
+    3. Re-register **`masterPlanPath`** via
+       **`mission_control_update_relevant_documents`**.
+    4. Emit **milestone** **`mission_control_send_agent_result`** with
+       `continuationStatus: active`.
+    5. Re-open this orchestration gate — **`revise-master-plan`** remains
+       available.
+
+    **Forbidden:** limiting *revise master plan* to step **6** initial approval
+    only; prose-only revision without structured choice; revising part prose on
+    this lane.
+
     - **Post-part gate recap (binding):** Include in structured-choice
       **`displayMarkdown`**: *Open the working document from **Relevant Links** to
       preview authored prose in the editor.*

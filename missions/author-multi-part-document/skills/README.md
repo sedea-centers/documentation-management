@@ -92,7 +92,7 @@ Platform authority:
 | Skill | Register after write |
 |-------|---------------------|
 | **document-brainstorm** | `brainstormRequestsPath` and `brainstormReportPath` (`kind: other`) |
-| **master-plan** | `masterPlanPath` (`kind: plan`); working doc on approval + re-register after part terminals (`kind: other`); spawns **part-planner**, **gap-analyzer**, **document-reviewer** per §6 / §7 / §7a; revises master plan on plan-affecting child outputs |
+| **master-plan** | `masterPlanPath` (`kind: plan`); working doc on approval + re-register after part terminals (`kind: other`); spawns **part-planner**, **gap-analyzer**, **document-reviewer** per §6 / §7 / §7a; revises master plan on plan-affecting child outputs; **revise master plan** on post-terminal orchestration gate while downstream work is active |
 | **part-planner** | `partPlanPath` (`kind: plan`) |
 | **author** | working doc **pre-edit** + after material edits; SoT follow-up on write (`kind: other`) |
 | **gap-analyzer** | `gapReportPath` (`kind: plan`) |
