@@ -187,7 +187,8 @@ invoking gate on success.
 - **Inputs:** `folderSlug`, `localPath`, `operationsDocsDirectory` from Mission Control; optional `subfolder`; optional `templatePath`; intent **`create`** from §1.
 - **Expected output:** Child **`mission_control_send_agent_result`** with
   `relativeFilePath`; `scaffoldWritten: true | false`; when `scaffoldWritten:
-  true`: `scaffoldKind` (`document` | `template`); `continuationStatus: terminal`.
+  true`: `scaffoldKind` (`document` | `template`); optional `documentFormat`
+  when structure-given scaffold (`docx` default); `continuationStatus: terminal`.
 - **Next-step resolution:** Child success with valid `relativeFilePath` → §2b when
   path ends with **`.docx`**, otherwise record **`markupMode: final`** and
   auto-advance to §4. When **`scaffoldWritten: false`** (edit-existing bind),
@@ -205,7 +206,7 @@ override and **More details for option _**):
 |------|---------|
 | **Author new template — I'll explain how** | User describes the template; agent proposes template shape; write a **new template** file (**simple-document only** — not on multi-part) |
 | **Use template** | User supplies `templatePath`. Agent **duplicates** the template into a **new** standard document under `localPath` (propose a new filename; confirm or revise before write). Later edits target **only** the new file. |
-| **I'll explain the document structure** | User supplies section structure (or document kind → proposed outline); write a **standard document** (non-template) |
+| **I'll explain the document structure** | User supplies section structure (or document kind → proposed outline); collect **document format** on the scaffolder lane (default **`docx`**) before write; write a **standard document** (non-template) |
 | **Edit existing document** | User supplies or picks `relativeFilePath` under `localPath`; validate the file exists locally (or parent runs **`pull-remote-folder`** / §2a when remote-only); **no scaffold write**; bind working file for §5 planner and §6 author |
 
 USER_CHECKPOINT — author new template · use template · I'll explain the document structure · edit existing document · change destination · revise intake · abort.
@@ -227,6 +228,24 @@ behavior (optional subfolder; no forced `templates/` default unless the user pic
    the copy.
 3. Treat `templatePath` as **read-only** for structure derivation only. All
    planning, authoring, Sync, and PDF export use `relativeFilePath`.
+
+**Document format (structure-given scaffold — binding):**
+
+When intake mode is **I'll explain the document structure** and a **new** working
+file will be scaffolded (not edit-existing):
+
+1. The **document-scaffolder** child lane collects **`documentFormat`** via
+   structured choice after shape approval and **before** step 4 *Write scaffold*.
+2. Default **`docx`**: local **`.docx`** working copy; first outbound sync creates
+   a **native Google Doc** on Drive (`--drive-import-formats docx` per § *Drive
+   format pairing*) — **not** a binary `.docx` remote.
+3. Option ids: **`format-docx`** — Word (.docx) locally, native Google Doc on
+   Drive sync (**default** when skipped).
+4. Child terminal **`outputs.documentFormat`** when `scaffoldWritten: true` and
+   mode is structure-given. Squad Leader records on the dispatch ledger; §2b
+   markup gate follows when extension is **`.docx`**.
+5. **Skip** when edit-existing, template copy, or author-new-template (extension
+   follows template).
 
 **Target skill:** [skills/document-scaffolder/SKILL.md](skills/document-scaffolder/SKILL.md)
 

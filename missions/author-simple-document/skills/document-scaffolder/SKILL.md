@@ -95,13 +95,25 @@ into template-only or drop any of the four modes.
      then continue (do not write into `templatePath`).
    - **I'll explain the document structure** — use supplied outline or propose structure from
      document kind; iterate until approved (USER_CHECKPOINT per revision).
+3.5. **Document format (structure-given only — binding)** — USER_CHECKPOINT after
+   step 3 shape approval and **before** step 4 *Write scaffold*:
+
+   - **`format-docx`** — Word (.docx) locally; native Google Doc on Drive sync
+     (**default** when skipped or omitted).
+   - Revise shape when the user picks revision instead of format.
+
+   Record **`documentFormat: docx`** (default) on this lane. Set filename
+   extension accordingly. **Skip** for use-template (extension from template),
+   author-new-template, and edit-existing.
 4. **Write scaffold** — create `relativeFilePath` under `localPath` (+ `subfolder`);
-   set `scaffoldKind` to `template` or `document`. Do not commit to hosting git
+   set `scaffoldKind` to `template` or `document`. Honor resolved
+   **`documentFormat`** for extension on structure-given scaffolds. Do not commit to hosting git
    (folder is gitignored per center rules).
 
 ## Completion (spawned)
 
 **outputs:** `relativeFilePath`, `scaffoldWritten`, `scaffoldKind`, `documentKind`,
+`documentFormat` (when structure-given scaffold; default **`docx`**),
 `continuationStatus`
 
 `scaffoldWritten` may be **`false`** when intake mode is **Edit existing document**.

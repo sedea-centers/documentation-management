@@ -283,6 +283,7 @@ when report outputs include `userApprovedReport: true`.
   (default **`final`** when the user skips or omits a pick); when `template`:
   `templatePath` (read-only source) + `relativeFilePath` (new working document
   under `localPath`); when `structure-given`: approved structure outline;
+  `documentFormat` (default **`docx`**) when a new working file is scaffolded;
   optional existing document to extend (non-template path only); when
   `edit-existing`: required `relativeFilePath` under `localPath` (existing
   non-template working file; optional structure notes for master-plan context
@@ -308,13 +309,39 @@ USER_CHECKPOINT — brainstorm first · use template · edit existing document �
    **`.docx`** working copies per author skill § *Pending markup mode*;
    **`final`** keeps direct final OOXML insert (author skill default).
 
+**Document format (structure-given scaffold — binding):**
+
+1. **When:** `intakeMode: structure-given` and a **new** working file will be
+   scaffolded (not edit-existing).
+2. **Owner:** Squad Leader §3 — after filename confirmation, **before** local
+   scaffold write and **before** §4 master-plan spawn.
+3. Collect **`documentFormat`** via structured choice (same modal as filename
+   when practical):
+
+| Option id | Label | Outcome |
+|-----------|-------|---------|
+| `format-docx` | Word (.docx) — **default** | Local **`.docx`** working copy; first outbound sync creates a **native Google Doc** on Drive (`--drive-import-formats docx` per Author Simple Document § *Drive format pairing*) — **not** a binary `.docx` remote |
+| `revise-intake` | Revise intake | Re-open §3 intake |
+
+4. **Default:** `format-docx` / **`docx`** when the user skips or omits.
+5. Record **`documentFormat: docx`** on the leader dispatch ledger; set
+   `relativeFilePath` extension accordingly.
+6. **Scaffold write (binding):** After format resolution, create a minimal local
+   scaffold under `localPath` (section headings from the approved structure
+   outline). **Forbidden:** deferring scaffold to master-plan when
+   structure-given requires a new file.
+7. Pass **`documentFormat`** in §4 master-plan spawn **`inputs`** (informational;
+   `relativeFilePath` remains authoritative for markup and sync).
+8. **Skip** when edit-existing, template copy, or the path extension is already
+   fixed.
+
 **Modes (binding):**
 
 | Mode | Outcome |
 |------|---------|
 | **Brainstorm first** | Squad Leader spawns **document-brainstorm** (§2.5). After approved report, auto-chain §4 **master-plan** with report-derived intake — skip template/structure collection on the leader lane until brainstorm completes or abandons. |
 | **Use template** | User supplies `templatePath`. Agent **duplicates** the template into a **new** working document under `localPath` (propose a new filename; confirm or revise before write). Master plan and all later edits target **only** the new file. |
-| **I'll explain the document structure** | User supplies section/part structure; master plan uses that outline on a new or existing **non-template** working file. |
+| **I'll explain the document structure** | User supplies section/part structure; collect **document format** (default **`docx`**) when scaffolding a new file; master plan uses that outline on a new or existing **non-template** working file. |
 | **Edit existing document** | User supplies or picks `relativeFilePath` under `localPath`; validate exists (run §2a **`pull-remote-folder`** when remote-only); master plan and part delivery target **only** that file — **no** new scaffold |
 
 **Template reuse (binding — Use template):**
@@ -335,7 +362,8 @@ USER_CHECKPOINT — brainstorm first · use template · edit existing document �
   overview, ordered parts/sections, and high-level content notes — not full part
   prose.
 - **Inputs:** Intake from §3 (`intakeMode`, `relativeFilePath`, **`markupMode`**
-  — default **`final`** when omitted, optional
+  — default **`final`** when omitted, optional **`documentFormat`** when
+  structure-given scaffold, optional
   `templatePath` / structure outline) or §2.5 terminal (`brainstormReportPath`,
   `brainstormReportRef`, `structureOutline` / objectives from report;
   **`markupMode`** from §3 when collected, otherwise **`final`**); folder
