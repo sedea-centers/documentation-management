@@ -85,7 +85,7 @@ Sync and PDF conversion reuse Author Simple Document / Convert Document contract
 |------|------|-------------|---------------|----------|
 | **Squad Leader** | Dispatch leader | — | **`document-brainstorm`**, **`master-plan`**, content-generator; sync (file-synchronizer); **PDF export gate + pdf-converter**; **§6a SoT auto-apply** after part/review child terminals; **notify master-plan** for next-part delivery, gap analysis, and document comment review | Draft/approve master plan inline; spawn **part-planner**, **author**, **gap-analyzer**, or **document-reviewer** on the happy path; spawn **gap-closer** on the happy path (gap-analyzer owns that); resolve dispatch from a child lane |
 | **Document brainstorm agent** | Child | `spawned` | Scan registered folder docs + SoT; Q&A loop with **user**; write brainstorm report under ops docs | Spawn **master-plan** or other part lanes; `mission_control_propose_dispatch_resolution` |
-| **Master plan agent** | Child | `spawned` | Draft + approve master plan artifact; Relevant Links for `masterPlanPath`; **spawn part-planner**, **gap-analyzer**, and **document-reviewer** per §6 / §7 / §7a; **revise master plan** when plan-affecting child outputs or notifications arrive | Spawn **author** or **gap-closer**; `mission_control_propose_dispatch_resolution` |
+| **Master plan agent** | Child | `spawned` | Draft + approve master plan artifact; Relevant Links for `masterPlanPath` and working document; **spawn part-planner**, **gap-analyzer**, and **document-reviewer** per §6 / §7 / §7a; **revise master plan** when plan-affecting child outputs or notifications arrive | Spawn **author** or **gap-closer**; `mission_control_propose_dispatch_resolution` |
 | **Part planner** | Child | `spawned` | **author** (after part-plan approval); plan-revision notify to author | `mission_control_propose_dispatch_resolution`; requiring Squad Leader to re-spawn author for plan revisions |
 | **Author** | Child | `spawned` (by part-planner) | SoT conversation review + SoT follow-up collection | `mission_control_propose_dispatch_resolution`; spawning other parts |
 | **Gap analyzer** | Child | `spawned` (by master-plan) | **gap-closer** (when `gapsFound: true`) | Spawn gap-closer on happy path; resolve dispatch |
@@ -363,7 +363,8 @@ USER_CHECKPOINT — brainstorm first · use template · edit existing document �
    prose / 250 filler-heavy — merge adjacent units, never split); resolve open
    questions via structured choice; **USER_CHECKPOINT** — approve master plan ·
    revise master plan · abort.
-4. On approval: register **`masterPlanPath`** via
+4. On approval: register **`masterPlanPath`** and the **working document** at
+   absolute `localPath` + `relativeFilePath` via
    **`mission_control_update_relevant_documents`**; emit **milestone**
    **`mission_control_send_agent_result`** with `continuationStatus: active`
    (not terminal while parts remain). **Forbidden:** master-plan lane
@@ -458,6 +459,17 @@ Normative platform contract:
 **Master-plan skill §4 (binding):** After the approved master plan is written on
 the **master-plan** child lane, that lane registers its absolute path via
 **`mission_control_update_relevant_documents`** — not the Squad Leader.
+
+**Master-plan working document Relevant Links (binding):** On the **master-plan**
+child lane, register the working document at absolute `localPath` +
+`relativeFilePath` alongside **`masterPlanPath`** on master plan approval
+(`kind: other`; optional **`label`**: basename). After each part-planner,
+gap-analyzer, or document-reviewer terminal, **re-register** the working document
+when the path is not yet registered or may have changed (skip unchanged paths).
+Post-part orchestration gates include a recap line reminding the user to open the
+working document from **Relevant Links** for editor preview — mirror author-lane
+**pre-edit** semantics so orchestration preview does not depend on nested author
+lane registration alone.
 
 **Forbidden:** prose-only “add to Relevant Links”; registering every read path;
 using display-metadata MCP (`mission_control_update_lane_display` /

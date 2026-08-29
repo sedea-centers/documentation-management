@@ -4,7 +4,8 @@ designation:
   allowed: >-
     Draft and approve a master plan for a multi-part document from §3 intake;
     resolve open questions via structured choice; write master plan artifact
-    under dispatch plans/; register Relevant Links; spawn part-planner,
+    under dispatch plans/; register Relevant Links for masterPlanPath and the
+    working document; spawn part-planner,
     gap-analyzer, and document-reviewer per plan.mdc §6 / §7 / §7a; revise
     master plan when plan-affecting child outputs or notifications arrive
   forbidden: >-
@@ -118,8 +119,11 @@ content notes — not full part prose.
    **and** Approve / Revise / Abort on the **same** turn — **forbidden** to hide
    Approve until all items are cleared.
 7. On approval, set `userApprovedMasterPlan: true`. Register **`masterPlanPath`**
-   via **`mission_control_update_relevant_documents`** when not already registered
-   this session. Emit **milestone** **`mission_control_send_agent_result`** with
+   and the **working document** at absolute `localPath` + `relativeFilePath` via
+   **`mission_control_update_relevant_documents`** when not already registered
+   this session — `masterPlanPath` as `kind: plan`; working document as
+   `kind: other` (optional **`label`**: basename). Emit **milestone**
+   **`mission_control_send_agent_result`** with
    `masterPlanPath`, `parts[]`, and `continuationStatus: active` (not terminal
    while parts remain).
 
@@ -135,11 +139,14 @@ content notes — not full part prose.
 
    **Turn ordering after master plan approval (binding):**
    1. Register **`masterPlanPath`** via Relevant Links.
-   2. Emit **milestone** **`mission_control_send_agent_result`** with
+   2. Register **working document** at absolute `localPath` + `relativeFilePath`
+      via Relevant Links (`kind: other`; optional **`label`**: basename) — same
+      turn; skip unchanged already-registered paths.
+   3. Emit **milestone** **`mission_control_send_agent_result`** with
       `continuationStatus: active`.
-   3. **Forbidden:** **`mission_control_refocus_parent_lane`** on the milestone turn.
-   4. **Forbidden:** refocus parent **and** spawn part-planner on the **same** turn.
-   5. Part-planner spawn (step 8) runs on a **later** turn — after Squad Leader §5
+   4. **Forbidden:** **`mission_control_refocus_parent_lane`** on the milestone turn.
+   5. **Forbidden:** refocus parent **and** spawn part-planner on the **same** turn.
+   6. Part-planner spawn (step 8) runs on a **later** turn — after Squad Leader §5
       *Start / continue next part* handoff (notify or equivalent), not bundled with
       milestone delivery.
 
@@ -171,9 +178,15 @@ content notes — not full part prose.
     active.
 12. On part-planner, gap-analyzer, or document-reviewer terminal, merge outputs
     (including SoT follow-up fields from nested children where applicable),
-    update the part ledger when applicable, and re-open a master-plan gate:
+    update the part ledger when applicable, **re-register the working document**
+    at absolute `localPath` + `relativeFilePath` via
+    **`mission_control_update_relevant_documents`** (`kind: other`; skip unchanged
+    already-registered paths), and re-open a master-plan gate:
     spawn next part · request gap analysis · document comment review · pause ·
     terminal when all parts complete or user abandons.
+    - **Post-part gate recap (binding):** Include in structured-choice
+      **`displayMarkdown`**: *Open the working document from **Relevant Links** to
+      preview authored prose in the editor.*
 13. Emit **terminal** **`mission_control_send_agent_result`** only when all
     planned parts are complete/deferred or the user abandons part delivery
     (`continuationStatus: terminal`).
@@ -186,7 +199,8 @@ parts remain incomplete; ignoring plan-affecting child terminals or plan-revisio
 notifications without revising **`masterPlanPath`** when material;
 **`mission_control_refocus_parent_lane`** before terminal completion (steps 7–12);
 refocus parent on the same turn as post-approval milestone delivery; refocus parent
-and spawn part-planner on the same turn.
+and spawn part-planner on the same turn; prose-only working-document registration;
+relying on author-lane Relevant Links registration to satisfy master-plan preview.
 
 ## Completion (spawned)
 
